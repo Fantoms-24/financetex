@@ -210,10 +210,10 @@ function Settings() {
           <div
             onClick={() => {
               showInAppNotification({
-                title: '⚡ Листок · Интернет',
-                body: 'Оплата завтра — 650 ₽. Нажмите для отметки.',
+                title: 'Семья',
+                body: 'Новый платёж: Аренда (25 000 ₽)',
                 icon: 'card',
-                url: '/bills',
+                url: '/groups',
               })
             }}
             className="group flex items-start gap-3 rounded-[16px] border border-rule/80 bg-paper p-3 shadow-xs transition-all hover:border-sage/40 active:scale-[0.99] cursor-pointer"
@@ -223,14 +223,14 @@ function Settings() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-sage">Листок · Напоминание</span>
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-sage">Семья</span>
                 <span className="text-[10px] text-muted">сейчас</span>
               </div>
               <p className="text-[13px] font-semibold text-ink leading-tight mt-0.5">
-                ⚡ Интернет — 650 ₽
+                Новый платёж: Аренда (25 000 ₽)
               </p>
               <p className="text-[11.5px] text-muted leading-snug mt-0.5">
-                Оплата завтра. Нажмите для отметки в приложении.
+                Нажмите для перехода к кассе
               </p>
             </div>
           </div>

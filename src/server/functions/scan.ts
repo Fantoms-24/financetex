@@ -157,9 +157,10 @@ export const scanReceipt = createServerFn({ method: 'POST' })
 
     if (data.houseId) {
       const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+      const uName = user.displayName || user.name || 'Участник'
       await notifyHouseExcept(data.houseId, user.id, {
         title: house?.name || 'Касса',
-        body: `${user.displayName} добавил чек: ${store} (${total} ₽)`,
+        body: `${uName} добавил чек: ${store} (${Number(total).toLocaleString('ru-RU')} ₽)`,
         data: { url: `/groups/${data.houseId}`, type: 'house-receipt' },
       }).catch(() => {})
     }

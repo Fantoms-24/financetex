@@ -517,8 +517,8 @@ export const depositGoal = createServerFn({ method: 'POST' })
       const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
       const uName = user.displayName || user.name || 'Участник'
       await notifyHouseExcept(data.houseId, user.id, {
-        title: `🎯 ${house?.name || 'Касса'} · Копилка`,
-        body: `${uName} внёс ${data.amount.toLocaleString('ru-RU')} ₽ в «${wish.title}»`,
+        title: house?.name || 'Касса',
+        body: `${uName} внёс ${Number(data.amount).toLocaleString('ru-RU')} ₽ в «${wish.title}»`,
         data: { url: `/groups/${data.houseId}`, type: 'house-deposit' },
       }).catch(() => {})
       return { ok: true as const, collected: nextCollected, isComplete }
@@ -669,7 +669,7 @@ export const addHouseBill = createServerFn({ method: 'POST' })
       const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
       await notifyHouseExcept(data.houseId, user.id, {
         title: house?.name || 'Касса',
-        body: `Новый платёж: ${data.title}`,
+        body: `Новый платёж: ${data.title} (${Number(data.amount).toLocaleString('ru-RU')} ₽)`,
         data: { url: `/groups/${data.houseId}`, type: 'house-bill' },
       })
       return { ok: true as const, id }
@@ -814,11 +814,13 @@ export const payHouseBill = createServerFn({ method: 'POST' })
         ])
       }
       if (data.paid) {
-        const bill = await q1<{ title: string }>(`SELECT title FROM house_bills WHERE id = $1`, [data.billId])
+        const bill = await q1<{ title: string; amount: number }>(`SELECT title, amount FROM house_bills WHERE id = $1`, [data.billId])
         const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+        const uName = user.displayName || user.name || 'Участник'
+        const amtStr = bill?.amount ? ` (${Number(bill.amount).toLocaleString('ru-RU')} ₽)` : ''
         await notifyHouseExcept(data.houseId, user.id, {
           title: house?.name || 'Касса',
-          body: `${user.displayName} оплатил: ${bill?.title || 'платёж'}`,
+          body: `${uName} оплатил: ${bill?.title || 'платёж'}${amtStr}`,
           data: { url: `/groups/${data.houseId}`, type: 'house-pay' },
         })
       }
@@ -844,7 +846,7 @@ export const sendHouseMessage = createServerFn({ method: 'POST' })
       const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
       const uName = user.displayName || user.name || 'Участник'
       await notifyHouseExcept(data.houseId, user.id, {
-        title: `👥 ${house?.name || 'Касса'}`,
+        title: house?.name || 'Касса',
         body: `${uName}: ${data.text.slice(0, 100)}`,
         data: { url: `/groups/${data.houseId}`, type: 'house-message' },
       })
