@@ -390,9 +390,7 @@ function Menu() {
           <span>Ритм недели</span>
           <span className="flex items-center gap-1 font-medium normal-case text-sage">
             <span>🌿</span>
-            <span>
-              {calmDaysCount} {plural(calmDaysCount, 'спокойный день', 'спокойных дня', 'спокойных дней')}
-            </span>
+            <span>Хорошая экономия</span>
           </span>
         </div>
 
