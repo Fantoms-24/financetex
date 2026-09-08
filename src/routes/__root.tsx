@@ -112,7 +112,7 @@ function Shell() {
     }
   }, [ready, user, pathname, navigate])
 
-  const bare = pathname === '/login' || pathname === '/agent'
+  const bare = pathname === '/login'
 
   // Пока не знаем, вошли ли — тихая бумага, не зелёный сплэш навсегда.
   if (!ready) {

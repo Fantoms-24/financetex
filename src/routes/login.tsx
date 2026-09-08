@@ -1,5 +1,20 @@
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Receipt,
+  ShieldCheck,
+  Sparkles,
+  User,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Logo } from '~/components/Logo'
@@ -20,6 +35,7 @@ function Login() {
   const [login, setLogin] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [name, setName] = React.useState('')
+  const [showPassword, setShowPassword] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -27,24 +43,22 @@ function Login() {
     e.preventDefault()
     if (busy) return
     setError(null)
-    if (!login.trim()) return setError('Впишите логин')
-    if (password.length < 4) return setError('Пароль — минимум 4 символа')
+    if (!login.trim()) return setError('Впишите логин для аккаунта')
+    if (password.length < 4) return setError('Пароль должен содержать минимум 4 символа')
 
     setBusy(true)
     try {
-      const res = mode === 'in'
-        ? await signIn({ data: { login, password } })
-        : await signUp({ data: { login, password, name } })
+      const res =
+        mode === 'in'
+          ? await signIn({ data: { login: login.trim(), password } })
+          : await signUp({ data: { login: login.trim(), password, name: name.trim() } })
 
-      // Решают ok и токен. Профиль может не дойти (например, он ещё не
-      // создан) — не запираем вход на этом, ниже он подтянется через refresh.
       if (!res || !res.ok || !res.token) {
-        setError(res?.error || 'Не получилось войти. Проверьте данные и подключение.')
+        setError(res?.error || 'Не удалось войти. Проверьте логин и пароль.')
         setBusy(false)
         return
       }
 
-      // user уже есть в ответе — считаем вошедшим сразу, get-session догонит
       setSession(res.token, res.user)
       navigate({ to: '/', replace: true })
       refresh().catch(() => {})
@@ -52,116 +66,235 @@ function Login() {
       console.error('[login] submit error:', e)
       const msg = e?.message || ''
       if (/500|failed to load/i.test(msg)) {
-        setError('Серверная ошибка (500). Проверьте DATABASE_URL и логи в Render Dashboard.')
+        setError('Серверная ошибка (500). Проверьте DATABASE_URL и логи сервера.')
       } else {
-        setError(msg || 'Не получилось связаться с сервером')
+        setError(msg || 'Не удалось связаться с сервером')
       }
       setBusy(false)
     }
   }
 
   return (
-    <div className="flex min-h-[100svh] flex-col">
-      {/* шалфей сверху */}
-      <div className="relative bg-sage px-6 pb-10 pt-[calc(env(safe-area-inset-top)+40px)] text-onsage">
-        <div className="mx-auto flex max-w-[430px] flex-col items-center text-center">
-          <Logo size={64} />
-          <h1 className="t-display mt-4 text-[30px] leading-none">ЧекАгент</h1>
-          <p className="mt-2 max-w-[300px] text-[13.5px] leading-snug text-onsage/75">
-            Карманный финансист. Чеки, бюджет и кассы на одном листке.
-          </p>
-        </div>
+    <div className="relative flex min-h-[100svh] flex-col justify-between overflow-x-hidden bg-cream">
+      {/* Мягкий фон с градиентным свечением */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 left-1/2 h-[340px] w-[500px] -translate-x-1/2 rounded-full bg-sage/10 blur-3xl"
+      />
 
-        {/* перфорация */}
-        <div className="absolute -bottom-[9px] left-0 right-0 flex justify-center gap-[7px] overflow-hidden">
-          {Array.from({ length: 26 }).map((_, i) => (
-            <span key={i} className="h-[18px] w-[18px] shrink-0 rounded-full bg-cream" />
-          ))}
-        </div>
-      </div>
-
-      {/* кремовый лист */}
-      <div className="flex-1 bg-transparent px-5 pb-10 pt-8">
-        <div className="mx-auto w-full max-w-[430px]">
-          <div className="mb-5 flex rounded-[12px] border border-rule bg-paper p-1 shadow-paper">
-            {(
-              [
-                ['in', 'Войти'],
-                ['up', 'Создать'],
-              ] as Array<[Mode, string]>
-            ).map(([m, label]) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => {
-                  setMode(m)
-                  setError(null)
-                }}
-                className={cn(
-                  'min-h-[42px] flex-1 rounded-[9px] text-[14px] transition-colors',
-                  mode === m ? 'bg-sage text-onsage shadow-paper' : 'text-muted',
-                )}
-              >
-                {label}
-              </button>
-            ))}
+      <div className="relative mx-auto flex w-full max-w-[440px] flex-1 flex-col px-5 pb-10 pt-[calc(env(safe-area-inset-top)+24px)]">
+        {/* Хедер с логотипом и названием */}
+        <header className="flex flex-col items-center text-center">
+          <div className="relative">
+            <div className="absolute -inset-1.5 rounded-[22px] bg-sage/15 blur-sm" />
+            <Logo size={70} className="relative drop-shadow-sm transition-transform hover:scale-105" />
           </div>
 
-          <form onSubmit={submit} className="receipt-card p-5">
-            {mode === 'up' ? (
-              <div className="mb-4">
-                <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Имя</label>
+          <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-sage/20 bg-sage/8 px-3 py-0.5 text-[11.5px] font-medium tracking-wide text-sage">
+            <Sparkles size={12} className="text-sage" />
+            <span>Умный финансовый помощник</span>
+          </div>
+
+          <h1 className="t-display mt-2.5 text-[32px] font-medium leading-none tracking-tight text-ink">
+            ЧекАгент
+          </h1>
+          <p className="mt-2 text-[14px] leading-relaxed text-muted">
+            {mode === 'in'
+              ? 'Войдите, чтобы открыть свои чеки, бюджет и кассы'
+              : 'Создайте аккаунт за 10 секунд — без почты и смс'}
+          </p>
+        </header>
+
+        {/* Переключатель режимов: Вход / Регистрация */}
+        <div className="mt-6">
+          <div className="relative flex rounded-2xl border border-rule/80 bg-paper/90 p-1.5 shadow-paper backdrop-blur-sm">
+            <button
+              type="button"
+              id="auth-tab-signin"
+              onClick={() => {
+                setMode('in')
+                setError(null)
+              }}
+              className={cn(
+                'relative z-10 flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-[12px] text-[14px] font-medium transition-all duration-200',
+                mode === 'in'
+                  ? 'bg-sage text-onsage shadow-sm'
+                  : 'text-muted hover:text-ink',
+              )}
+            >
+              <span>Войти</span>
+            </button>
+            <button
+              type="button"
+              id="auth-tab-signup"
+              onClick={() => {
+                setMode('up')
+                setError(null)
+              }}
+              className={cn(
+                'relative z-10 flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-[12px] text-[14px] font-medium transition-all duration-200',
+                mode === 'up'
+                  ? 'bg-sage text-onsage shadow-sm'
+                  : 'text-muted hover:text-ink',
+              )}
+            >
+              <span>Регистрация</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Основная карточка формы */}
+        <div className="mt-4 overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-5 shadow-paper-lg sm:p-6">
+          <form onSubmit={submit} className="space-y-4">
+            {mode === 'up' && (
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="auth-name"
+                  className="block text-[12px] font-semibold uppercase tracking-wider text-muted"
+                >
+                  Ваше имя
+                </label>
                 <Input
+                  id="auth-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Как к вам обращаться"
+                  placeholder="Александр"
                   autoComplete="name"
+                  startIcon={<User size={18} />}
                 />
               </div>
-            ) : null}
+            )}
 
-            <div className="mb-4">
-              <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Логин</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="auth-login"
+                  className="block text-[12px] font-semibold uppercase tracking-wider text-muted"
+                >
+                  Логин
+                </label>
+                <span className="text-[11px] text-muted">без символа @</span>
+              </div>
               <Input
+                id="auth-login"
                 value={login}
                 onChange={(e) => setLogin(e.target.value)}
-                placeholder="vasya"
+                placeholder="alex"
                 autoCapitalize="none"
                 autoCorrect="off"
                 autoComplete="username"
-                inputMode="email"
+                startIcon={<User size={18} />}
               />
-              <p className="mt-1.5 text-[11.5px] text-muted">Без собаки — добавим @chekagent.app сами</p>
             </div>
 
-            <div className="mb-5">
-              <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Пароль</label>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="auth-password"
+                className="block text-[12px] font-semibold uppercase tracking-wider text-muted"
+              >
+                Пароль
+              </label>
               <Input
-                type="password"
+                id="auth-password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="минимум 4 символа"
+                placeholder="Не менее 4 символов"
                 autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+                startIcon={<Lock size={18} />}
+                endIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:text-ink active:scale-95"
+                    aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                }
               />
             </div>
 
-            {error ? (
-              <p className="mb-3 rounded-[10px] border border-stamp/40 bg-stamp/8 px-3 py-2 text-[13px] text-stamp">
-                {error}
-              </p>
-            ) : null}
+            {error && (
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 rounded-xl border border-stamp/30 bg-stamp/8 p-3 text-[13px] leading-snug text-stamp"
+              >
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-            <Button type="submit" variant="sage" size="lg" className="w-full" disabled={busy}>
-              {busy ? 'Секунду…' : mode === 'in' ? 'Войти' : 'Создать и войти'}
+            <Button
+              id="auth-submit-btn"
+              type="submit"
+              variant="sage"
+              size="lg"
+              disabled={busy}
+              className="mt-2 w-full gap-2 rounded-xl text-[15.5px] font-medium shadow-md transition-all active:scale-[0.99]"
+            >
+              {busy ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>Проверяем данные…</span>
+                </>
+              ) : mode === 'in' ? (
+                <>
+                  <span>Войти в аккаунт</span>
+                  <ArrowRight size={17} />
+                </>
+              ) : (
+                <>
+                  <span>Зарегистрироваться</span>
+                  <ArrowRight size={17} />
+                </>
+              )}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-[12px] leading-relaxed text-muted">
-            Поставите на Домой — будут приходить напоминания
-            <br />о платежах, покупках и сообщениях в кассе.
-          </p>
+          {/* Преимущества / гарантии под формой */}
+          <div className="mt-5 border-t border-rule/60 pt-4 text-[12px] text-muted">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={16} className="shrink-0 text-sage" />
+              <span>Данные зашифрованы и хранятся в защищённой базе</span>
+            </div>
+          </div>
         </div>
+
+        {/* Быстрые фичи внизу */}
+        <div className="mt-6 grid grid-cols-3 gap-2 text-center">
+          <div className="flex flex-col items-center rounded-xl border border-rule/50 bg-paper/60 p-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sage/10 text-sage">
+              <Receipt size={16} />
+            </div>
+            <span className="mt-1.5 text-[11px] font-medium text-ink">Сканер чеков</span>
+            <span className="text-[10px] text-muted">Фото и QR</span>
+          </div>
+
+          <div className="flex flex-col items-center rounded-xl border border-rule/50 bg-paper/60 p-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sage/10 text-sage">
+              <Wallet size={16} />
+            </div>
+            <span className="mt-1.5 text-[11px] font-medium text-ink">Учёт бюджета</span>
+            <span className="text-[10px] text-muted">Дневные лимиты</span>
+          </div>
+
+          <div className="flex flex-col items-center rounded-xl border border-rule/50 bg-paper/60 p-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sage/10 text-sage">
+              <Users size={16} />
+            </div>
+            <span className="mt-1.5 text-[11px] font-medium text-ink">Общие кассы</span>
+            <span className="text-[10px] text-muted">Семья и друзья</span>
+          </div>
+        </div>
+
+        {/* Подсказка PWA */}
+        <p className="mt-5 text-center text-[12px] leading-relaxed text-muted">
+          Приложение можно добавить на рабочий стол как PWA
+          <br />для быстрых пуш-уведомлений и офлайн-доступа
+        </p>
       </div>
     </div>
   )
 }
+
