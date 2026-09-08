@@ -1,22 +1,31 @@
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
+  ArrowUp,
   ArrowUpRight,
   Bot,
   Check,
   CheckCheck,
   ChevronLeft,
+  Copy,
   MessageSquare,
-  Send,
+  PiggyBank,
+  ReceiptText,
+  RotateCcw,
   Sparkles,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
   Users,
+  Wallet,
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useApp } from '~/lib/app-state'
 import { money, timeRu } from '~/lib/format'
-import { agentHistory, agentSend } from '~/server/functions/agent'
+import { agentClear, agentHistory, agentSend } from '~/server/functions/agent'
 import { askHouseAgent, getHouse } from '~/server/functions/houses'
-import { cn } from '~/lib/utils'
+import { cn, haptic } from '~/lib/utils'
+import { showInAppNotification } from '~/components/NotificationBanner'
 
 interface AgentSearchParams {
   houseId?: string
@@ -38,25 +47,78 @@ interface DisplayMsg {
 }
 
 const PERSONAL_PROMPTS = [
-  { label: 'Итоги месяца', prompt: 'Сколько потрачено в этом месяце?' },
-  { label: 'Топ категорий', prompt: 'На какую категорию больше всего трат?' },
-  { label: 'Дневной лимит', prompt: 'Какой комфортный бюджет на день?' },
-  { label: 'Крупные покупки', prompt: 'Какие были самые крупные покупки?' },
+  { label: 'Итоги месяца', prompt: 'Сколько потрачено в этом месяце и как мы идём по бюджету?', icon: TrendingUp },
+  { label: 'Топ категорий', prompt: 'На какую категорию уходит больше всего денег?', icon: ReceiptText },
+  { label: 'Дневной лимит', prompt: 'Какой комфортный бюджет на день до конца месяца?', icon: Wallet },
+  { label: 'Крупные траты', prompt: 'Какие были самые крупные покупки в этом месяце?', icon: TrendingDown },
 ]
 
 const HOUSE_PROMPTS = [
-  { label: '📊 Итоги кассы', prompt: 'Подведи финансовые итоги кассы за этот месяц' },
-  { label: '💡 Где сэкономить?', prompt: 'Подскажи, где семья может оптимизировать расходы' },
-  { label: '🎯 Цели и копилки', prompt: 'Оцени текущий прогресс по общим целям и копилкам и дай советы' },
-  { label: '👥 Баланс долей', prompt: 'Кто сколько внёс и какой баланс долей между участниками?' },
+  { label: 'Итоги бюджета', prompt: 'Подведи финансовые итоги общего бюджета за этот месяц', icon: TrendingUp },
+  { label: 'Где сэкономить?', prompt: 'Подскажи, где семья может оптимизировать расходы?', icon: Sparkles },
+  { label: 'Цели и копилки', prompt: 'Оцени текущий прогресс по общим целям и копилкам', icon: PiggyBank },
+  { label: 'Баланс долей', prompt: 'Кто сколько внёс и какой сейчас баланс долей между участниками?', icon: Users },
 ]
 
-function haptic() {
-  try {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(8)
-    }
-  } catch {}
+/**
+ * Умный рендерер текста сообщений ассистента с акцентом на финансовые данные
+ */
+function FormattedMessageText({ text }: { text: string }) {
+  const lines = text.split('\n')
+
+  return (
+    <div className="space-y-1.5 text-[13.5px] leading-relaxed select-text">
+      {lines.map((line, lineIdx) => {
+        const trimmed = line.trim()
+        if (!trimmed) {
+          return <div key={lineIdx} className="h-1" />
+        }
+
+        const isBullet = trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')
+        const content = isBullet ? trimmed.slice(2) : trimmed
+
+        // Парсинг жирного текста **текст**
+        const parts = content.split(/(\*\*[^*]+\*\*)/g)
+
+        const renderedLine = parts.map((part, pIdx) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            const boldText = part.slice(2, -2)
+            return (
+              <strong key={pIdx} className="font-semibold text-ink">
+                {boldText}
+              </strong>
+            )
+          }
+
+          // Подсветка денежных сумм
+          const moneyRegex = /(\d[\d\s]*\s?₽)/g
+          const moneyParts = part.split(moneyRegex)
+
+          return moneyParts.map((sub, sIdx) => {
+            if (moneyRegex.test(sub)) {
+              return (
+                <span key={sIdx} className="t-num font-semibold text-ink">
+                  {sub}
+                </span>
+              )
+            }
+            return <React.Fragment key={sIdx}>{sub}</React.Fragment>
+          })
+        })
+
+        if (isBullet) {
+          return (
+            <div key={lineIdx} className="flex items-start gap-2 pl-1">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sage" />
+              <span className="flex-1">{renderedLine}</span>
+            </div>
+          )
+        }
+
+        return <p key={lineIdx}>{renderedLine}</p>
+      })}
+    </div>
+  )
 }
 
 function Agent() {
@@ -69,10 +131,12 @@ function Agent() {
   const [messages, setMessages] = React.useState<Array<DisplayMsg>>([])
   const [text, setText] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [copiedId, setCopiedId] = React.useState<string | null>(null)
   const [houseSnap, setHouseSnap] = React.useState<any>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
-  // Устраняем возможные дубликаты касс
+  // Устраняем возможные дубликаты групп
   const uniqueHouses = React.useMemo(() => {
     const map = new Map<string, { id: string; name: string }>()
     for (const h of boot.houses ?? []) {
@@ -90,7 +154,20 @@ function Agent() {
     }
   }, [search.houseId])
 
-  // Загрузка сообщений в зависимости от режима: Личный ↔ Касса
+  // Автоматическое изменение высоты textarea
+  const adjustHeight = React.useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const nextH = Math.min(el.scrollHeight, 110)
+    el.style.height = `${Math.max(nextH, 40)}px`
+  }, [])
+
+  React.useEffect(() => {
+    adjustHeight()
+  }, [text, adjustHeight])
+
+  // Загрузка сообщений
   const loadMessages = React.useCallback(async () => {
     if (!user) return
     if (!selectedHouseId) {
@@ -109,7 +186,7 @@ function Agent() {
         )
       } catch {}
     } else {
-      // Режим кассы
+      // Режим совместного бюджета
       try {
         const r: any = await getHouse({ data: { houseId: selectedHouseId } }).catch(() => null)
         if (r && !r.error) {
@@ -142,7 +219,7 @@ function Agent() {
     loadMessages()
   }, [loadMessages])
 
-  // Авто-обновление чата кассы
+  // Авто-обновление чата общего бюджета
   React.useEffect(() => {
     if (!selectedHouseId) return
     const interval = setInterval(() => {
@@ -160,7 +237,11 @@ function Agent() {
     if (!queryText.trim() || busy) return
     const mine = queryText.trim()
     setText('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '40px'
+    }
     setBusy(true)
+    haptic(10)
 
     // Оптимистичное добавление сообщения
     const tempId = `t-${Date.now()}`
@@ -171,7 +252,7 @@ function Agent() {
 
     try {
       if (selectedHouseId) {
-        // Запрос к советнику кассы
+        // Запрос к советнику общего бюджета
         const r: any = await askHouseAgent({
           data: { houseId: selectedHouseId, prompt: mine },
         })
@@ -208,18 +289,47 @@ function Agent() {
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    executeSend(text)
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      executeSend(text)
+    }
   }
 
   const onBack = () => {
-    haptic()
+    haptic(8)
     if (typeof window !== 'undefined' && window.history.length > 1) {
       window.history.back()
     } else {
       navigate({ to: '/' })
     }
+  }
+
+  const copyMessage = async (msgId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      haptic(10)
+      setCopiedId(msgId)
+      showInAppNotification({
+        title: 'Скопировано',
+        body: 'Ответ скопирован в буфер обмена',
+        icon: 'sparkles',
+        duration: 2000,
+      })
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch {}
+  }
+
+  const clearHistory = async () => {
+    if (!confirm('Очистить историю диалога с ассистентом?')) return
+    haptic(10)
+    await agentClear()
+    setMessages([])
+    showInAppNotification({
+      title: 'История очищена',
+      body: 'Диалог начат с чистого листа',
+      icon: 'sparkles',
+    })
   }
 
   const monthlyBudget = boot.settings?.monthly_budget || 0
@@ -231,23 +341,22 @@ function Agent() {
 
   return (
     <div className="flex h-full flex-1 flex-col min-h-0 overflow-hidden bg-cream">
-      {/* Шапка чата в стиле Telegram / iOS Messages */}
-      <header className="sticky top-0 z-30 shrink-0 border-b border-rule/70 bg-paper/95 px-3 sm:px-4 pb-2.5 pt-1.5 backdrop-blur-xl shadow-[0_1px_8px_rgba(28,25,21,0.03)]">
+      {/* 1. Верхняя панель в стиле нативного мессенджера */}
+      <header className="sticky top-0 z-30 shrink-0 border-b border-rule/70 bg-paper/95 px-3 sm:px-4 pb-2 pt-1.5 backdrop-blur-xl shadow-xs">
         <div className="flex items-center justify-between gap-2">
-          {/* Кнопка назад */}
+          {/* Кнопка назад с комфортным тач-таргетом 44×44pt */}
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1 rounded-xl py-1.5 pr-2 -ml-1 text-sage hover:bg-black/5 active:scale-95 transition-all"
+            className="flex h-10 w-10 items-center justify-center -ml-1 rounded-xl text-ink hover:bg-black/5 active:scale-95 transition-all"
             aria-label="Вернуться назад"
           >
-            <ChevronLeft size={22} />
-            <span className="text-[13.5px] font-medium hidden sm:inline">Назад</span>
+            <ChevronLeft size={24} />
           </button>
 
           {/* Инфо советника по центру */}
           <div className="flex items-center gap-2 text-center min-w-0 flex-1 justify-center">
-            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-sage text-onsage shadow-xs">
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sage text-onsage shadow-xs">
               <Bot size={17} />
               <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -256,187 +365,202 @@ function Agent() {
             </div>
             <div className="text-left min-w-0">
               <p className="t-display text-[14.5px] font-semibold leading-tight text-ink truncate">
-                {selectedHouseId && activeHouse ? activeHouse.name : 'Финансовый советник'}
+                {selectedHouseId && activeHouse ? `Советник · «${activeHouse.name}»` : 'Листок'}
               </p>
-              <p className="flex items-center gap-1 text-[11px] font-medium text-sage">
+              <p className="flex items-center gap-1 text-[11px] font-medium text-muted leading-tight">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                <span>ИИ • На связи</span>
+                <span>Финансовый ассистент</span>
               </p>
             </div>
           </div>
 
-          {/* Метка режима */}
-          <div className="w-10 text-right">
-            <span className="inline-block rounded-full bg-sage/12 px-2 py-0.5 text-[10.5px] font-bold text-sage">
-              ИИ
-            </span>
-          </div>
+          {/* Кнопка очистки диалога */}
+          {!selectedHouseId && messages.length > 0 ? (
+            <button
+              type="button"
+              onClick={clearHistory}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:text-stamp hover:bg-black/5 active:scale-95 transition-all"
+              title="Очистить диалог"
+              aria-label="Очистить историю"
+            >
+              <Trash2 size={16} />
+            </button>
+          ) : (
+            <div className="w-10 text-right">
+              <span className="inline-block rounded-full bg-sage/12 px-2 py-0.5 text-[10.5px] font-bold text-sage">
+                ИИ
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Выбор режима галочкой: Личный подсчёт ↔ Семья (без дубликатов и вкладок) */}
-        <div className="mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5 select-none">
-          {/* Личный подсчёт */}
-          <button
-            type="button"
-            onClick={() => {
-              haptic()
-              setSelectedHouseId(null)
-            }}
-            className={cn(
-              'group flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-all duration-150 active:scale-[0.97]',
-              selectedHouseId === null
-                ? 'bg-sage text-onsage shadow-xs'
-                : 'border border-rule/80 bg-paper/90 text-muted hover:border-sage/40 hover:text-ink',
-            )}
-          >
-            <div
+        {/* 2. Компактный скользящий переключатель контекста: Личный ↔ Вместе */}
+        <div className="mt-2 flex items-center justify-center">
+          <div className="relative flex max-w-full items-center rounded-full border border-rule/80 bg-paper-sunken/80 p-1 select-none overflow-x-auto no-scrollbar">
+            {/* Личный подсчёт */}
+            <button
+              type="button"
+              onClick={() => {
+                haptic(6)
+                setSelectedHouseId(null)
+              }}
               className={cn(
-                'flex h-4 w-4 items-center justify-center rounded-full transition-all',
-                selectedHouseId === null
-                  ? 'bg-white/25 text-onsage'
-                  : 'border border-rule text-transparent',
+                'relative z-10 flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[12px] font-medium transition-colors duration-150 whitespace-nowrap',
+                selectedHouseId === null ? 'text-onsage font-semibold' : 'text-muted hover:text-ink',
               )}
             >
-              <Check
-                size={11}
-                strokeWidth={3}
-                className={selectedHouseId === null ? 'opacity-100' : 'opacity-0'}
-              />
-            </div>
-            <span>Личный подсчёт</span>
-          </button>
+              {selectedHouseId === null ? (
+                <motion.div
+                  layoutId="agentContextPill"
+                  className="absolute inset-0 -z-10 rounded-full bg-sage shadow-xs"
+                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                />
+              ) : null}
+              <Wallet size={12} />
+              <span>Личный</span>
+            </button>
 
-          {/* Кассы (Семья и другие без дубликатов) */}
-          {uniqueHouses.map((h) => {
-            const active = selectedHouseId === h.id
-            return (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => {
-                  haptic()
-                  setSelectedHouseId(h.id)
-                }}
-                className={cn(
-                  'group flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition-all duration-150 active:scale-[0.97]',
-                  active
-                    ? 'bg-sage text-onsage shadow-xs'
-                    : 'border border-rule/80 bg-paper/90 text-muted hover:border-sage/40 hover:text-ink',
-                )}
-              >
-                <div
+            {/* Группы Вместе (без дубликатов) */}
+            {uniqueHouses.map((h) => {
+              const active = selectedHouseId === h.id
+              return (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setSelectedHouseId(h.id)
+                  }}
                   className={cn(
-                    'flex h-4 w-4 items-center justify-center rounded-full transition-all',
-                    active
-                      ? 'bg-white/25 text-onsage'
-                      : 'border border-rule text-transparent',
+                    'relative z-10 flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[12px] font-medium transition-colors duration-150 whitespace-nowrap',
+                    active ? 'text-onsage font-semibold' : 'text-muted hover:text-ink',
                   )}
                 >
-                  <Check
-                    size={11}
-                    strokeWidth={3}
-                    className={active ? 'opacity-100' : 'opacity-0'}
-                  />
-                </div>
-                <span className="truncate max-w-[130px]">{h.name}</span>
-              </button>
-            )
-          })}
+                  {active ? (
+                    <motion.div
+                      layoutId="agentContextPill"
+                      className="absolute inset-0 -z-10 rounded-full bg-sage shadow-xs"
+                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                    />
+                  ) : null}
+                  <Users size={12} />
+                  <span className="truncate max-w-[120px]">{h.name}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </header>
 
-      {/* Основная лента сообщений диалога */}
+      {/* 3. Основная лента сообщений диалога */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
-        {/* Приветственный экран, если в данном режиме ещё нет сообщений */}
+        {/* Приветственный экран с живым финансовым пульсом */}
         {messages.length === 0 ? (
-          <div className="space-y-3 pt-1">
-            <div className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
+          <div className="space-y-3.5 pt-1">
+            {/* Hero-карточка финансового контекста */}
+            <div className="overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
               <div className="flex items-center gap-2 text-sage">
-                <Sparkles size={20} />
-                <h2 className="t-display text-[16px] font-semibold text-ink">
+                <Sparkles size={19} />
+                <h2 className="t-display text-[16.5px] font-semibold text-ink">
                   {selectedHouseId && activeHouse
-                    ? `Советник кассы «${activeHouse.name}»`
-                    : 'Рад помочь с вашим бюджетом!'}
+                    ? `Советник бюджета «${activeHouse.name}»`
+                    : 'Ваш финансовый ассистент'}
                 </h2>
               </div>
 
-              {selectedHouseId && activeHouse ? (
-                <div className="mt-2 text-[13px] leading-relaxed text-ink/80 space-y-2">
-                  <p>
-                    Я персональный финансовый ассистент кассы <strong>«{activeHouse.name}»</strong>.
-                    Отслеживаю общие обязательные платежи, чеки участников, прогресс по копилкам и баланс долей.
-                  </p>
-                  {houseSnap?.analytics && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <span className="rounded-lg bg-cream px-2.5 py-1 text-[11.5px] font-medium text-ink">
-                        Потрачено в кассе: <strong className="t-num font-semibold">{money(houseSnap.analytics.totalSpent || 0)}</strong>
-                      </span>
-                      {houseSnap.members && (
-                        <span className="rounded-lg bg-cream px-2.5 py-1 text-[11.5px] font-medium text-muted">
-                          Участников: {houseSnap.members.length}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="mt-2 text-[13px] leading-relaxed text-ink/80">
-                  Я изучил ваши личные чеки и расходы. В этом месяце потрачено{' '}
-                  <strong className="text-ink font-semibold">{money(spent)}</strong>
-                  {monthlyBudget > 0 ? (
-                    <>
-                      {' '}из лимита в{' '}
-                      <strong className="text-ink font-semibold">{money(monthlyBudget)}</strong>.
-                      {remaining !== null && (
-                        <span className={remaining >= 0 ? ' text-sage' : ' text-stamp'}>
-                          {' '}(остаток: {money(remaining)})
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    '.'
-                  )}
-                </p>
-              )}
+              <p className="mt-1.5 text-[12.5px] text-muted leading-relaxed">
+                {selectedHouseId && activeHouse
+                  ? 'Анализирую общие расходы, баланс долей участников и регулярные счета семьи.'
+                  : 'Изучаю чеки, категории трат и помогаю контролировать бюджет месяца.'}
+              </p>
 
-              <div className="mt-3.5 rounded-xl border border-rule/60 bg-black/[0.015] p-2.5 text-[11.5px] text-muted leading-relaxed">
-                {selectedHouseId
-                  ? 'Задайте любой вопрос об общих тратах кассы, балансе долей участников или способах оптимизации.'
-                  : 'Задайте вопрос о личных покупках, дневном лимите или категориях расходов.'}
+              {/* 3 живых инсайт-чипа с данными */}
+              <div className="mt-3.5 grid grid-cols-3 gap-2 border-t border-rule/50 pt-3">
+                {selectedHouseId && houseSnap ? (
+                  <>
+                    <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">
+                      <span className="block text-[10px] uppercase font-medium text-muted">Траты семьи</span>
+                      <span className="t-num text-[13.5px] font-bold text-ink">
+                        {money(houseSnap.analytics?.totalSpent || 0)}
+                      </span>
+                    </div>
+                    <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">
+                      <span className="block text-[10px] uppercase font-medium text-muted">Счетов ЖКХ</span>
+                      <span className="t-num text-[13.5px] font-bold text-ink">
+                        {houseSnap.bills?.length || 0}
+                      </span>
+                    </div>
+                    <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">
+                      <span className="block text-[10px] uppercase font-medium text-muted">Участников</span>
+                      <span className="t-num text-[13.5px] font-bold text-sage">
+                        {houseSnap.members?.length || 0}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">
+                      <span className="block text-[10px] uppercase font-medium text-muted">Траты месяца</span>
+                      <span className="t-num text-[13.5px] font-bold text-ink">
+                        {money(spent)}
+                      </span>
+                    </div>
+                    <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">
+                      <span className="block text-[10px] uppercase font-medium text-muted">Норма в день</span>
+                      <span className="t-num text-[13.5px] font-bold text-sage">
+                        ~{money(remaining ? Math.max(0, Math.round(remaining / 22)) : Math.round(spent / 8))}
+                      </span>
+                    </div>
+                    <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">
+                      <span className="block text-[10px] uppercase font-medium text-muted">Лимит</span>
+                      <span className="t-num text-[13.5px] font-bold text-ink">
+                        {monthlyBudget > 0 ? money(monthlyBudget) : '—'}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Быстрые вопросы для моментального старта */}
+            {/* Быстрые вопросы в аккуратной сетке 2×2 */}
             <div className="space-y-2">
               <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {selectedHouseId ? 'Частые вопросы по кассе:' : 'Частые вопросы:'}
+                {selectedHouseId ? 'Частые вопросы по бюджету:' : 'С чего начать:'}
               </p>
-              <div className="grid grid-cols-1 gap-2">
-                {quickPrompts.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => executeSend(item.prompt)}
-                    className="flex items-center justify-between rounded-[16px] border border-rule/80 bg-paper p-3 text-left text-[13px] text-ink shadow-xs transition-all hover:border-sage/40 active:scale-[0.99]"
-                  >
-                    <span className="flex items-center gap-2">
-                      <MessageSquare size={14} className="text-sage" />
-                      <span>{item.label}</span>
-                    </span>
-                    <ArrowUpRight size={15} className="shrink-0 text-muted" />
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2">
+                {quickPrompts.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => executeSend(item.prompt)}
+                      className="group flex flex-col justify-between rounded-[16px] border border-rule/80 bg-paper p-3 text-left shadow-xs transition-all hover:border-sage/40 hover:shadow-sm active:scale-[0.98]"
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/10 text-sage transition-transform group-hover:scale-105">
+                        <Icon size={14} />
+                      </div>
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <span className="text-[12.5px] font-semibold text-ink leading-tight">
+                          {item.label}
+                        </span>
+                        <ArrowUpRight size={13} className="text-muted group-hover:text-sage transition-colors" />
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
         ) : (
           messages.map((m) => {
             const isUser = m.role === 'user'
+            const isCopied = copiedId === m.id
 
             if (isUser) {
               return (
                 <div key={m.id} className="flex flex-col items-end">
-                  <div className="max-w-[84%] rounded-[20px] rounded-br-[5px] bg-sage px-4 py-2.5 text-[13.5px] leading-relaxed text-onsage shadow-xs">
+                  <div className="max-w-[84%] rounded-[20px] rounded-br-[4px] bg-sage px-4 py-2.5 text-[13.5px] leading-relaxed text-onsage shadow-xs">
                     <p className="whitespace-pre-wrap select-text">{m.text}</p>
                     <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-onsage/75">
                       <span>{timeRu(m.created_at)}</span>
@@ -448,18 +572,39 @@ function Agent() {
             }
 
             return (
-              <div key={m.id} className="flex items-start gap-2">
+              <div key={m.id} className="group flex items-start gap-2">
                 <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-sage/12 text-sage shadow-xs">
                   <Bot size={15} />
                 </div>
-                <div className="max-w-[88%] rounded-[20px] rounded-tl-[5px] border border-rule/80 bg-paper px-4 py-3 text-[13.5px] leading-relaxed text-ink shadow-paper">
+                <div className="relative max-w-[88%] rounded-[20px] rounded-tl-[4px] border border-rule/80 bg-paper px-4 py-3 shadow-paper">
                   {m.authorName ? (
-                    <div className="mb-1 flex items-center justify-between border-b border-rule/40 pb-1">
+                    <div className="mb-1.5 flex items-center justify-between border-b border-rule/40 pb-1">
                       <span className="text-[11px] font-semibold text-sage">{m.authorName}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyMessage(m.id, m.text)}
+                        className="text-muted hover:text-ink transition-colors opacity-70 hover:opacity-100"
+                        title="Скопировать ответ"
+                      >
+                        {isCopied ? <Check size={12} className="text-sage" /> : <Copy size={12} />}
+                      </button>
                     </div>
-                  ) : null}
-                  <p className="whitespace-pre-wrap select-text">{m.text}</p>
-                  <div className="mt-1 flex items-center justify-end text-[10px] text-muted/65">
+                  ) : (
+                    <div className="mb-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => copyMessage(m.id, m.text)}
+                        className="text-muted hover:text-ink transition-colors opacity-70 hover:opacity-100"
+                        title="Скопировать ответ"
+                      >
+                        {isCopied ? <Check size={12} className="text-sage" /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  )}
+
+                  <FormattedMessageText text={m.text} />
+
+                  <div className="mt-1.5 flex items-center justify-end text-[10px] text-muted/65">
                     <span>{timeRu(m.created_at)}</span>
                   </div>
                 </div>
@@ -474,7 +619,7 @@ function Agent() {
             <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-sage/12 text-sage">
               <Bot size={15} />
             </div>
-            <div className="rounded-[18px] rounded-tl-[5px] border border-rule/80 bg-paper px-4 py-2.5 shadow-paper">
+            <div className="rounded-[18px] rounded-tl-[4px] border border-rule/80 bg-paper px-4 py-2.5 shadow-paper">
               <div className="flex items-center gap-2 text-[12.5px] text-muted">
                 <span className="flex gap-1 py-1">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-sage" />
@@ -482,7 +627,7 @@ function Agent() {
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-sage [animation-delay:0.36s]" />
                 </span>
                 <span>
-                  {selectedHouseId ? 'Советник анализирует кассу…' : 'Советник изучает ваши чеки…'}
+                  {selectedHouseId ? 'Советник изучает расходы семьи…' : 'Листок изучает ваши чеки…'}
                 </span>
               </div>
             </div>
@@ -492,9 +637,9 @@ function Agent() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Закреплённая строка ввода сообщений в стиле Telegram / Messages */}
+      {/* 4. Закреплённая строка ввода сообщений (Composer) */}
       <div className="sticky bottom-0 z-30 shrink-0 border-t border-rule/70 bg-paper/95 backdrop-blur-2xl px-3 sm:px-4 pt-2 pb-[max(env(safe-area-inset-bottom),14px)] shadow-[0_-4px_24px_rgba(28,25,21,0.04)]">
-        {/* Горизонтальные подсказки, если в чате уже идёт переписка */}
+        {/* Горизонтальные подсказки во время активного диалога */}
         {messages.length > 0 && !busy && (
           <div className="no-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-0.5">
             {quickPrompts.map((item) => (
@@ -502,7 +647,7 @@ function Agent() {
                 key={item.label}
                 type="button"
                 onClick={() => executeSend(item.prompt)}
-                className="shrink-0 rounded-full border border-rule/80 bg-paper px-3 py-1 text-[11.5px] font-medium text-muted transition-all hover:border-sage/40 hover:text-ink active:scale-95"
+                className="shrink-0 rounded-full border border-rule/80 bg-paper px-3 py-1 text-[11.5px] font-medium text-muted transition-all hover:border-sage/40 hover:text-ink active:scale-95 shadow-xs"
               >
                 {item.label}
               </button>
@@ -510,32 +655,34 @@ function Agent() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <form onSubmit={(e) => { e.preventDefault(); executeSend(text) }} className="flex items-end gap-2">
           <div className="relative flex-1">
-            <input
+            <textarea
+              ref={textareaRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
               placeholder={
                 selectedHouseId && activeHouse
                   ? `Спросить о расходах «${activeHouse.name}»…`
-                  : 'Спросить о личных тратах, чеках…'
+                  : 'Спросить о покупках, лимитах, чеках…'
               }
               disabled={busy}
-              className="w-full rounded-full border border-rule/80 bg-cream/50 px-4 py-2.5 text-[14px] text-ink placeholder:text-muted/60 focus:border-sage focus:bg-paper focus:outline-none focus:ring-1 focus:ring-sage transition-all"
+              className="w-full resize-none rounded-[18px] border border-rule/80 bg-cream/50 px-4 py-2.5 text-[14px] text-ink placeholder:text-muted/60 focus:border-sage focus:bg-paper focus:outline-none focus:ring-1 focus:ring-sage transition-all leading-snug"
             />
           </div>
           <motion.button
             type="submit"
-            whileTap={{ scale: 0.92 }}
+            whileTap={{ scale: 0.9 }}
             disabled={busy || !text.trim()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage text-onsage shadow-sm transition-all disabled:opacity-40 disabled:scale-100"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage text-onsage shadow-sm transition-all disabled:opacity-35 disabled:scale-100 mb-0.5"
             aria-label="Отправить вопрос"
           >
-            <Send size={16} />
+            <ArrowUp size={18} strokeWidth={2.4} />
           </motion.button>
         </form>
       </div>
     </div>
   )
 }
-
