@@ -1,0 +1,40 @@
+{
+  "name": "ЧекАгент",
+  "short_name": "ЧекАгент",
+  "description": "Карманный финансист. Чеки, бюджет и кассы на одном листке.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "orientation": "portrait",
+  "background_color": "#f3eee4",
+  "theme_color": "#f3eee4",
+  "prefer_related_applications": false,
+  "categories": ["finance", "productivity", "lifestyle"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Сканировать чек",
+      "short_name": "Скан",
+      "url": "/scan",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Кассы",
+      "short_name": "Кассы",
+      "url": "/groups",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

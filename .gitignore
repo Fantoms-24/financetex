@@ -1,0 +1,23 @@
+node_modules/
+
+# сборка
+dist/
+.output/
+.vercel/
+.tanstack/
+
+# локальная БД (PGlite) — только для превью, на проде Neon
+.pglite-data/
+.pglite-*/
+
+# секреты
+.env
+.env.local
+.env.*.local
+
+# самоподписанный сертификат для dev:https — генерируется сам
+.dev-cert/
+
+# прочее
+*.log
+.DS_Store
