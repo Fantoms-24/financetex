@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ЧекАгент</string>
+    <string name="title_activity_main">ЧекАгент</string>
+    <string name="package_name">com.chekagent.financetex</string>
+    <string name="custom_url_scheme">com.chekagent.financetex</string>
+</resources>

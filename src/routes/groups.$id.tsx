@@ -612,16 +612,16 @@ function HousePage() {
         </div>
       </section>
 
-      {/* 4. Пять стильных вкладок с горизонтальным скроллом */}
+      {/* 4. Стильный сегментированный переключатель вкладок */}
       <div className="mb-4 px-4">
-        <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
+        <div className="grid grid-cols-5 rounded-[16px] border border-rule/70 bg-[#ebe5d8]/85 p-1 shadow-xs">
           {(
             [
-              { id: 'bills', label: 'Платежи', count: snap.bills.length, icon: Receipt },
+              { id: 'bills', label: 'Счета', count: snap.bills.length, icon: Receipt },
               { id: 'receipts', label: 'Чеки', count: snap.receipts.length, icon: ReceiptText },
-              { id: 'goals', label: 'Копилки', count: activeGoalsCount, icon: PiggyBank },
-              { id: 'analytics', label: 'Аналитика', count: 0, icon: BarChart3 },
-              { id: 'chat', label: 'Чат & AI', count: snap.messages.length, icon: MessageSquare },
+              { id: 'goals', label: 'Цели', count: activeGoalsCount, icon: PiggyBank },
+              { id: 'analytics', label: 'Бюджет', count: 0, icon: BarChart3 },
+              { id: 'chat', label: 'Советник', count: snap.messages.length, icon: Sparkles },
             ] as const
           ).map((item) => {
             const active = tab === item.id
@@ -629,26 +629,31 @@ function HousePage() {
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => setTab(item.id)}
                 className={cn(
-                  'flex shrink-0 items-center gap-1.5 rounded-[12px] border px-3 py-2 text-[12.5px] font-medium transition-all active:scale-95 whitespace-nowrap shadow-xs',
+                  'relative flex flex-col items-center justify-center rounded-[12px] py-2 px-0.5 transition-all active:scale-95',
                   active
-                    ? 'border-sage bg-sage text-onsage font-semibold shadow-sm'
-                    : 'border-rule/80 bg-paper text-muted hover:border-sage/40 hover:text-ink',
+                    ? 'bg-paper text-ink font-semibold shadow-paper'
+                    : 'text-muted hover:text-ink hover:bg-black/[0.02]',
                 )}
               >
-                <Icon size={14} className="shrink-0" />
-                <span>{item.label}</span>
-                {item.count > 0 ? (
-                  <span
-                    className={cn(
-                      'ml-0.5 inline-flex h-4 min-w-[17px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none',
-                      active ? 'bg-white/25 text-onsage' : 'bg-rule-soft text-muted',
-                    )}
-                  >
-                    {item.count}
-                  </span>
-                ) : null}
+                <div className="relative flex items-center justify-center">
+                  <Icon size={16} className={cn('transition-colors', active ? 'text-sage' : 'text-muted')} />
+                  {item.count > 0 ? (
+                    <span
+                      className={cn(
+                        'absolute -top-1.5 -right-2.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-0.5 text-[8.5px] font-bold leading-none',
+                        active ? 'bg-sage text-onsage' : 'bg-rule-soft text-ink/70',
+                      )}
+                    >
+                      {item.count}
+                    </span>
+                  ) : null}
+                </div>
+                <span className="mt-1 block truncate text-[11px] leading-none tracking-tight font-medium">
+                  {item.label}
+                </span>
               </button>
             )
           })}
@@ -1200,52 +1205,6 @@ function HousePage() {
               </div>
             </div>
 
-            {/* 2. Вклад каждого участника (Кто сколько внёс) */}
-            <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
-              <h3 className="t-display text-[15.5px] font-semibold text-ink leading-tight mb-1">
-                Вклад участников в траты
-              </h3>
-              <p className="text-[11.5px] text-muted mb-3">
-                оплаченные счета + покупки по чекам за этот месяц
-              </p>
-
-              {snap.analytics.byMember.length === 0 || snap.analytics.totalSpent === 0 ? (
-                <p className="py-2 text-center text-[12.5px] text-muted">Трат в этом месяце пока не было.</p>
-              ) : (
-                <div className="space-y-3">
-                  {snap.analytics.byMember.map((m, idx) => (
-                    <div key={m.user_id}>
-                      <div className="flex items-center justify-between text-[13px] mb-1">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={cn(
-                              'flex h-6 w-6 items-center justify-center rounded-full border text-[9.5px] font-bold',
-                              AVATAR_COLORS[idx % AVATAR_COLORS.length],
-                            )}
-                          >
-                            {getInitials(m.name)}
-                          </div>
-                          <span className="font-medium text-ink">{m.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="t-num font-bold text-ink">{money(m.total)}</span>
-                          <span className="text-[11.5px] text-muted">({m.percent}%)</span>
-                        </div>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-rule-soft">
-                        <div
-                          className={cn(
-                            'h-full rounded-full transition-all duration-500',
-                            idx === 0 ? 'bg-sage' : idx === 1 ? 'bg-amber-700' : 'bg-blue-700',
-                          )}
-                          style={{ width: `${Math.max(4, m.percent)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
             {/* 3. Расходы по категориям */}
             <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
@@ -1340,7 +1299,7 @@ function HousePage() {
                     setAgentBusy(true)
                     try {
                       await askHouseAgent({
-                        data: { houseId: id, prompt: 'Оцени вклады участников и прогресс по копилкам' },
+                        data: { houseId: id, prompt: 'Оцени текущий прогресс по общим целям и копилкам и дай советы' },
                       })
                       await load()
                     } finally {
@@ -1349,7 +1308,7 @@ function HousePage() {
                   }}
                   className="rounded-[9px] border border-sage/40 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sage hover:bg-sage/10 transition shadow-xs disabled:opacity-50"
                 >
-                  ⚖️ Анализ вкладов
+                  🎯 Цели и копилки
                 </button>
               </div>
             </div>

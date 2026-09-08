@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router'
 import { AppStateProvider, useApp } from '~/lib/app-state'
 import { Nav } from '~/components/Nav'
+import { SplashScreen } from '~/components/SplashScreen'
 import { registerSW } from '~/lib/push-client'
 import '~/styles/app.css'
 
@@ -114,15 +115,9 @@ function Shell() {
 
   const bare = pathname === '/login'
 
-  // Пока не знаем, вошли ли — тихая бумага, не зелёный сплэш навсегда.
+  // Пока не знаем, вошли ли — стильный загрузочный экран с тактильной анимацией
   if (!ready) {
-    return (
-      <div className="sheet safe-top items-center justify-center">
-        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-rule">
-          <div className="h-full w-1/3 animate-[breathe_1.4s_ease-in-out_infinite] rounded-full bg-sage" />
-        </div>
-      </div>
-    )
+    return <SplashScreen />
   }
 
   return (
