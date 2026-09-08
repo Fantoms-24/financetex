@@ -8,6 +8,7 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
+import { AnimatePresence, motion } from 'motion/react'
 import { AppStateProvider, useApp } from '~/lib/app-state'
 import { Nav } from '~/components/Nav'
 import { SplashScreen } from '~/components/SplashScreen'
@@ -20,7 +21,7 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no',
       },
       { title: 'ЧекАгент' },
       {
@@ -122,8 +123,19 @@ function Shell() {
 
   return (
     <div className="sheet safe-top">
-      <main className={bare ? 'flex-1' : 'safe-bottom flex-1'}>
-        <Outlet />
+      <main className={bare ? 'flex-1 flex flex-col' : 'safe-bottom flex-1 flex flex-col'}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+            className="flex-1 flex flex-col min-h-0"
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
       </main>
       {!bare && user ? <Nav /> : null}
     </div>

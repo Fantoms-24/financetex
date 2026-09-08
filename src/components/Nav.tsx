@@ -1,5 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { Home, MessageSquareQuote, Receipt, ScanLine, Users } from 'lucide-react'
+import { motion } from 'motion/react'
 import { cn } from '~/lib/utils'
 
 const ITEMS = [
@@ -10,6 +11,16 @@ const ITEMS = [
   { to: '/agent', label: 'Агент', icon: MessageSquareQuote },
 ] as const
 
+function haptic() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(8)
+    }
+  } catch {
+    /* */
+  }
+}
+
 export function Nav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
@@ -18,7 +29,7 @@ export function Nav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2"
+      className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 select-none"
       aria-label="Основная навигация"
     >
       <div className="mx-auto flex max-w-[430px] items-center justify-between rounded-[22px] border border-rule/80 bg-paper/95 px-2 py-1.5 shadow-paper-lg backdrop-blur-md">
@@ -31,12 +42,15 @@ export function Nav() {
               <Link
                 key={item.to}
                 to={item.to}
+                onClick={haptic}
                 className="group relative -mt-5 flex flex-col items-center"
                 aria-label="Сканировать чек"
               >
-                <div
+                <motion.div
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                   className={cn(
-                    'relative flex h-[54px] w-[54px] items-center justify-center rounded-2xl bg-sage text-onsage shadow-md transition-all duration-200 group-hover:scale-105 group-active:scale-95',
+                    'relative flex h-[54px] w-[54px] items-center justify-center rounded-2xl bg-sage text-onsage shadow-md transition-all duration-200 group-hover:scale-105',
                     active ? 'ring-2 ring-sage ring-offset-2 ring-offset-paper' : '',
                   )}
                 >
@@ -45,7 +59,7 @@ export function Nav() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-onsage/60 opacity-75" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-onsage" />
                   </span>
-                </div>
+                </motion.div>
                 <span className="mt-1 text-[10.5px] font-semibold tracking-wide text-sage">Скан</span>
               </Link>
             )
@@ -55,20 +69,27 @@ export function Nav() {
             <Link
               key={item.to}
               to={item.to}
+              onClick={haptic}
               className={cn(
-                'flex flex-1 flex-col items-center justify-center rounded-xl py-1 transition-all duration-150',
+                'relative flex flex-1 flex-col items-center justify-center rounded-xl py-1 transition-all duration-150',
                 active ? 'text-sage' : 'text-muted hover:text-ink',
               )}
               aria-label={item.label}
             >
-              <div
-                className={cn(
-                  'flex h-8 w-11 items-center justify-center rounded-lg transition-colors',
-                  active ? 'bg-sage/12 text-sage' : 'text-muted group-hover:text-ink',
-                )}
+              <motion.div
+                whileTap={{ scale: 0.92 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                className="relative flex h-8 w-11 items-center justify-center rounded-lg"
               >
-                <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
-              </div>
+                {active ? (
+                  <motion.div
+                    layoutId="navActivePill"
+                    className="absolute inset-0 rounded-lg bg-sage/12"
+                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  />
+                ) : null}
+                <Icon size={20} strokeWidth={active ? 2.2 : 1.8} className="relative z-10" />
+              </motion.div>
               <span
                 className={cn(
                   'text-[10.5px] tracking-tight transition-all',

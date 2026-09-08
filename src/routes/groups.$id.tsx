@@ -43,6 +43,8 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
@@ -614,7 +616,7 @@ function HousePage() {
 
       {/* 4. Фирменный сегментированный переключатель вкладок в стиле ЧекАгента */}
       <div className="mb-4 px-4">
-        <div className="flex rounded-[16px] border border-rule bg-paper p-1 shadow-paper">
+        <div className="relative flex rounded-[16px] border border-rule bg-paper p-1 shadow-paper select-none">
           {(
             [
               { id: 'bills', label: 'Счета', count: snap.bills.length, icon: Receipt },
@@ -630,21 +632,35 @@ function HousePage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setTab(item.id)}
+                onClick={() => {
+                  try {
+                    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                      navigator.vibrate(6)
+                    }
+                  } catch {
+                    /* */
+                  }
+                  setTab(item.id)
+                }}
                 className={cn(
-                  'relative flex min-h-[38px] flex-1 items-center justify-center gap-1 rounded-[12px] px-1 text-[12px] font-medium transition-all duration-150 active:scale-95 leading-none',
-                  active
-                    ? 'bg-sage text-onsage shadow-sm font-semibold'
-                    : 'text-muted hover:text-ink hover:bg-cream/60',
+                  'relative z-10 flex min-h-[38px] flex-1 items-center justify-center gap-1 rounded-[12px] px-1 text-[12px] font-medium transition-colors duration-200 active:scale-95 leading-none',
+                  active ? 'text-onsage font-semibold' : 'text-muted hover:text-ink',
                 )}
               >
+                {active ? (
+                  <motion.div
+                    layoutId="cashboxTabActive"
+                    className="absolute inset-0 -z-10 rounded-[12px] bg-sage shadow-sm"
+                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                  />
+                ) : null}
                 <Icon size={14} className="shrink-0" />
                 <span className="truncate">{item.label}</span>
                 {item.count > 0 ? (
                   <span
                     className={cn(
                       'ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9.5px] font-bold leading-none',
-                      active ? 'bg-white/20 text-onsage' : 'bg-rule-soft text-muted',
+                      active ? 'bg-white/25 text-onsage' : 'bg-rule-soft text-muted',
                     )}
                   >
                     {item.count}
@@ -656,10 +672,18 @@ function HousePage() {
         </div>
       </div>
 
-      {/* 5. Содержимое вкладок */}
+      {/* 5. Содержимое вкладок с плавной анимацией смены */}
       <div className="px-4">
-        {/* --- ВКЛАДКА 1: ПЛАТЕЖИ (BILLS) --- */}
-        {tab === 'bills' ? (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 7 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -7 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+          >
+            {/* --- ВКЛАДКА 1: ПЛАТЕЖИ (BILLS) --- */}
+            {tab === 'bills' ? (
           <div className="space-y-3">
             {snap.bills.length === 0 ? (
               <div className="rounded-[18px] border border-rule bg-paper p-6 text-center shadow-paper">
@@ -1038,12 +1062,14 @@ function HousePage() {
                               </span>
                             </div>
                             <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-rule-soft">
-                              <div
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${percent}%` }}
+                                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                                 className={cn(
-                                  'h-full rounded-full transition-all duration-500',
+                                  'h-full rounded-full',
                                   isComplete ? 'bg-sage' : 'bg-amber-700',
                                 )}
-                                style={{ width: `${percent}%` }}
                               />
                             </div>
                           </div>
@@ -1161,16 +1187,18 @@ function HousePage() {
                       <span className="t-num">Лимит: {money(snap.analytics.budget)}</span>
                     </div>
                     <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-rule-soft">
-                      <div
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.max(3, snap.analytics.percentSpent)}%` }}
+                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
-                          'h-full rounded-full transition-all duration-500',
+                          'h-full rounded-full',
                           snap.analytics.percentSpent > 90
                             ? 'bg-stamp'
                             : snap.analytics.percentSpent > 75
                               ? 'bg-amber-600'
                               : 'bg-sage',
                         )}
-                        style={{ width: `${Math.max(3, snap.analytics.percentSpent)}%` }}
                       />
                     </div>
                   </div>
@@ -1223,9 +1251,11 @@ function HousePage() {
                         </div>
                       </div>
                       <div className="h-2 w-full overflow-hidden rounded-full bg-rule-soft">
-                        <div
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.max(3, cat.percent)}%` }}
+                          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                           className="h-full rounded-full bg-sage/80"
-                          style={{ width: `${Math.max(3, cat.percent)}%` }}
                         />
                       </div>
                     </div>
@@ -1381,6 +1411,8 @@ function HousePage() {
             />
           </div>
         ) : null}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   )
@@ -1482,73 +1514,86 @@ function EditBudgetModal({
   const [val, setVal] = React.useState(currentBudget ? String(currentBudget) : '')
   const [busy, setBusy] = React.useState(false)
 
-  if (!open) {
-    if (trigger) return <>{trigger(() => setOpen(true))}</>
-    return (
-      <Button
-        size="sm"
-        variant="paper"
-        onClick={() => setOpen(true)}
-        className="h-8 rounded-[8px] text-[12px]"
-      >
-        {currentBudget > 0 ? 'Изменить' : 'Задать'}
-      </Button>
-    )
-  }
+  React.useEffect(() => {
+    if (open) {
+      setVal(currentBudget ? String(currentBudget) : '')
+    }
+  }, [open, currentBudget])
 
   return (
-    <form
-      className="mt-3 rounded-[12px] border border-rule bg-white p-3 shadow-sm"
-      onSubmit={async (e) => {
-        e.preventDefault()
-        setBusy(true)
-        try {
-          await onSave(Math.round(Number(val.replace(/[^\d]/g, '') || 0)))
-          setOpen(false)
-        } finally {
-          setBusy(false)
-        }
-      }}
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-ink">Месячный лимит кассы</span>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-[11px] text-muted hover:text-ink"
-        >
-          ✕
-        </button>
-      </div>
-      <Input
-        value={val}
-        onChange={(e) => setVal(e.target.value.replace(/[^\d]/g, ''))}
-        placeholder="Сумма в ₽ (например: 80000)"
-        inputMode="numeric"
-        autoFocus
-        className="h-9 text-[13px] mb-2.5"
-      />
-      <div className="flex gap-1.5">
+    <>
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
         <Button
-          type="button"
-          variant="ghost"
           size="sm"
-          onClick={() => setOpen(false)}
-          className="flex-1 text-[12px] h-8"
+          variant="paper"
+          onClick={() => setOpen(true)}
+          className="h-8 rounded-[8px] text-[12px]"
         >
-          Отмена
+          {currentBudget > 0 ? 'Изменить' : 'Задать'}
         </Button>
-        <Button
-          type="submit"
-          variant="sage"
-          size="sm"
-          disabled={busy}
-          className="flex-1 text-[12px] h-8"
+      )}
+
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Месячный бюджет кассы"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setBusy(true)
+            try {
+              await onSave(Math.round(Number(val.replace(/[^\d]/g, '') || 0)))
+              setOpen(false)
+            } finally {
+              setBusy(false)
+            }
+          }}
+          className="space-y-4 pt-1"
         >
-          {busy ? '…' : 'Сохранить'}
-        </Button>
-      </div>
-    </form>
+          <p className="text-[12.5px] text-muted leading-relaxed">
+            Установите общий лимит трат семьи на месяц для контроля перерасхода.
+          </p>
+
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Сумма бюджета в месяц (₽)
+            </label>
+            <Input
+              value={val}
+              onChange={(e) => setVal(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="Например: 80000"
+              inputMode="numeric"
+              autoFocus
+              className="h-11 rounded-[12px] bg-white text-[15px] font-semibold text-ink"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() => setOpen(false)}
+              className="flex-1 rounded-[12px] text-[13px]"
+            >
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              variant="sage"
+              size="md"
+              disabled={busy}
+              className="flex-1 rounded-[12px] text-[13px]"
+            >
+              {busy ? 'Секунду…' : 'Сохранить'}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
+    </>
   )
 }
 
@@ -1564,8 +1609,10 @@ function DepositModal({
   const [note, setNote] = React.useState('')
   const [busy, setBusy] = React.useState(false)
 
-  if (!open) {
-    return (
+  const PRESETS = [500, 1000, 3000, 5000]
+
+  return (
+    <>
       <Button
         size="sm"
         variant="sage"
@@ -1574,92 +1621,101 @@ function DepositModal({
       >
         <Plus size={13} /> Внести взнос
       </Button>
-    )
-  }
 
-  const PRESETS = [500, 1000, 3000, 5000]
-
-  return (
-    <form
-      className="rounded-[14px] border border-sage/40 bg-white p-3 shadow-md w-full"
-      onSubmit={async (e) => {
-        e.preventDefault()
-        const amt = Math.round(Number(amount.replace(/[^\d]/g, '') || 0))
-        if (!amt) return
-        setBusy(true)
-        try {
-          await onDeposit(amt, note.trim() || undefined)
-          setOpen(false)
-        } finally {
-          setBusy(false)
-        }
-      }}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[12px] font-semibold text-ink">Взнос в «{goalTitle}»</span>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-[11px] text-muted hover:text-ink"
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Взнос в «${goalTitle}»`}
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault()
+            const amt = Math.round(Number(amount.replace(/[^\d]/g, '') || 0))
+            if (!amt) return
+            setBusy(true)
+            try {
+              await onDeposit(amt, note.trim() || undefined)
+              setNote('')
+              setOpen(false)
+            } finally {
+              setBusy(false)
+            }
+          }}
+          className="space-y-4 pt-1"
         >
-          ✕
-        </button>
-      </div>
+          <div>
+            <label className="mb-2 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Быстрый выбор суммы
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setAmount(String(p))}
+                  className={cn(
+                    'h-9 rounded-[10px] border text-[12.5px] font-semibold transition active:scale-95',
+                    amount === String(p)
+                      ? 'border-sage bg-sage text-onsage shadow-xs'
+                      : 'border-rule bg-white text-muted hover:border-rule-soft',
+                  )}
+                >
+                  +{p}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="mb-2 flex gap-1">
-        {PRESETS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setAmount(String(p))}
-            className={cn(
-              'rounded-[6px] border px-2 py-0.5 text-[11px] font-medium transition',
-              amount === String(p) ? 'border-sage bg-sage text-onsage' : 'border-rule bg-cream text-muted',
-            )}
-          >
-            +{p}
-          </button>
-        ))}
-      </div>
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Сумма взноса (₽)
+            </label>
+            <Input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="Сумма взноса в ₽"
+              inputMode="numeric"
+              autoFocus
+              className="h-11 rounded-[12px] bg-white text-[15px] font-semibold text-ink"
+              required
+            />
+          </div>
 
-      <Input
-        value={amount}
-        onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-        placeholder="Сумма взноса в ₽"
-        inputMode="numeric"
-        autoFocus
-        className="h-9 text-[13px] mb-2"
-        required
-      />
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Комментарий (необязательно)
+            </label>
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Например: остаток с аванса"
+              className="h-10 rounded-[12px] bg-white text-[13px] text-ink"
+            />
+          </div>
 
-      <Input
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        placeholder="Заметка (необязательно)"
-        className="h-9 text-[12.5px] mb-2.5"
-      />
-
-      <div className="flex gap-1.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setOpen(false)}
-          className="flex-1 text-[12px] h-8"
-        >
-          Отмена
-        </Button>
-        <Button
-          type="submit"
-          variant="sage"
-          size="sm"
-          disabled={busy}
-          className="flex-1 text-[12px] h-8"
-        >
-          {busy ? '…' : 'Внести'}
-        </Button>
-      </div>
-    </form>
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() => setOpen(false)}
+              className="flex-1 rounded-[12px] text-[13px]"
+            >
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              variant="sage"
+              size="md"
+              disabled={busy}
+              className="flex-1 rounded-[12px] text-[13px]"
+            >
+              {busy ? 'Секунду…' : 'Внести'}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
+    </>
   )
 }
 
@@ -1679,7 +1735,6 @@ function AttachReceiptModal({
     setLoading(true)
     try {
       const res: any = await listReceipts({ data: { limit: 40 } })
-      // Показываем чеки, которые ещё не в этой кассе
       const filtered = (res?.receipts ?? []).filter((r: any) => r.house_id !== houseId)
       setMyReceipts(filtered)
     } finally {
@@ -1687,8 +1742,8 @@ function AttachReceiptModal({
     }
   }
 
-  if (!open) {
-    return (
+  return (
+    <>
       <Button
         size="sm"
         variant="paper"
@@ -1697,32 +1752,22 @@ function AttachReceiptModal({
       >
         <Plus size={14} /> Прикрепить
       </Button>
-    )
-  }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-[430px] rounded-[20px] border border-rule bg-paper p-4 shadow-paper-lg max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between border-b border-rule/60 pb-2.5 mb-3">
-          <div>
-            <h3 className="t-display text-[16px] font-semibold text-ink">Прикрепить чек к кассе</h3>
-            <p className="text-[11.5px] text-muted">Выберите чек из своего личного ящика</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-cream text-muted hover:text-ink"
-          >
-            ✕
-          </button>
-        </div>
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Прикрепить чек к кассе"
+      >
+        <p className="text-[12px] text-muted -mt-2 mb-3">
+          Выберите чек из личного ящика для добавления в семейную кассу
+        </p>
 
-        <div className="flex-1 overflow-y-auto space-y-2 no-scrollbar py-1">
+        <div className="max-h-[50dvh] overflow-y-auto space-y-2 no-scrollbar py-1">
           {loading ? (
-            <p className="py-6 text-center text-[13px] text-muted">Загрузка чеков…</p>
+            <p className="py-8 text-center text-[13px] text-muted">Загрузка ваших чеков…</p>
           ) : myReceipts.length === 0 ? (
-            <div className="py-6 text-center text-[13px] text-muted">
-              Нет доступных личных чеков. Отсканируйте новый чек в разделе «Скан».
+            <div className="py-8 text-center text-[13px] text-muted">
+              Нет доступных личных чеков. Отсканируйте новый чек во вкладке «Скан».
             </div>
           ) : (
             myReceipts.map((r) => (
@@ -1741,7 +1786,7 @@ function AttachReceiptModal({
                   <Button
                     size="sm"
                     variant="sage"
-                    className="h-7 px-2 text-[11.5px]"
+                    className="h-7 px-2.5 text-[11.5px] rounded-[8px]"
                     onClick={async () => {
                       await linkReceiptToHouse({
                         data: { houseId, receiptId: r.id, link: true },
@@ -1758,18 +1803,18 @@ function AttachReceiptModal({
           )}
         </div>
 
-        <div className="pt-3 border-t border-rule/60 mt-2">
+        <div className="pt-3 border-t border-rule/60 mt-3">
           <Button
             variant="paper"
             size="md"
-            className="w-full"
+            className="w-full rounded-[12px]"
             onClick={() => setOpen(false)}
           >
             Закрыть
           </Button>
         </div>
-      </div>
-    </div>
+      </BottomSheet>
+    </>
   )
 }
 
@@ -1798,162 +1843,179 @@ function AddBillModal({
 
   const PRESETS = ['Аренда', 'Интернет', 'ЖКУ', 'Подписки', 'Продукты']
 
-  if (!open) {
-    if (trigger) {
-      return <>{trigger(() => setOpen(true))}</>
-    }
-    return (
-      <Button
-        variant="paper"
-        size="md"
-        className="w-full gap-2 rounded-[14px] border border-dashed border-rule-soft bg-paper/60 hover:bg-white text-[13.5px]"
-        onClick={() => setOpen(true)}
-      >
-        <Plus size={16} /> Добавить регулярный платёж
-      </Button>
-    )
-  }
-
   return (
-    <form
-      className="rounded-[16px] border border-rule bg-paper p-4 shadow-paper"
-      onSubmit={async (e) => {
-        e.preventDefault()
-        if (!title.trim()) return
-        const amt = Math.round(Number(amount.replace(/[^\d]/g, '') || 0))
-        if (!amt) return
-        setBusy(true)
-        try {
-          await onAdd({
-            title: title.trim(),
-            amount: amt,
-            day_of_month: Math.min(31, Math.max(1, parseInt(day, 10) || 1)),
-            split,
-            payer_id: split === 'payer' ? (payer || members[0]?.user_id || null) : null,
-          })
-          setTitle('')
-          setAmount('')
-          setOpen(false)
-        } finally {
-          setBusy(false)
-        }
-      }}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="t-display text-[15.5px] font-semibold text-ink leading-none">
-          Новый регулярный платёж
-        </h4>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-[12px] text-muted hover:text-ink transition leading-none"
+    <>
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
+        <Button
+          variant="paper"
+          size="md"
+          className="w-full gap-2 rounded-[14px] border border-dashed border-rule-soft bg-paper/60 hover:bg-white text-[13.5px]"
+          onClick={() => setOpen(true)}
         >
-          Отмена
-        </button>
-      </div>
+          <Plus size={16} /> Добавить регулярный платёж
+        </Button>
+      )}
 
-      <div className="mb-3 flex flex-wrap gap-1">
-        {PRESETS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setTitle(p)}
-            className="rounded-[7px] border border-rule bg-white px-2 py-0.5 text-[11.5px] text-muted transition hover:border-sage hover:text-sage leading-none"
-          >
-            {p}
-          </button>
-        ))}
-      </div>
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Новый регулярный платёж"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault()
+            if (!title.trim()) return
+            const amt = Math.round(Number(amount.replace(/[^\d]/g, '') || 0))
+            if (!amt) return
+            setBusy(true)
+            try {
+              await onAdd({
+                title: title.trim(),
+                amount: amt,
+                day_of_month: Math.min(31, Math.max(1, parseInt(day, 10) || 1)),
+                split,
+                payer_id: split === 'payer' ? (payer || members[0]?.user_id || null) : null,
+              })
+              setTitle('')
+              setAmount('')
+              setOpen(false)
+            } finally {
+              setBusy(false)
+            }
+          }}
+          className="space-y-3.5 pt-1"
+        >
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Быстрый шаблон
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setTitle(p)}
+                  className="rounded-[8px] border border-rule bg-white px-2.5 py-1 text-[12px] text-muted transition hover:border-sage hover:text-sage active:scale-95 leading-none"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="space-y-2.5 mb-3">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Название (например: Интернет)"
-          className="h-10 text-[13.5px]"
-          required
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-            placeholder="Сумма в ₽"
-            inputMode="numeric"
-            className="h-10 text-[13.5px]"
-            required
-          />
-          <Input
-            value={day}
-            onChange={(e) => setDay(e.target.value.replace(/[^\d]/g, ''))}
-            placeholder="Число месяца (1–31)"
-            inputMode="numeric"
-            className="h-10 text-[13.5px]"
-            required
-          />
-        </div>
-      </div>
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Название платежа
+            </label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Название (например: Интернет)"
+              className="h-10 rounded-[12px] bg-white text-[13.5px]"
+              required
+            />
+          </div>
 
-      <div className="mb-3">
-        <label className="mb-1 block text-[11.5px] font-medium text-muted leading-tight">Как делим</label>
-        <div className="grid grid-cols-3 gap-1.5">
-          {[
-            { val: 'equal', label: 'Поровну' },
-            { val: 'salary', label: 'По доходу' },
-            { val: 'payer', label: 'Один платит' },
-          ].map(({ val, label }) => (
-            <button
-              key={val}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Сумма (₽)
+              </label>
+              <Input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="Сумма в ₽"
+                inputMode="numeric"
+                className="h-10 rounded-[12px] bg-white text-[13.5px]"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Число месяца (1–31)
+              </label>
+              <Input
+                value={day}
+                onChange={(e) => setDay(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="Число (1–31)"
+                inputMode="numeric"
+                className="h-10 rounded-[12px] bg-white text-[13.5px]"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Как делим
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { val: 'equal', label: 'Поровну' },
+                { val: 'salary', label: 'По доходу' },
+                { val: 'payer', label: 'Один платит' },
+              ].map(({ val, label }) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSplit(val)}
+                  className={cn(
+                    'min-h-[38px] rounded-[10px] border text-[12px] font-medium transition active:scale-95 leading-none',
+                    split === val
+                      ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                      : 'border-rule bg-white text-muted hover:border-rule-soft',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {split === 'payer' ? (
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Кто оплачивает
+              </label>
+              <select
+                value={payer}
+                onChange={(e) => setPayer(e.target.value)}
+                className="field h-10 w-full rounded-[10px] border border-rule bg-white px-3 text-[13px] text-ink outline-none"
+              >
+                {members.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <div className="flex gap-2 pt-2">
+            <Button
               type="button"
-              onClick={() => setSplit(val)}
-              className={cn(
-                'min-h-[36px] rounded-[10px] border text-[12px] font-medium transition leading-none',
-                split === val
-                  ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
-                  : 'border-rule bg-white text-muted hover:border-rule-soft',
-              )}
+              variant="ghost"
+              size="md"
+              onClick={() => setOpen(false)}
+              className="flex-1 rounded-[12px] text-[13px]"
             >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {split === 'payer' ? (
-        <div className="mb-3">
-          <label className="mb-1 block text-[11.5px] font-medium text-muted leading-tight">Кто оплачивает</label>
-          <select
-            value={payer}
-            onChange={(e) => setPayer(e.target.value)}
-            className="field h-10 w-full rounded-[10px] border border-rule bg-white px-3 text-[13px] text-ink outline-none"
-          >
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-      <div className="flex gap-2 pt-1">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setOpen(false)}
-          className="flex-1 text-[13px]"
-        >
-          Отмена
-        </Button>
-        <Button
-          type="submit"
-          variant="sage"
-          disabled={busy}
-          className="flex-1 text-[13px]"
-        >
-          {busy ? 'Сохранение…' : 'Добавить счёт'}
-        </Button>
-      </div>
-    </form>
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              variant="sage"
+              size="md"
+              disabled={busy}
+              className="flex-1 rounded-[12px] text-[13px]"
+            >
+              {busy ? 'Секунду…' : 'Добавить счёт'}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
+    </>
   )
 }
 
@@ -1971,111 +2033,126 @@ function AddGoalModal({
   const [targetDate, setTargetDate] = React.useState('')
   const [busy, setBusy] = React.useState(false)
 
-  if (!open) {
-    if (trigger) {
-      return <>{trigger(() => setOpen(true))}</>
-    }
-    return (
-      <Button
-        variant="paper"
-        size="md"
-        className="w-full gap-2 rounded-[14px] border border-dashed border-rule-soft bg-paper/60 hover:bg-white text-[13.5px]"
-        onClick={() => setOpen(true)}
-      >
-        <Plus size={16} /> Создать новую копилку / цель
-      </Button>
-    )
-  }
-
   return (
-    <form
-      className="rounded-[16px] border border-rule bg-paper p-4 shadow-paper"
-      onSubmit={async (e) => {
-        e.preventDefault()
-        if (!title.trim()) return
-        setBusy(true)
-        try {
-          await onAdd({
-            title: title.trim(),
-            amount: Math.round(Number(amount.replace(/[^\d]/g, '') || 0)),
-            initialAmount: Math.round(Number(initialAmount.replace(/[^\d]/g, '') || 0)),
-            target_date: targetDate.trim() || null,
-          })
-          setTitle('')
-          setAmount('')
-          setInitialAmount('')
-          setTargetDate('')
-          setOpen(false)
-        } finally {
-          setBusy(false)
-        }
-      }}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="t-display text-[15px] font-semibold text-ink leading-none">Новая цель или копилка</h4>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-[12px] text-muted hover:text-ink transition leading-none"
-        >
-          Отмена
-        </button>
-      </div>
-
-      <div className="space-y-2.5 mb-3">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Название цели (отпуск, ремонт, новый диван...)"
-          className="h-10 text-[13.5px]"
-          autoFocus
-          required
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-            placeholder="Целевая сумма в ₽"
-            inputMode="numeric"
-            className="h-10 text-[13.5px]"
-            required
-          />
-          <Input
-            value={initialAmount}
-            onChange={(e) => setInitialAmount(e.target.value.replace(/[^\d]/g, ''))}
-            placeholder="Уже накоплено в ₽"
-            inputMode="numeric"
-            className="h-10 text-[13.5px]"
-          />
-        </div>
-        <Input
-          type="date"
-          value={targetDate}
-          onChange={(e) => setTargetDate(e.target.value)}
-          placeholder="Срок сбора"
-          className="h-10 text-[13.5px]"
-        />
-      </div>
-
-      <div className="flex gap-2">
+    <>
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
         <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setOpen(false)}
-          className="flex-1 text-[13px]"
+          variant="paper"
+          size="md"
+          className="w-full gap-2 rounded-[14px] border border-dashed border-rule-soft bg-paper/60 hover:bg-white text-[13.5px]"
+          onClick={() => setOpen(true)}
         >
-          Отмена
+          <Plus size={16} /> Создать новую копилку / цель
         </Button>
-        <Button
-          type="submit"
-          variant="sage"
-          disabled={busy}
-          className="flex-1 text-[13px]"
+      )}
+
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Новая цель или копилка"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault()
+            if (!title.trim()) return
+            setBusy(true)
+            try {
+              await onAdd({
+                title: title.trim(),
+                amount: Math.round(Number(amount.replace(/[^\d]/g, '') || 0)),
+                initialAmount: Math.round(Number(initialAmount.replace(/[^\d]/g, '') || 0)),
+                target_date: targetDate.trim() || null,
+              })
+              setTitle('')
+              setAmount('')
+              setInitialAmount('')
+              setTargetDate('')
+              setOpen(false)
+            } finally {
+              setBusy(false)
+            }
+          }}
+          className="space-y-3 pt-1"
         >
-          {busy ? 'Секунду…' : 'Создать цель'}
-        </Button>
-      </div>
-    </form>
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Название цели
+            </label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Например: Отпуск на море, новый ноутбук..."
+              className="h-10 rounded-[12px] bg-white text-[13.5px]"
+              autoFocus
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Целевая сумма (₽)
+              </label>
+              <Input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="Сумма в ₽"
+                inputMode="numeric"
+                className="h-10 rounded-[12px] bg-white text-[13.5px]"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Уже накоплено (₽)
+              </label>
+              <Input
+                value={initialAmount}
+                onChange={(e) => setInitialAmount(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="0 ₽"
+                inputMode="numeric"
+                className="h-10 rounded-[12px] bg-white text-[13.5px]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Желаемый срок сбора
+            </label>
+            <Input
+              type="date"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              className="h-10 rounded-[12px] bg-white text-[13.5px]"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() => setOpen(false)}
+              className="flex-1 rounded-[12px] text-[13px]"
+            >
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              variant="sage"
+              size="md"
+              disabled={busy}
+              className="flex-1 rounded-[12px] text-[13px]"
+            >
+              {busy ? 'Секунду…' : 'Создать цель'}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
+    </>
   )
 }
 

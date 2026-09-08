@@ -16,6 +16,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { PushNudge } from '~/components/PushNudge'
 import { useApp } from '~/lib/app-state'
 import { greeting, money, plural, dateRu } from '~/lib/format'
@@ -133,12 +134,14 @@ function Menu() {
             <span className="t-num">Лимит: {money(budget)}</span>
           </div>
           <div className="mt-1.5 h-[8px] w-full overflow-hidden rounded-full bg-rule-soft">
-            <div
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.max(3, used)}%` }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className={cn(
-                'h-full rounded-full transition-all duration-500',
+                'h-full rounded-full',
                 used > 90 ? 'bg-stamp' : used > 75 ? 'bg-amber-600' : 'bg-sage',
               )}
-              style={{ width: `${Math.max(3, used)}%` }}
             />
           </div>
         </div>

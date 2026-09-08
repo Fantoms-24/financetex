@@ -31,6 +31,8 @@
 html {
   -webkit-text-size-adjust: 100%;
   background: #f3eee4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -40,10 +42,22 @@ body {
   overscroll-behavior-y: none;
   background-image: repeating-linear-gradient(135deg, #1c191507 0 1px, #0000 1px 7px);
   margin: 0;
+  -webkit-touch-callout: none;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
+}
+
+button, a, [role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 button, input, textarea, select {
@@ -59,11 +73,13 @@ button, input, textarea, select {
 .sheet {
   flex-direction: column;
   width: 100%;
-  max-width: 430px;
+  max-width: 440px;
+  min-height: 100dvh;
   min-height: 100svh;
   margin-inline: auto;
   display: flex;
   position: relative;
+  box-shadow: 0 0 50px -12px rgba(28, 25, 21, 0.08);
 }
 
 .safe-bottom {

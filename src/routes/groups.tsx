@@ -15,6 +15,8 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { motion } from 'motion/react'
+import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
@@ -165,144 +167,121 @@ function Groups() {
         </div>
       ) : null}
 
-      {/* Форма создания кассы */}
-      {mode === 'create' ? (
-        <form
-          onSubmit={create}
-          className="relative overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper-lg"
-        >
-          <div className="mb-3 flex items-center justify-between border-b border-rule/60 pb-2.5">
-            <div className="flex items-center gap-2">
-              <HomeIcon size={17} className="text-sage" />
-              <p className="t-display text-[16px] font-medium text-ink">Новая касса</p>
+      {/* Шторка создания кассы */}
+      <BottomSheet
+        open={mode === 'create'}
+        onClose={() => setMode('none')}
+        title="Новая касса"
+      >
+        <form onSubmit={create} className="space-y-4 pt-1">
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Название кассы
+            </label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Семья, Дом, Поездка…"
+              startIcon={<Users size={17} />}
+              className="h-11 rounded-[12px] bg-white text-[14px]"
+              autoFocus
+              required
+            />
+            {/* Быстрые подсказки */}
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {PRESET_NAMES.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setName(preset)}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-[12px] transition active:scale-95',
+                    name === preset
+                      ? 'border-sage bg-sage text-onsage shadow-xs'
+                      : 'border-rule/80 bg-white text-muted hover:border-rule-soft',
+                  )}
+                >
+                  {preset}
+                </button>
+              ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setMode('none')}
-              className="rounded-lg p-1 text-muted hover:text-ink"
-            >
-              <X size={16} />
-            </button>
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-                Название кассы
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              className="flex-1 rounded-[12px] text-[13px]"
+              onClick={() => setMode('none')}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              variant="sage"
+              size="md"
+              className="flex-1 rounded-[12px] text-[13px]"
+              disabled={busy || !name.trim()}
+            >
+              {busy ? 'Создание…' : 'Создать кассу'}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
+
+      {/* Шторка входа по коду */}
+      <BottomSheet
+        open={mode === 'join'}
+        onClose={() => setMode('none')}
+        title="Присоединиться к кассе"
+      >
+        <form onSubmit={join} className="space-y-4 pt-1">
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Код приглашения
               </label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Семья, Дом, Поездка…"
-                startIcon={<Users size={17} />}
-                required
-              />
-              {/* Быстрые подсказки */}
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {PRESET_NAMES.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setName(preset)}
-                    className={cn(
-                      'rounded-full border px-2.5 py-0.5 text-[11px] transition-colors',
-                      name === preset
-                        ? 'border-sage bg-sage text-onsage'
-                        : 'border-rule/80 bg-black/[0.02] text-muted hover:bg-black/[0.05]',
-                    )}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
+              <span className="text-[11px] text-muted">7 символов</span>
             </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex-1"
-                onClick={() => setMode('none')}
-              >
-                Отмена
-              </Button>
-              <Button
-                type="submit"
-                variant="sage"
-                className="flex-1"
-                disabled={busy || !name.trim()}
-              >
-                {busy ? 'Создание…' : 'Создать кассу'}
-              </Button>
-            </div>
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="A2B3C4D"
+              autoCapitalize="characters"
+              autoComplete="off"
+              startIcon={<Hash size={17} />}
+              className="h-11 rounded-[12px] bg-white font-mono text-[16px] tracking-[0.2em]"
+              autoFocus
+              required
+            />
+            <p className="mt-2 text-[12px] text-muted">
+              Введите код, которым с вами поделился создатель семейной кассы.
+            </p>
           </div>
-        </form>
-      ) : null}
 
-      {/* Форма входа по коду */}
-      {mode === 'join' ? (
-        <form
-          onSubmit={join}
-          className="relative overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper-lg"
-        >
-          <div className="mb-3 flex items-center justify-between border-b border-rule/60 pb-2.5">
-            <div className="flex items-center gap-2">
-              <KeyRound size={17} className="text-amber-800" />
-              <p className="t-display text-[16px] font-medium text-ink">Присоединиться к кассе</p>
-            </div>
-            <button
+          <div className="flex gap-2 pt-2">
+            <Button
               type="button"
+              variant="ghost"
+              size="md"
+              className="flex-1 rounded-[12px] text-[13px]"
               onClick={() => setMode('none')}
-              className="rounded-lg p-1 text-muted hover:text-ink"
             >
-              <X size={16} />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-[11.5px] font-medium uppercase tracking-wider text-muted">
-                  Код приглашения
-                </label>
-                <span className="text-[11px] text-muted">7 символов</span>
-              </div>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="A2B3C4D"
-                autoCapitalize="characters"
-                autoComplete="off"
-                startIcon={<Hash size={17} />}
-                className="font-mono tracking-[0.2em]"
-                required
-              />
-              <p className="mt-1.5 text-[11.5px] text-muted">
-                Введите код, которым с вами поделился создатель кассы.
-              </p>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex-1"
-                onClick={() => setMode('none')}
-              >
-                Отмена
-              </Button>
-              <Button
-                type="submit"
-                variant="sage"
-                className="flex-1"
-                disabled={busy || !code.trim()}
-              >
-                {busy ? 'Проверка…' : 'Войти в кассу'}
-              </Button>
-            </div>
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              variant="sage"
+              size="md"
+              className="flex-1 rounded-[12px] text-[13px]"
+              disabled={busy || !code.trim()}
+            >
+              {busy ? 'Проверка…' : 'Войти в кассу'}
+            </Button>
           </div>
         </form>
-      ) : null}
+      </BottomSheet>
 
       {/* Сообщение об ошибке */}
       {error ? (
@@ -340,13 +319,17 @@ function Groups() {
             <span>Код для друзей</span>
           </div>
 
-          {houses.map((h) => {
+          {houses.map((h, idx) => {
             const isOwner = h.owner_id === user?.id
             const isCopied = copied === h.id
 
             return (
-              <div
+              <motion.div
                 key={h.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, delay: idx * 0.05 }}
+                whileTap={{ scale: 0.985 }}
                 className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper transition-all hover:border-sage/40"
               >
                 {/* Верхняя часть карточки — клик ведёт в саму кассу */}
@@ -417,7 +400,7 @@ function Groups() {
                     <span>{isCopied ? 'Скопировано' : 'Скопировать код'}</span>
                   </button>
                 </div>
-              </div>
+              </motion.div>
             )
           })}
         </div>
