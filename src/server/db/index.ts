@@ -98,22 +98,32 @@ async function create(): Promise<DB> {
 }
 
 export async function migrate(db: DB) {
-  for (const sql of [...AUTH_TABLES, ...APP_TABLES]) {
-    try {
-      await db.query(sql)
-    } catch (e) {
-      console.error('[db] migrate failed:', (e as Error)?.message)
+  try {
+    const allTablesSql = [...AUTH_TABLES, ...APP_TABLES].join(';\n')
+    await db.query(allTablesSql)
+  } catch {
+    for (const sql of [...AUTH_TABLES, ...APP_TABLES]) {
+      try {
+        await db.query(sql)
+      } catch (e) {
+        console.error('[db] migrate failed:', (e as Error)?.message)
+      }
     }
   }
   await heal(db)
 }
 
 export async function heal(db: DB) {
-  for (const [table, sql] of HEAL_STATEMENTS) {
-    try {
-      await db.query(sql)
-    } catch {
-      // таблицы могло не быть — её создаст migrate при следующем старте
+  try {
+    const healSql = HEAL_STATEMENTS.map(([, sql]) => sql).join(';\n')
+    await db.query(healSql)
+  } catch {
+    for (const [table, sql] of HEAL_STATEMENTS) {
+      try {
+        await db.query(sql)
+      } catch {
+        // таблицы могло не быть — её создаст migrate при следующем старте
+      }
     }
   }
   // Индексы-уникалки, которые нельзя выразить в CREATE TABLE без ошибок на старых БД
@@ -122,13 +132,24 @@ export async function heal(db: DB) {
     `CREATE UNIQUE INDEX IF NOT EXISTS push_subs_endpoint_uq ON push_subs (endpoint)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS account_issuer_account_id_uq ON "account" (issuer, "accountId")`,
   ]
-  for (const sql of extra) {
-    try {
-      await db.query(sql)
-    } catch {
-      /* данные могут конфликтовать — не критично */
+  try {
+    await db.query(extra.join(';\n'))
+  } catch {
+    for (const sql of extra) {
+      try {
+        await db.query(sql)
+      } catch {
+        /* данные могут конфликтовать — не критично */
+      }
     }
   }
+}
+
+// Фоновый прогрев соединения с базой при запуске сервера
+if (typeof process !== 'undefined' && process.env?.DATABASE_URL) {
+  getDB().catch((err) => {
+    console.warn('[db] Background pre-warm failed:', (err as Error)?.message)
+  })
 }
 
 export async function q<T = Row>(sql: string, params: Array<unknown> = []): Promise<Array<T>> {
