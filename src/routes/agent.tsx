@@ -86,7 +86,7 @@ function Agent() {
   const remaining = monthlyBudget > 0 ? monthlyBudget - spent : null
 
   return (
-    <div className="flex min-h-[calc(100svh-env(safe-area-inset-top)-84px-env(safe-area-inset-bottom))] flex-col px-4 pt-3 sm:px-5">
+    <div className="flex min-h-[calc(100svh-max(env(safe-area-inset-top),18px)-88px-env(safe-area-inset-bottom))] flex-col px-4 pt-3 sm:px-5">
       {/* Шапка агента */}
       <header className="sticky top-0 z-20 -mx-4 mb-3 border-b border-rule/60 bg-paper/95 px-4 pb-3 pt-1 backdrop-blur-md sm:-mx-5 sm:px-5">
         <div className="flex items-center justify-between">

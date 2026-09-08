@@ -55,7 +55,7 @@ function Bills() {
   }
 
   return (
-    <div className="px-4 pb-8 pt-5">
+    <div className="px-4 pb-32 pt-3">
       <header className="mb-4 flex items-end justify-between">
         <div>
           <h1 className="t-display text-[26px] leading-none">Платежи</h1>

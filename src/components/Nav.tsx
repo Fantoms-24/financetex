@@ -29,10 +29,10 @@ export function Nav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 select-none"
+      className="fixed bottom-0 left-0 right-0 z-40 select-none border-t border-rule/70 bg-paper/95 pb-[max(env(safe-area-inset-bottom),10px)] pt-1.5 backdrop-blur-xl shadow-[0_-4px_24px_rgba(28,25,21,0.05)]"
       aria-label="Основная навигация"
     >
-      <div className="mx-auto flex max-w-[430px] items-center justify-between rounded-[22px] border border-rule/80 bg-paper/95 px-2 py-1.5 shadow-paper-lg backdrop-blur-md">
+      <div className="mx-auto flex max-w-[440px] items-center justify-between px-3">
         {ITEMS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.to)

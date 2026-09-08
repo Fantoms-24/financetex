@@ -280,7 +280,7 @@ function HousePage() {
   const receiptsSum = snap.receipts.reduce((s, r) => s + (Number(r.total) || 0), 0)
 
   return (
-    <div className="pb-28 pt-3 sm:pb-24">
+    <div className="pb-36 pt-3 sm:pb-32">
       {/* 1. Верхняя панель навигации */}
       <header className="mb-3 px-4">
         <div className="flex items-center justify-between gap-2">
@@ -616,13 +616,13 @@ function HousePage() {
 
       {/* 4. Фирменный сегментированный переключатель вкладок в стиле ЧекАгента */}
       <div className="mb-4 px-4">
-        <div className="relative flex rounded-[16px] border border-rule bg-paper p-1 shadow-paper select-none">
+        <div className="relative flex items-center rounded-[16px] border border-rule/80 bg-paper p-1 shadow-paper select-none overflow-x-auto no-scrollbar">
           {(
             [
               { id: 'bills', label: 'Счета', count: snap.bills.length, icon: Receipt },
               { id: 'receipts', label: 'Чеки', count: snap.receipts.length, icon: ReceiptText },
-              { id: 'goals', label: 'Копилки', count: activeGoalsCount, icon: PiggyBank },
-              { id: 'analytics', label: 'Бюджет', count: 0, icon: BarChart3 },
+              { id: 'goals', label: 'Цели', count: activeGoalsCount, icon: PiggyBank },
+              { id: 'analytics', label: 'Лимит', count: 0, icon: BarChart3 },
               { id: 'chat', label: 'Чат', count: snap.messages.length, icon: MessageSquare },
             ] as const
           ).map((item) => {
@@ -643,7 +643,7 @@ function HousePage() {
                   setTab(item.id)
                 }}
                 className={cn(
-                  'relative z-10 flex min-h-[38px] flex-1 items-center justify-center gap-1 rounded-[12px] px-1 text-[12px] font-medium transition-colors duration-200 active:scale-95 leading-none',
+                  'relative z-10 flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-[12px] px-1.5 py-1 text-[11.5px] font-medium transition-colors duration-150 active:scale-95 leading-none whitespace-nowrap',
                   active ? 'text-onsage font-semibold' : 'text-muted hover:text-ink',
                 )}
               >
@@ -654,12 +654,12 @@ function HousePage() {
                     transition={{ type: 'spring', stiffness: 450, damping: 32 }}
                   />
                 ) : null}
-                <Icon size={14} className="shrink-0" />
+                <Icon size={13} className="shrink-0" />
                 <span className="truncate">{item.label}</span>
                 {item.count > 0 ? (
                   <span
                     className={cn(
-                      'ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9.5px] font-bold leading-none',
+                      'ml-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-0.5 text-[9px] font-bold leading-none',
                       active ? 'bg-white/25 text-onsage' : 'bg-rule-soft text-muted',
                     )}
                   >

@@ -2,7 +2,6 @@ import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   ArrowRight,
-  ArrowUpRight,
   Calendar,
   ChevronRight,
   CreditCard,
@@ -65,7 +64,7 @@ function Menu() {
   const recentReceipts = (boot.receipts || []).slice(0, 3)
 
   return (
-    <div className="space-y-4 px-4 pb-12 pt-4 sm:px-5">
+    <div className="space-y-4 px-4 pb-32 pt-2 sm:px-5">
       {/* Верхняя панель: Дата, приветствие и аватар */}
       <header className="flex items-center justify-between pt-1">
         <div>
@@ -200,20 +199,20 @@ function Menu() {
         </div>
       </Link>
 
-      {/* Bento-сетка разделов */}
+      {/* Единая сетка разделов */}
       <div className="grid grid-cols-2 gap-3">
         {/* Чеки */}
         <Link
           to="/receipts"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/80 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
+          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/10 text-sage">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
               <Files size={19} strokeWidth={2} />
             </div>
-            <ArrowUpRight
+            <ChevronRight
               size={16}
-              className="text-muted transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-sage"
+              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
             />
           </div>
           <div className="mt-4">
@@ -229,15 +228,15 @@ function Menu() {
         {/* Кассы */}
         <Link
           to="/groups"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/80 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
+          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-700/10 text-amber-800">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
               <Users size={19} strokeWidth={2} />
             </div>
-            <ArrowUpRight
+            <ChevronRight
               size={16}
-              className="text-muted transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-amber-800"
+              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
             />
           </div>
           <div className="mt-4">
@@ -253,15 +252,15 @@ function Menu() {
         {/* Регулярные платежи */}
         <Link
           to="/bills"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/80 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
+          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-700/10 text-blue-800">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
               <CreditCard size={19} strokeWidth={2} />
             </div>
-            <ArrowUpRight
+            <ChevronRight
               size={16}
-              className="text-muted transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-blue-800"
+              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
             />
           </div>
           <div className="mt-4">
@@ -277,15 +276,15 @@ function Menu() {
         {/* AI Агент */}
         <Link
           to="/agent"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/80 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
+          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
         >
           <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-700/10 text-purple-800">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
               <Sparkles size={19} strokeWidth={2} />
             </div>
-            <ArrowUpRight
+            <ChevronRight
               size={16}
-              className="text-muted transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-purple-800"
+              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
             />
           </div>
           <div className="mt-4">

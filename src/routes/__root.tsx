@@ -8,7 +8,7 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { AppStateProvider, useApp } from '~/lib/app-state'
 import { Nav } from '~/components/Nav'
 import { SplashScreen } from '~/components/SplashScreen'
@@ -31,7 +31,7 @@ export const Route = createRootRoute({
       { name: 'theme-color', content: '#f3eee4' },
       { name: 'color-scheme', content: 'light' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
-      { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
       { name: 'apple-mobile-web-app-title', content: 'Листок' },
       { name: 'mobile-web-app-capable', content: 'yes' },
       { name: 'format-detection', content: 'telephone=no' },
@@ -124,18 +124,15 @@ function Shell() {
   return (
     <div className="sheet safe-top">
       <main className={bare ? 'flex-1 flex flex-col' : 'safe-bottom flex-1 flex flex-col'}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-            className="flex-1 flex flex-col min-h-0"
-          >
-            <Outlet />
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          key={pathname}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.12, ease: 'easeOut' }}
+          className="flex-1 flex flex-col min-h-0"
+        >
+          <Outlet />
+        </motion.div>
       </main>
       {!bare && user ? <Nav /> : null}
     </div>

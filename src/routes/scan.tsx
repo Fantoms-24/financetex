@@ -112,7 +112,7 @@ function Scan() {
   }
 
   return (
-    <div className="px-4 pb-8 pt-5">
+    <div className="px-4 pb-32 pt-3">
       <header className="mb-3">
         <h1 className="t-display text-[26px] leading-none">Скан</h1>
         <p className="mt-1.5 text-[13px] text-muted">

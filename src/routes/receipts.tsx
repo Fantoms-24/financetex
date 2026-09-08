@@ -162,7 +162,7 @@ function Receipts() {
   const avgCheck = items.length > 0 ? Math.round(monthTotal / items.length) : 0
 
   return (
-    <div className="space-y-4 px-4 pb-12 pt-4 sm:px-5">
+    <div className="space-y-4 px-4 pb-32 pt-2 sm:px-5">
       {/* Шапка раздела */}
       <header className="flex items-center justify-between">
         <div>

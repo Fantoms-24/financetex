@@ -79,15 +79,16 @@ button, input, textarea, select {
   margin-inline: auto;
   display: flex;
   position: relative;
+  background-color: var(--color-cream);
   box-shadow: 0 0 50px -12px rgba(28, 25, 21, 0.08);
 }
 
 .safe-bottom {
-  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
 
 .safe-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(env(safe-area-inset-top), 18px);
 }
 
 .paper {

@@ -108,7 +108,7 @@ function Groups() {
   }
 
   return (
-    <div className="space-y-4 px-4 pb-12 pt-4 sm:px-5">
+    <div className="space-y-4 px-4 pb-32 pt-2 sm:px-5">
       {/* Шапка раздела */}
       <header className="flex items-center justify-between">
         <div>
@@ -358,14 +358,10 @@ function Groups() {
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 flex items-center gap-2 text-[12px] text-muted">
-                          <span className="flex items-center gap-1">
-                            <Users size={12} />
+                        <div className="mt-1 flex items-center gap-1.5 text-[12px] text-muted">
+                          <Users size={12} className="text-sage" />
+                          <span>
                             {h.members} {plural(h.members, 'участник', 'участника', 'участников')}
-                          </span>
-                          <span>•</span>
-                          <span className="text-sage transition-colors group-hover:underline">
-                            Открыть дашборд →
                           </span>
                         </div>
                       </div>
