@@ -370,7 +370,6 @@ function Receipts() {
                 </div>
               </div>
             ) : null}
-
             <Button
               type="submit"
               variant="sage"
@@ -609,7 +608,6 @@ function Receipts() {
                                 </div>
                               </div>
                             ) : null}
-
                             <div className="mt-3 flex items-center justify-end">
                               <Button
                                 size="sm"
