@@ -101,8 +101,8 @@ function Groups() {
       if (r?.error) return setError(r.error)
       haptic(12)
       showInAppNotification({
-        title: 'Касса создана!',
-        body: `Касса «${name.trim()}» готова к работе`,
+        title: 'Бюджет создан!',
+        body: `Бюджет «${name.trim()}» готов к работе`,
         icon: 'users',
       })
       setMode('none')
@@ -124,7 +124,7 @@ function Groups() {
       haptic(12)
       showInAppNotification({
         title: 'Успешно!',
-        body: 'Вы присоединились к кассе',
+        body: 'Вы присоединились к совместному бюджету',
         icon: 'users',
       })
       setCode('')
@@ -145,7 +145,7 @@ function Groups() {
       setCopied(id)
       showInAppNotification({
         title: 'Код скопирован',
-        body: `Код кассы «${houseName}»: ${c}`,
+        body: `Код бюджета «${houseName}»: ${c}`,
         icon: 'sparkles',
         duration: 2500,
       })
@@ -162,8 +162,8 @@ function Groups() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Касса «${houseName}» в Листке`,
-          text: `Присоединяйся к семейной кассе «${houseName}» в приложении Листок. Код кассы: ${c}`,
+          title: `Бюджет «${houseName}» в Листке`,
+          text: `Присоединяйся к совместному бюджету «${houseName}» в приложении Листок. Код приглашения: ${c}`,
         })
         return
       } catch {
@@ -176,21 +176,21 @@ function Groups() {
 
   return (
     <div className="space-y-4 px-4 pb-36 pt-2 sm:px-5">
-      {/* Шапка раздела: убран дублирующий верхний баттон, фокус на названии и счетчике */}
+      {/* Шапка раздела: фокус на совместном бюджете */}
       <header className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
             <Users size={14} className="text-sage" />
-            <span>Совместный бюджет</span>
+            <span>Тратим вместе</span>
           </div>
           <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
-            Кассы и семья
+            Общий бюджет
           </h1>
         </div>
 
         {houses.length > 0 && (
           <div className="rounded-full border border-rule/80 bg-paper px-3 py-1 text-[12px] font-medium text-muted shadow-xs">
-            {houses.length} {plural(houses.length, 'касса', 'кассы', 'касс')}
+            {houses.length} {plural(houses.length, 'бюджет', 'бюджета', 'бюджетов')}
           </div>
         )}
       </header>
@@ -209,8 +209,8 @@ function Groups() {
             <Plus size={20} strokeWidth={2.4} />
           </div>
           <div className="mt-3">
-            <span className="text-[14.5px] font-semibold text-ink leading-tight">Создать кассу</span>
-            <p className="mt-0.5 text-[11.5px] text-muted">Семья, квартира, отпуск</p>
+            <span className="text-[14.5px] font-semibold text-ink leading-tight">Создать бюджет</span>
+            <p className="mt-0.5 text-[11.5px] text-muted">Семья, дом, отпуск</p>
           </div>
         </button>
 
@@ -239,17 +239,17 @@ function Groups() {
         </div>
       ) : null}
 
-      {/* Список касс пользователя с финансовым пульсом */}
+      {/* Список бюджетов пользователя с финансовым пульсом */}
       {houses.length === 0 ? (
         <div className="rounded-[22px] border border-rule/80 bg-paper p-8 text-center shadow-paper">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sage/10 text-sage">
             <Users size={26} />
           </div>
           <p className="t-display mt-3.5 text-[18px] font-semibold text-ink">
-            У вас пока нет активных касс
+            У вас пока нет совместных бюджетов
           </p>
           <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] leading-relaxed text-muted">
-            Создайте кассу «Семья» или «Квартира», чтобы вместе вести учёт общих расходов, чеков и счетов ЖКХ.
+            Создайте бюджет «Семья» или «Квартира», чтобы вместе вести учёт общих расходов, чеков и счетов ЖКХ.
           </p>
           <div className="mt-5 flex items-center justify-center gap-2.5">
             <Button
@@ -261,7 +261,7 @@ function Groups() {
               }}
               className="gap-1.5 rounded-[12px] text-[13px]"
             >
-              <Plus size={15} /> Создать первую кассу
+              <Plus size={15} /> Создать первый бюджет
             </Button>
             <Button
               size="sm"
@@ -279,7 +279,7 @@ function Groups() {
       ) : (
         <div className="space-y-3.5">
           <div className="flex items-center justify-between px-1 text-[12px] font-semibold uppercase tracking-wider text-muted">
-            <span>Активные кассы ({houses.length})</span>
+            <span>Ваши бюджеты ({houses.length})</span>
             <span>Расходы и код</span>
           </div>
 
@@ -351,7 +351,7 @@ function Groups() {
                     <div className="flex items-baseline justify-between">
                       <div>
                         <div className="text-[11px] font-medium uppercase tracking-wider text-muted">
-                          Расходы кассы
+                          Траты за месяц
                         </div>
                         <div className="t-display t-num mt-0.5 text-[20px] font-semibold leading-none text-ink">
                           {money(totalSpent)}
@@ -396,7 +396,7 @@ function Groups() {
                 {/* Компактная плашка с кодом приглашения */}
                 <div className="flex items-center justify-between border-t border-rule/60 bg-black/[0.015] px-4 py-2.5">
                   <div className="flex items-center gap-2 text-[12px] text-muted">
-                    <span>Код кассы:</span>
+                    <span>Код бюджета:</span>
                     <span className="font-mono text-[13.5px] font-bold tracking-widest text-ink selection:bg-sage/20">
                       {h.code}
                     </span>
@@ -439,23 +439,23 @@ function Groups() {
           <ShieldCheck size={18} />
         </div>
         <div>
-          <span className="font-semibold text-ink">Как устроена общая касса?</span>
+          <span className="font-semibold text-ink">Как устроен общий бюджет?</span>
           <p className="mt-1 text-[12px] leading-snug text-muted">
-            Все участники могут сканировать чеки в общий котёл, отслеживать траты семьи и оплачивать счета ЖКХ. Итоговый баланс показывает, кто сколько внёс, без споров и путаницы.
+            Все участники могут сканировать чеки в общий бюджет, отслеживать семейные траты и оплачивать счета ЖКХ. Итоговый баланс показывает, кто сколько внёс, без споров и путаницы.
           </p>
         </div>
       </div>
 
-      {/* Шторка создания кассы */}
+      {/* Шторка создания бюджета */}
       <BottomSheet
         open={mode === 'create'}
         onClose={() => setMode('none')}
-        title="Новая касса"
+        title="Новый общий бюджет"
       >
         <form onSubmit={create} className="space-y-4 pt-1">
           <div>
             <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-              Название кассы
+              Название бюджета
             </label>
             <Input
               value={name}
@@ -506,7 +506,7 @@ function Groups() {
               className="flex-1 rounded-[12px] text-[13px]"
               disabled={busy || !name.trim()}
             >
-              {busy ? 'Создание…' : 'Создать кассу'}
+              {busy ? 'Создание…' : 'Создать бюджет'}
             </Button>
           </div>
         </form>
@@ -516,7 +516,7 @@ function Groups() {
       <BottomSheet
         open={mode === 'join'}
         onClose={() => setMode('none')}
-        title="Присоединиться к кассе"
+        title="Присоединиться к бюджету"
       >
         <form onSubmit={join} className="space-y-4 pt-1">
           <div>
@@ -538,7 +538,7 @@ function Groups() {
               required
             />
             <p className="mt-2 text-[12px] text-muted">
-              Введите 7-значный код, которым с вами поделился создатель семейной кассы.
+              Введите 7-значный код, которым с вами поделился создатель общего бюджета.
             </p>
           </div>
 
@@ -559,7 +559,7 @@ function Groups() {
               className="flex-1 rounded-[12px] text-[13px]"
               disabled={busy || !code.trim()}
             >
-              {busy ? 'Проверка…' : 'Войти в кассу'}
+              {busy ? 'Проверка…' : 'Войти в бюджет'}
             </Button>
           </div>
         </form>

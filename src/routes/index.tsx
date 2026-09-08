@@ -233,9 +233,9 @@ function Menu() {
         </motion.div>
       </div>
 
-      {/* 4. Живые виджеты Inset Grouped: Касса и Ближайший счёт */}
+      {/* 4. Живые виджеты Inset Grouped: Совместный бюджет и Ближайший счёт */}
       <div className="space-y-2.5">
-        {/* Виджет: Семейная касса */}
+        {/* Виджет: Совместный бюджет */}
         {primaryHouse ? (
           <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
             <Link
@@ -251,7 +251,7 @@ function Menu() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-                      Семейная касса
+                      Совместный бюджет
                     </span>
                     <span className="rounded-full bg-sage/15 px-2 py-0.2 text-[10.5px] font-semibold text-sage">
                       {primaryHouse.members} {plural(primaryHouse.members, 'участник', 'участника', 'участников')}
@@ -263,7 +263,7 @@ function Menu() {
                 </div>
               </div>
               <div className="flex items-center gap-1 text-muted group-hover:text-sage transition">
-                <span className="text-[12.5px] font-medium hidden xs:inline">Касса</span>
+                <span className="text-[12.5px] font-medium hidden xs:inline">Бюджет</span>
                 <ChevronRight size={17} />
               </div>
             </Link>
@@ -280,7 +280,7 @@ function Menu() {
                   <Users size={19} />
                 </div>
                 <div>
-                  <div className="text-[14.5px] font-semibold text-ink">Создать семейную кассу</div>
+                  <div className="text-[14.5px] font-semibold text-ink">Создать общий бюджет</div>
                   <div className="text-[12px] text-muted">Общие траты, чеки и совместные цели</div>
                 </div>
               </div>

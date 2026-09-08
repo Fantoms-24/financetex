@@ -7,7 +7,7 @@ const ITEMS = [
   { to: '/', label: 'Главная', icon: Home },
   { to: '/receipts', label: 'Чеки', icon: Receipt },
   { to: '/scan', label: 'Скан', icon: ScanLine, center: true },
-  { to: '/groups', label: 'Кассы', icon: Users },
+  { to: '/groups', label: 'Вместе', icon: Users },
   { to: '/agent', label: 'Агент', icon: MessageSquareQuote },
 ] as const
 

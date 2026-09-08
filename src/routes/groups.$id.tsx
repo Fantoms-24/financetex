@@ -36,6 +36,7 @@ import {
   TrendingDown,
   TrendingUp,
   Tv,
+  UserCheck,
   Users,
   Wallet,
   Wifi,
@@ -200,7 +201,14 @@ function HousePage() {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(code)
       }
+      haptic(10)
       setCopiedCode(true)
+      showInAppNotification({
+        title: 'Код скопирован',
+        body: `Код совместного бюджета: ${code}`,
+        icon: 'sparkles',
+        duration: 2500,
+      })
       setTimeout(() => setCopiedCode(false), 2000)
     } catch {
       /* ignore */
@@ -208,11 +216,12 @@ function HousePage() {
   }
 
   const shareCode = async (code: string, houseName: string) => {
+    haptic(8)
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Касса «${houseName}» в Листке`,
-          text: `Присоединяйся к семейной кассе «${houseName}» в приложении Листок. Код приглашения: ${code}`,
+          title: `Бюджет «${houseName}» в Листке`,
+          text: `Присоединяйся к совместному бюджету «${houseName}» в приложении Листок. Код приглашения: ${code}`,
           url: window.location.href,
         })
         return
@@ -231,9 +240,9 @@ function HousePage() {
             <AlertCircle size={24} />
           </div>
           <h2 className="t-display text-[18px] text-ink">{error}</h2>
-          <p className="mt-1 text-[13px] text-muted">Возможно, касса была удалена или вы вышли из неё</p>
+          <p className="mt-1 text-[13px] text-muted">Возможно, совместный бюджет был удалён или вы вышли из него</p>
           <Button className="mt-4 w-full" variant="sage" onClick={() => navigate({ to: '/groups' })}>
-            <ArrowLeft size={16} /> Вернуться к кассам
+            <ArrowLeft size={16} /> Вернуться к разделу Вместе
           </Button>
         </div>
       </div>
@@ -283,52 +292,69 @@ function HousePage() {
         <div className="flex items-center justify-between gap-2">
           <Link
             to="/groups"
-            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-rule bg-paper px-2.5 text-[13px] font-medium text-ink shadow-sm transition hover:bg-white active:scale-95"
-            aria-label="Назад к кассам"
+            onClick={() => haptic(8)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[12px] border border-rule/80 bg-paper px-3 text-[13px] font-medium text-ink shadow-xs transition hover:bg-white active:scale-95"
+            aria-label="Назад к разделу Вместе"
           >
             <ArrowLeft size={15} />
-            <span>Кассы</span>
+            <span>Вместе</span>
           </Link>
 
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => copyCode(snap.house!.code)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-rule bg-paper px-2.5 font-mono text-[12.5px] font-medium tracking-wide text-sage shadow-sm transition hover:bg-white active:scale-95"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[12px] border border-rule/80 bg-paper px-2.5 font-mono text-[12px] font-bold tracking-widest text-ink shadow-xs transition hover:bg-white active:scale-95"
               title="Нажмите, чтобы скопировать код"
             >
-              <Copy size={13} className="shrink-0" />
-              <span>{copiedCode ? 'Скопировано!' : snap.house.code}</span>
+              <Copy size={12} className="shrink-0 text-sage" />
+              <span>{copiedCode ? 'Скопирован!' : snap.house.code}</span>
             </button>
 
             <button
               onClick={() => shareCode(snap.house!.code, snap.house!.name)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-rule bg-paper text-muted shadow-sm transition hover:bg-white hover:text-ink active:scale-95"
-              aria-label="Поделиться кассой"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] border border-rule/80 bg-paper text-muted shadow-xs transition hover:bg-white hover:text-ink active:scale-95"
+              aria-label="Поделиться совместным бюджетом"
               title="Поделиться"
             >
               <Share2 size={15} />
             </button>
 
             <button
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => {
+                haptic(8)
+                setShowSettings(!showSettings)
+              }}
               className={cn(
-                'inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-rule shadow-sm transition active:scale-95',
-                showSettings ? 'bg-sage text-onsage border-sage' : 'bg-paper text-muted hover:bg-white hover:text-ink',
+                'inline-flex h-9 w-9 items-center justify-center rounded-[12px] border shadow-xs transition active:scale-95',
+                showSettings ? 'bg-sage text-onsage border-sage' : 'bg-paper text-muted border-rule/80 hover:bg-white hover:text-ink',
               )}
-              aria-label="Настройки кассы"
-              title="Управление кассой"
+              aria-label="Настройки совместного бюджета"
+              title="Управление бюджетом"
             >
               <Settings2 size={15} />
             </button>
           </div>
         </div>
 
-        {/* Название кассы и бейдж участников */}
-        <div className="mt-3 flex items-baseline justify-between gap-3">
+        {/* Название совместного бюджета и участники */}
+        <div className="mt-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="t-display truncate text-[25px] font-semibold leading-tight text-ink">{snap.house.name}</h1>
-            <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-muted">
-              <Users size={13} className="shrink-0 text-sage" />
+            <div className="flex items-center gap-2">
+              <h1 className="t-display truncate text-[25px] font-semibold leading-tight text-ink">
+                {snap.house.name}
+              </h1>
+              {isOwner ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
+                  <Crown size={11} /> Создатель
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-sage/10 px-2 py-0.5 text-[10.5px] font-medium text-sage">
+                  <UserCheck size={11} /> Участник
+                </span>
+              )}
+            </div>
+            <p className="mt-1 flex items-center gap-1.5 text-[12px] text-muted">
+              <Users size={12} className="shrink-0 text-sage" />
               <span className="font-medium">
                 {snap.members.length} {plural(snap.members.length, 'участник', 'участника', 'участников')}
               </span>
@@ -339,14 +365,14 @@ function HousePage() {
         </div>
       </header>
 
-      {/* Выпадающая панель настроек / управления кассой */}
+      {/* Выпадающая панель настроек / управления бюджетом */}
       {showSettings ? (
         <div className="mb-4 px-4">
-          <div className="rounded-[16px] border border-rule bg-paper p-4 shadow-paper">
+          <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
             <div className="mb-3 flex items-center justify-between border-b border-rule/60 pb-2.5">
               <div className="flex items-center gap-2">
                 <Settings2 size={16} className="text-sage" />
-                <h3 className="t-display text-[15px] font-semibold text-ink">Управление кассой</h3>
+                <h3 className="t-display text-[15px] font-semibold text-ink">Управление бюджетом</h3>
               </div>
               <button
                 onClick={() => setShowSettings(false)}
@@ -356,11 +382,11 @@ function HousePage() {
               </button>
             </div>
 
-            {/* Месячный бюджет кассы */}
+            {/* Месячный лимит бюджета */}
             <div className="mb-3 rounded-[12px] border border-rule/60 bg-white/70 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Месячный бюджет кассы</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Месячный лимит трат</p>
                   <p className="t-num text-[16px] font-bold text-ink">
                     {snap.house.monthly_budget > 0 ? money(snap.house.monthly_budget) : 'Не установлен'}
                   </p>
@@ -374,7 +400,7 @@ function HousePage() {
                 />
               </div>
               <p className="mt-1 text-[11px] text-muted">
-                Общий лимит расходов семьи на месяц для аналитики и контроля трат.
+                Общий лимит расходов семьи на месяц для аналитики и контроля перерасхода.
               </p>
             </div>
 
@@ -411,7 +437,7 @@ function HousePage() {
                         <span className="font-medium text-ink">{m.name}</span>
                         <button
                           onClick={async () => {
-                            if (!confirm(`Исключить участника «${m.name}» из кассы?`)) return
+                            if (!confirm(`Исключить участника «${m.name}» из совместного бюджета?`)) return
                             await kickMember({ data: { houseId: id, userId: m.user_id } })
                             await load()
                           }}
@@ -429,25 +455,25 @@ function HousePage() {
             <div className="border-t border-rule/60 pt-3">
               {isOwner ? (
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-muted">Вы создатель этой кассы</span>
+                  <span className="text-[12px] text-muted">Вы создатель этого бюджета</span>
                   <button
                     className="flex items-center gap-1 rounded-[8px] border border-stamp/30 px-2.5 py-1.5 text-[12px] text-stamp hover:bg-stamp/10"
                     onClick={async () => {
-                      if (!confirm('Удалить кассу полностью? Все платежи, чеки и переписка будут стёрты.')) return
+                      if (!confirm('Удалить совместный бюджет полностью? Все платежи, чеки и копилки будут стёрты.')) return
                       await deleteHouse({ data: { houseId: id } })
                       navigate({ to: '/groups' })
                     }}
                   >
-                    <Trash2 size={13} /> Удалить кассу
+                    <Trash2 size={13} /> Удалить бюджет
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-muted">Покинуть совместную кассу</span>
+                  <span className="text-[12px] text-muted">Покинуть совместный бюджет</span>
                   <button
                     className="flex items-center gap-1 rounded-[8px] border border-stamp/30 px-2.5 py-1.5 text-[12px] text-stamp hover:bg-stamp/10"
                     onClick={async () => {
-                      if (!confirm('Выйти из кассы? Вы перестанете получать уведомления.')) return
+                      if (!confirm('Выйти из совместного бюджета? Вы перестанете получать уведомления.')) return
                       await leaveHouse({ data: { houseId: id } })
                       navigate({ to: '/groups' })
                     }}
@@ -461,45 +487,67 @@ function HousePage() {
         </div>
       ) : null}
 
-      {/* 2. Финтех-сводка: Главная карточка баланса */}
-      <section className="mb-4 px-4">
-        <div className="relative overflow-hidden rounded-[20px] border border-rule bg-gradient-to-b from-[#faf7ef] to-[#f4eee2] p-4 shadow-paper">
-          <div className="flex items-center justify-between text-[12.5px]">
+      {/* 2. Финтех-сводка: Главная Hero-карточка баланса (без антипаттерна «коробка в коробке») */}
+      <section className="mb-3 px-4">
+        <div className="relative overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
+          {/* Верхняя строка: Месяц и статус счетов */}
+          <div className="flex items-center justify-between text-[12px]">
             <span className="font-semibold uppercase tracking-wider text-muted">
-              Расходы {formatCycleMonth(snap.cycle)}
+              Бюджет · {formatCycleMonth(snap.cycle)}
             </span>
-            <span className="rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-medium text-sage">
-              {paidCount} из {totalBillsCount} счетов закрыто
-            </span>
+            {totalBillsCount > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-medium text-sage">
+                <CheckCircle2 size={12} />
+                <span>{paidCount} из {totalBillsCount} счетов</span>
+              </span>
+            ) : null}
           </div>
 
-          {/* Главные показатели */}
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-[14px] border border-rule/70 bg-white/70 p-3 shadow-xs">
-              <span className="text-[11.5px] text-muted">Всего за месяц</span>
-              <p className="t-num mt-0.5 text-[20px] font-bold text-ink">
-                {moneyShort(snap.analytics.totalSpent)}
-              </p>
-              <span className="text-[10.5px] text-muted">счета + чеки кассы</span>
+          {/* Главный баланс трат */}
+          <div className="mt-3">
+            <span className="text-[11.5px] font-medium text-muted">Всего потрачено в этом месяце</span>
+            <div className="t-display t-num mt-0.5 text-[28px] sm:text-[32px] font-semibold leading-none text-ink">
+              {money(snap.analytics.totalSpent || receiptsSum)}
+            </div>
+          </div>
+
+          {/* Две чистые метрики без вложенных серых коробок */}
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-rule/50 pt-3">
+            <div>
+              <div className="flex items-center gap-1 text-[11px] text-muted">
+                <ReceiptText size={12} className="text-sage" />
+                <span>Чеки покупок</span>
+              </div>
+              <div className="t-num mt-1 text-[16px] font-bold text-ink">
+                {money(receiptsSum)}
+              </div>
+              <span className="text-[10.5px] text-muted">
+                {snap.receipts.length} {plural(snap.receipts.length, 'чек', 'чека', 'чеков')}
+              </span>
             </div>
 
-            <div className="rounded-[14px] border border-sage/30 bg-sage/10 p-3 shadow-xs">
-              <span className="text-[11.5px] font-medium text-sage">Ваша доля счетов</span>
-              <p className="t-num mt-0.5 text-[20px] font-bold text-ink">{moneyShort(myTotalShare)}</p>
-              <span className="text-[10.5px] text-sage">
-                {myUnpaidShare === 0 && myTotalShare > 0 ? 'оплачено полностью' : `осталось ${moneyShort(myUnpaidShare)}`}
+            <div className="border-l border-rule/50 pl-3">
+              <div className="flex items-center gap-1 text-[11px] font-medium text-sage">
+                <Wallet size={12} />
+                <span>Ваша доля счетов</span>
+              </div>
+              <div className="t-num mt-1 text-[16px] font-bold text-ink">
+                {money(myTotalShare)}
+              </div>
+              <span className={cn('text-[10.5px]', myUnpaidShare === 0 && myTotalShare > 0 ? 'text-sage font-medium' : 'text-amber-800 font-medium')}>
+                {myUnpaidShare === 0 && myTotalShare > 0 ? '✓ всё закрыто' : `к оплате ${money(myUnpaidShare)}`}
               </span>
             </div>
           </div>
 
-          {/* Индикатор прогресса платежей */}
+          {/* Прогресс-бар закрытия регулярных счетов */}
           {totalBillsCount > 0 ? (
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-[11.5px] text-muted">
+            <div className="mt-3.5 border-t border-rule/40 pt-2.5">
+              <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
                 <span>Прогресс закрытия счетов</span>
                 <span className="font-semibold text-ink">{percentPaid}%</span>
               </div>
-              <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-rule-soft">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-rule/50">
                 <div
                   className="h-full rounded-full bg-sage transition-all duration-500"
                   style={{ width: `${percentPaid}%` }}
@@ -510,16 +558,19 @@ function HousePage() {
         </div>
       </section>
 
-      {/* 3. Участники и доходы (аккордеон) */}
-      <section className="mb-4 px-4">
-        <div className="rounded-[18px] border border-rule bg-paper p-3.5 shadow-paper">
+      {/* 3. Участники и доходы (компактный ряд с перекрывающимися аватарами) */}
+      <section className="mb-3 px-4">
+        <div className="rounded-[18px] border border-rule/80 bg-paper p-3.5 shadow-paper">
           <button
             type="button"
-            onClick={() => setShowMembersDetail(!showMembersDetail)}
-            className="flex w-full items-center justify-between text-left transition hover:opacity-90"
+            onClick={() => {
+              haptic(6)
+              setShowMembersDetail(!showMembersDetail)
+            }}
+            className="flex w-full items-center justify-between text-left transition hover:opacity-90 active:scale-[0.99]"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex -space-x-1.5 shrink-0 overflow-hidden">
+              <div className="flex -space-x-2 shrink-0 overflow-hidden">
                 {snap.members.slice(0, 4).map((m, idx) => (
                   <div
                     key={m.user_id}
@@ -534,12 +585,14 @@ function HousePage() {
               </div>
               <div className="min-w-0">
                 <span className="t-display block text-[14.5px] font-semibold text-ink leading-tight">
-                  Участники и доходы
+                  Участники и доли
                 </span>
-                <p className="mt-0.5 text-[11.5px] text-muted leading-tight">доли при делении «по зарплате»</p>
+                <p className="mt-0.5 text-[11.5px] text-muted leading-tight">
+                  {totalSalaries > 0 ? 'доли при делении «по зарплате»' : 'деление расходов поровну'}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[12.5px] text-muted shrink-0 pl-2">
+            <div className="flex items-center gap-1 text-[12px] text-muted shrink-0 pl-2">
               <span className="font-normal">{showMembersDetail ? 'Скрыть' : 'Подробнее'}</span>
               {showMembersDetail ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </div>
@@ -579,7 +632,7 @@ function HousePage() {
                             </span>
                           ) : null}
                           {isCreator ? (
-                            <span title="Создатель кассы">
+                            <span title="Создатель бюджета">
                               <Crown size={12} className="text-amber-600 shrink-0" />
                             </span>
                           ) : null}
@@ -611,28 +664,33 @@ function HousePage() {
         </div>
       </section>
 
-      {/* Персональный финансовый советник кассы */}
-      <div className="mb-3 px-4">
+      {/* 4. Персональный финансовый советник бюджета (ИИ) */}
+      <div className="mb-3.5 px-4">
         <Link
           to="/agent"
           search={{ houseId: id }}
-          className="group flex items-center justify-between rounded-[18px] border border-rule/80 bg-paper p-3.5 shadow-paper transition-all hover:border-sage/40 active:scale-[0.99]"
+          onClick={() => haptic(8)}
+          className="group flex items-center justify-between rounded-[20px] border border-sage/35 bg-gradient-to-r from-sage/12 via-sage/6 to-paper p-3.5 shadow-paper transition-all hover:border-sage/50 active:scale-[0.99]"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage transition-colors group-hover:bg-sage group-hover:text-onsage">
-              <Sparkles size={18} />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage text-onsage shadow-xs transition-transform group-hover:scale-105">
+              <Sparkles size={17} />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="t-display text-[14px] font-semibold text-ink leading-tight">
-                  Советник кассы
+                  Советник бюджета
                 </span>
-                <span className="rounded-full bg-sage/10 px-2 py-0.2 text-[10px] font-bold text-sage">
+                <span className="rounded-full bg-sage/15 px-2 py-0.2 text-[10px] font-bold text-sage">
                   ИИ
                 </span>
               </div>
               <p className="mt-0.5 text-[11.5px] text-muted leading-tight">
-                Анализ общих расходов, баланс долей и копилки
+                {myUnpaidShare > 0
+                  ? `К оплате: ${money(myUnpaidShare)} · Нажмите для подсказки`
+                  : totalBillsCount === 0
+                  ? 'Добавьте счета ЖКХ для авто-расчёта долей'
+                  : 'Все счета закрыты · Анализ трат и копилок'}
               </p>
             </div>
           </div>
@@ -640,14 +698,14 @@ function HousePage() {
         </Link>
       </div>
 
-      {/* 4. Фирменный сегментированный переключатель вкладок */}
-      <div className="mb-4 px-4">
+      {/* 5. Фирменный сегментированный переключатель вкладок */}
+      <div className="mb-3.5 px-4">
         <div className="relative flex items-center rounded-[16px] border border-rule/80 bg-paper p-1 shadow-paper select-none overflow-x-auto no-scrollbar">
           {(
             [
               { id: 'bills', label: 'Счета', count: snap.bills.length, icon: Receipt },
               { id: 'receipts', label: 'Чеки', count: snap.receipts.length, icon: ReceiptText },
-              { id: 'goals', label: 'Цели', count: activeGoalsCount, icon: PiggyBank },
+              { id: 'goals', label: 'Копилки', count: activeGoalsCount, icon: PiggyBank },
               { id: 'analytics', label: 'Лимит', count: 0, icon: BarChart3 },
             ] as const
           ).map((item) => {
@@ -658,13 +716,7 @@ function HousePage() {
                 key={item.id}
                 type="button"
                 onClick={() => {
-                  try {
-                    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-                      navigator.vibrate(6)
-                    }
-                  } catch {
-                    /* */
-                  }
+                  haptic(6)
                   setTab(item.id)
                 }}
                 className={cn(
@@ -674,7 +726,7 @@ function HousePage() {
               >
                 {active ? (
                   <motion.div
-                    layoutId="cashboxTabActive"
+                    layoutId="budgetTabActive"
                     className="absolute inset-0 -z-10 rounded-[12px] bg-sage shadow-sm"
                     transition={{ type: 'spring', stiffness: 360, damping: 32 }}
                   />
