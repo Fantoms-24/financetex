@@ -91,8 +91,8 @@ export default defineConfig(({ command, mode }) => {
           // собираем стандартный Node.js сервер в .output для запуска через "npm start".
           // На Vercel по умолчанию собираем в .vercel/output.
           (() => {
-            const isRender = Boolean(process.env.RENDER)
-            const preset = process.env.NITRO_PRESET || (isRender ? 'node-server' : 'vercel')
+            const isVercel = Boolean(process.env.VERCEL)
+            const preset = process.env.NITRO_PRESET || (isVercel ? 'vercel' : 'node-server')
             const defaultDir = preset === 'vercel' ? '.vercel/output' : '.output'
             return nitro({
               config: {

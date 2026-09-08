@@ -36,16 +36,31 @@ async function create(): Promise<DB> {
       if (typeof PoolClass !== 'function' && PoolClass?.Pool) {
         PoolClass = PoolClass.Pool
       }
-      const pool = new PoolClass({
-        connectionString: url,
-        max: 6,
-        idleTimeoutMillis: 20_000,
-        connectionTimeoutMillis: 5_000,
-        ...(url.includes('localhost') || url.includes('127.0.0.1')
-          ? {}
-          : { ssl: { rejectUnauthorized: false } }),
-      })
-      await pool.query('SELECT 1')
+      const isLocal = url.includes('localhost') || url.includes('127.0.0.1') || url.includes('sslmode=disable')
+      let pool: any = null
+      try {
+        pool = new PoolClass({
+          connectionString: url,
+          max: 6,
+          idleTimeoutMillis: 20_000,
+          connectionTimeoutMillis: 5_000,
+          ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
+        })
+        await pool.query('SELECT 1')
+      } catch (sslErr: any) {
+        if (!isLocal) {
+          console.warn('[db] Retrying Postgres connection without SSL (internal network):', sslErr?.message || sslErr)
+          pool = new PoolClass({
+            connectionString: url,
+            max: 6,
+            idleTimeoutMillis: 20_000,
+            connectionTimeoutMillis: 5_000,
+          })
+          await pool.query('SELECT 1')
+        } else {
+          throw sslErr
+        }
+      }
       console.log('[db] Connected to remote Postgres successfully')
       db = {
         kind: 'pg',
