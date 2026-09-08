@@ -225,8 +225,8 @@ function Receipts() {
   }, [periodItems])
 
   return (
-    <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
-      {/* 1. Шапка раздела с кнопками действий */}
+    <div className="space-y-5 px-4 pb-44 pt-3 sm:px-5">
+      {/* 1. Шапка раздела: чистая и сбалансированная */}
       <header className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
@@ -242,10 +242,10 @@ function Receipts() {
           <Link
             to="/scan"
             onClick={() => haptic(8)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-rule/70 bg-paper text-ink shadow-xs transition hover:border-sage/50 active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-rule/80 bg-paper text-sage shadow-xs transition hover:border-sage/50 active:scale-95"
             title="Сканировать чек"
           >
-            <ScanLine size={18} className="text-sage" />
+            <ScanLine size={19} strokeWidth={2.2} />
           </Link>
           <Button
             size="sm"
@@ -254,17 +254,17 @@ function Receipts() {
               haptic(8)
               setOpenAddSheet(true)
             }}
-            className="gap-1.5 rounded-full px-3.5 h-10"
+            className="gap-1.5 rounded-full px-4 h-10 shadow-paper"
           >
-            <Plus size={16} />
-            <span>Вписать</span>
+            <Plus size={16} strokeWidth={2.4} />
+            <span className="font-semibold text-[13.5px]">Вписать</span>
           </Button>
         </div>
       </header>
 
-      {/* Переключатель периода (Этот месяц / Прошлый / Всё время) и кнопка отчета */}
+      {/* 2. Панель периода и кнопка отчёта */}
       <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex rounded-full border border-rule/70 bg-paper/80 p-0.5 shadow-xs">
+        <div className="inline-flex rounded-full border border-rule/80 bg-paper/90 p-1 shadow-xs">
           {(
             [
               { id: 'current', label: 'Этот месяц' },
@@ -282,7 +282,7 @@ function Receipts() {
                   setPeriod(tab.id)
                 }}
                 className={cn(
-                  'relative rounded-full px-3 py-1 text-[12px] font-medium transition',
+                  'relative rounded-full px-3.5 py-1 text-[12px] font-medium transition cursor-pointer select-none',
                   active ? 'text-onsage font-semibold' : 'text-muted hover:text-ink',
                 )}
               >
@@ -290,7 +290,7 @@ function Receipts() {
                   <motion.div
                     layoutId="receiptPeriodPill"
                     className="absolute inset-0 rounded-full bg-sage shadow-xs"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
                   />
                 )}
                 <span className="relative z-10">{tab.label}</span>
@@ -305,7 +305,7 @@ function Receipts() {
             haptic(8)
             setOpenShareModal(true)
           }}
-          className="inline-flex items-center gap-1.5 rounded-full border border-rule/70 bg-paper px-3 py-1 text-[12px] font-medium text-muted shadow-xs transition hover:border-sage/40 hover:text-ink active:scale-95"
+          className="inline-flex items-center gap-1.5 rounded-full border border-rule/80 bg-paper px-3.5 py-1.5 text-[12px] font-medium text-muted shadow-xs transition hover:border-sage/40 hover:text-ink active:scale-95 cursor-pointer"
           title="Поделиться отчетом и скачать CSV"
         >
           <Share2 size={13} className="text-sage" />
@@ -313,9 +313,9 @@ function Receipts() {
         </button>
       </div>
 
-      {/* 2. Легкая карточка сводки за выбранный период с аналитикой долей категорий */}
-      <section className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-5 shadow-paper">
-        <div className="flex items-center justify-between text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+      {/* 3. Премиальная карточка сводки за выбранный период */}
+      <section className="relative overflow-hidden rounded-[24px] border border-rule/80 bg-paper p-5 shadow-paper space-y-3.5">
+        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted">
           <span>
             {period === 'current'
               ? monthLabelRu(currentMonthKey)
@@ -323,45 +323,50 @@ function Receipts() {
               ? monthLabelRu(previousMonthKey)
               : 'Все покупки'}
           </span>
-          <span className="t-num font-medium text-sage">
+          <span className="rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-semibold text-sage">
             {periodItems.length} {plural(periodItems.length, 'чек', 'чека', 'чеков')}
           </span>
         </div>
 
-        <div className="mt-1.5 flex items-baseline gap-3">
-          <p className="t-display t-num text-[34px] font-bold text-ink leading-tight">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="t-display t-num text-[36px] font-bold text-ink leading-none tracking-tight">
             {money(periodTotal)}
           </p>
-          <span className="text-[12.5px] text-muted">
-            · средний {money(periodAvgCheck)}
-          </span>
+          <div className="text-right">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted block">
+              Средний чек
+            </span>
+            <span className="t-num text-[14.5px] font-semibold text-ink">
+              {money(periodAvgCheck)}
+            </span>
+          </div>
         </div>
 
         {/* Категорийный срез (Category Insights) */}
         {categoryStats.length > 0 && (
-          <div className="mt-4 border-t border-rule/50 pt-3.5">
-            <div className="mb-2 flex items-center justify-between text-[11.5px] font-medium text-muted">
-              <span>Куда уходят деньги</span>
-              <span className="t-num">
-                {selectedCategory !== 'all' ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      haptic(6)
-                      setSelectedCategory('all')
-                    }}
-                    className="text-sage hover:underline"
-                  >
-                    Сбросить фильтр
-                  </button>
-                ) : (
-                  `${categoryStats.length} ${plural(categoryStats.length, 'категория', 'категории', 'категорий')}`
-                )}
-              </span>
+          <div className="border-t border-rule/50 pt-3">
+            <div className="mb-2 flex items-center justify-between text-[11.5px] text-muted">
+              <span className="font-medium">Категории расходов</span>
+              {selectedCategory !== 'all' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setSelectedCategory('all')
+                  }}
+                  className="font-semibold text-sage hover:underline cursor-pointer"
+                >
+                  Сбросить фильтр ✕
+                </button>
+              ) : (
+                <span className="t-num font-medium text-ink/70">
+                  {categoryStats.length} {plural(categoryStats.length, 'категория', 'категории', 'категорий')}
+                </span>
+              )}
             </div>
 
             {/* Сегментированная тактильная полоса */}
-            <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-paper-deep/70 p-0.5">
+            <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-cream p-0.5">
               {categoryStats.map((cat) => {
                 const isSelected = selectedCategory === cat.id
                 const isFaded = selectedCategory !== 'all' && !isSelected
@@ -375,9 +380,9 @@ function Receipts() {
                     }}
                     style={{ width: `${Math.max(cat.percent, 4)}%` }}
                     className={cn(
-                      'h-full rounded-full transition-all duration-300 hover:opacity-100',
+                      'h-full rounded-full transition-all duration-300 hover:opacity-100 cursor-pointer',
                       cat.color,
-                      isFaded && 'opacity-30',
+                      isFaded && 'opacity-25',
                       isSelected && 'ring-2 ring-sage ring-offset-1',
                     )}
                     title={`${cat.label}: ${cat.percent}% (${money(cat.amount)})`}
@@ -399,10 +404,10 @@ function Receipts() {
                       setSelectedCategory(isSelected ? 'all' : cat.id)
                     }}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition active:scale-95',
+                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition active:scale-95 cursor-pointer',
                       isSelected
-                        ? 'bg-sage text-onsage shadow-xs'
-                        : 'border border-rule/60 bg-paper-deep/50 text-muted hover:border-sage/40 hover:text-ink',
+                        ? 'bg-sage text-onsage shadow-xs font-semibold'
+                        : 'border border-rule/70 bg-cream/50 text-muted hover:border-sage/40 hover:text-ink',
                     )}
                   >
                     <span
@@ -421,22 +426,22 @@ function Receipts() {
         )}
       </section>
 
-      {/* 3. Поиск и фильтрация по категориям */}
-      <div className="space-y-3">
-        {/* Поисковая строка */}
+      {/* 4. Поиск и фильтрация по категориям */}
+      <div className="space-y-2.5">
+        {/* Поисковая строка с startIcon (исправлен наезд на текст) */}
         <div className="relative">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Поиск по магазину или заметке…"
-            className="h-11 rounded-[16px] pl-10 pr-9 border-rule/70 bg-paper/80 shadow-xs"
+            startIcon={<Search size={16} className="text-muted" />}
+            className="h-11 rounded-[16px] border-rule/70 bg-paper shadow-xs text-[14px]"
           />
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           {search && (
             <button
               type="button"
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-ink"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-ink cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -452,9 +457,9 @@ function Receipts() {
               setSelectedCategory('all')
             }}
             className={cn(
-              'relative shrink-0 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+              'relative shrink-0 rounded-full border px-3.5 py-1 text-[12px] font-medium transition-colors cursor-pointer',
               selectedCategory === 'all'
-                ? 'border-sage text-onsage'
+                ? 'border-sage text-onsage font-semibold'
                 : 'border-rule/70 bg-paper text-muted hover:text-ink',
             )}
           >
@@ -465,11 +470,11 @@ function Receipts() {
                 transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               />
             ) : null}
-            Все ({items.length})
+            Все ({periodItems.length})
           </button>
 
           {CATEGORIES.map((cat) => {
-            const count = items.filter((r) => r.category === cat.id).length
+            const count = periodItems.filter((r) => r.category === cat.id).length
             if (count === 0 && selectedCategory !== cat.id) return null
             const active = selectedCategory === cat.id
             return (
@@ -481,9 +486,9 @@ function Receipts() {
                   setSelectedCategory(cat.id)
                 }}
                 className={cn(
-                  'relative shrink-0 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
+                  'relative shrink-0 rounded-full border px-3.5 py-1 text-[12px] font-medium transition-colors cursor-pointer',
                   active
-                    ? 'border-sage text-onsage'
+                    ? 'border-sage text-onsage font-semibold'
                     : 'border-rule/70 bg-paper text-muted hover:text-ink',
                 )}
               >
@@ -501,23 +506,25 @@ function Receipts() {
         </div>
       </div>
 
-      {/* 4. Список сгруппированных чеков */}
+      {/* 5. Список чеков или сбалансированное пустое состояние */}
       {grouped.length === 0 ? (
-        <div className="rounded-[22px] border border-rule/70 bg-paper p-8 text-center shadow-paper">
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-sage/10 text-sage">
-            <ReceiptIcon size={22} />
+        <div className="rounded-[24px] border border-rule/70 bg-paper p-6 text-center shadow-paper space-y-3">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage">
+            <ReceiptIcon size={24} />
           </div>
-          <p className="t-display mt-3 text-[17px] font-semibold text-ink">
-            {search || selectedCategory !== 'all' ? 'Ничего не найдено' : 'В архиве пока нет чеков'}
-          </p>
-          <p className="mx-auto mt-1 max-w-[260px] text-[12.5px] leading-relaxed text-muted">
-            {search || selectedCategory !== 'all'
-              ? 'Попробуйте изменить поисковый запрос или сбросить категорию.'
-              : 'Отсканируйте чек камерой или запишите расход вручную.'}
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-2.5">
+          <div>
+            <h3 className="t-display text-[17px] font-semibold text-ink">
+              {search || selectedCategory !== 'all' ? 'Ничего не найдено' : 'В этом периоде пока нет чеков'}
+            </h3>
+            <p className="mx-auto mt-1 max-w-[260px] text-[12.5px] leading-relaxed text-muted">
+              {search || selectedCategory !== 'all'
+                ? 'Попробуйте изменить поисковый запрос или сбросить категорию.'
+                : 'Отсканируйте чек камерой или запишите расход вручную.'}
+            </p>
+          </div>
+          <div className="mt-2 flex items-center justify-center gap-2.5">
             <Link to="/scan" onClick={() => haptic(8)}>
-              <Button size="sm" variant="sage" className="rounded-full gap-1.5">
+              <Button size="sm" variant="sage" className="rounded-full gap-1.5 px-4">
                 <ScanLine size={15} />
                 <span>Сканировать</span>
               </Button>
@@ -529,7 +536,7 @@ function Receipts() {
                 haptic(8)
                 setOpenAddSheet(true)
               }}
-              className="rounded-full gap-1.5"
+              className="rounded-full gap-1.5 px-4"
             >
               <Plus size={15} />
               <span>Вписать</span>
