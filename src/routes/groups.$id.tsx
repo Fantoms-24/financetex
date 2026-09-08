@@ -612,16 +612,16 @@ function HousePage() {
         </div>
       </section>
 
-      {/* 4. Стильный сегментированный переключатель вкладок */}
+      {/* 4. Фирменный сегментированный переключатель вкладок в стиле ЧекАгента */}
       <div className="mb-4 px-4">
-        <div className="grid grid-cols-5 rounded-[16px] border border-rule/70 bg-[#ebe5d8]/85 p-1 shadow-xs">
+        <div className="flex rounded-[16px] border border-rule bg-paper p-1 shadow-paper">
           {(
             [
               { id: 'bills', label: 'Счета', count: snap.bills.length, icon: Receipt },
               { id: 'receipts', label: 'Чеки', count: snap.receipts.length, icon: ReceiptText },
-              { id: 'goals', label: 'Цели', count: activeGoalsCount, icon: PiggyBank },
+              { id: 'goals', label: 'Копилки', count: activeGoalsCount, icon: PiggyBank },
               { id: 'analytics', label: 'Бюджет', count: 0, icon: BarChart3 },
-              { id: 'chat', label: 'Советник', count: snap.messages.length, icon: Sparkles },
+              { id: 'chat', label: 'Чат', count: snap.messages.length, icon: MessageSquare },
             ] as const
           ).map((item) => {
             const active = tab === item.id
@@ -632,28 +632,24 @@ function HousePage() {
                 type="button"
                 onClick={() => setTab(item.id)}
                 className={cn(
-                  'relative flex flex-col items-center justify-center rounded-[12px] py-2 px-0.5 transition-all active:scale-95',
+                  'relative flex min-h-[38px] flex-1 items-center justify-center gap-1 rounded-[12px] px-1 text-[12px] font-medium transition-all duration-150 active:scale-95 leading-none',
                   active
-                    ? 'bg-paper text-ink font-semibold shadow-paper'
-                    : 'text-muted hover:text-ink hover:bg-black/[0.02]',
+                    ? 'bg-sage text-onsage shadow-sm font-semibold'
+                    : 'text-muted hover:text-ink hover:bg-cream/60',
                 )}
               >
-                <div className="relative flex items-center justify-center">
-                  <Icon size={16} className={cn('transition-colors', active ? 'text-sage' : 'text-muted')} />
-                  {item.count > 0 ? (
-                    <span
-                      className={cn(
-                        'absolute -top-1.5 -right-2.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-0.5 text-[8.5px] font-bold leading-none',
-                        active ? 'bg-sage text-onsage' : 'bg-rule-soft text-ink/70',
-                      )}
-                    >
-                      {item.count}
-                    </span>
-                  ) : null}
-                </div>
-                <span className="mt-1 block truncate text-[11px] leading-none tracking-tight font-medium">
-                  {item.label}
-                </span>
+                <Icon size={14} className="shrink-0" />
+                <span className="truncate">{item.label}</span>
+                {item.count > 0 ? (
+                  <span
+                    className={cn(
+                      'ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9.5px] font-bold leading-none',
+                      active ? 'bg-white/20 text-onsage' : 'bg-rule-soft text-muted',
+                    )}
+                  >
+                    {item.count}
+                  </span>
+                ) : null}
               </button>
             )
           })}
@@ -1242,17 +1238,22 @@ function HousePage() {
 
         {/* --- ВКЛАДКА 5: ЧАТ КАССЫ И СЕМЕЙНЫЙ AI-СОВЕТНИК (CHAT) --- */}
         {tab === 'chat' ? (
-          <div className="rounded-[18px] border border-rule bg-paper p-3.5 shadow-paper">
+          <div className="rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper">
             {/* Панель быстрого вызова ЧекАгента */}
-            <div className="mb-3 rounded-[14px] border border-sage/30 bg-sage/5 p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={15} className="text-sage" />
-                <span className="t-display text-[13.5px] font-semibold text-sage">
-                  Семейный советник ЧекАгент
+            <div className="mb-4 rounded-[16px] border border-rule/70 bg-cream/40 p-3.5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-sage/15 text-sage">
+                  <Sparkles size={15} />
+                </div>
+                <h4 className="t-display text-[15px] font-semibold text-ink leading-tight">
+                  Семейный советник
+                </h4>
+                <span className="ml-auto rounded-full bg-sage/10 px-2 py-0.5 text-[10.5px] font-bold text-sage">
+                  ИИ
                 </span>
               </div>
-              <p className="text-[11.5px] text-muted mb-2.5">
-                Задайте вопрос по финансам кассы или используйте быстрые команды:
+              <p className="text-[12px] text-muted mb-2.5 leading-relaxed">
+                Задайте вопрос о финансах семьи или выберите быстрый вопрос:
               </p>
               <div className="flex flex-wrap gap-1.5">
                 <button
@@ -1269,10 +1270,10 @@ function HousePage() {
                       setAgentBusy(false)
                     }
                   }}
-                  className="rounded-[9px] border border-sage/40 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sage hover:bg-sage/10 transition shadow-xs disabled:opacity-50"
+                  className="rounded-full border border-rule/80 bg-paper hover:bg-cream px-3 py-1.5 text-[12px] font-medium text-ink transition-all active:scale-95 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {agentBusy ? <LoaderCircle size={11} className="inline animate-spin mr-1" /> : null}
-                  📊 Итоги месяца
+                  {agentBusy ? <LoaderCircle size={12} className="animate-spin text-sage" /> : <span>📊</span>}
+                  <span>Итоги месяца</span>
                 </button>
                 <button
                   type="button"
@@ -1288,9 +1289,10 @@ function HousePage() {
                       setAgentBusy(false)
                     }
                   }}
-                  className="rounded-[9px] border border-sage/40 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sage hover:bg-sage/10 transition shadow-xs disabled:opacity-50"
+                  className="rounded-full border border-rule/80 bg-paper hover:bg-cream px-3 py-1.5 text-[12px] font-medium text-ink transition-all active:scale-95 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  💡 Где сэкономить?
+                  {agentBusy ? <LoaderCircle size={12} className="animate-spin text-sage" /> : <span>💡</span>}
+                  <span>Где сэкономить?</span>
                 </button>
                 <button
                   type="button"
@@ -1306,18 +1308,19 @@ function HousePage() {
                       setAgentBusy(false)
                     }
                   }}
-                  className="rounded-[9px] border border-sage/40 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sage hover:bg-sage/10 transition shadow-xs disabled:opacity-50"
+                  className="rounded-full border border-rule/80 bg-paper hover:bg-cream px-3 py-1.5 text-[12px] font-medium text-ink transition-all active:scale-95 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  🎯 Цели и копилки
+                  {agentBusy ? <LoaderCircle size={12} className="animate-spin text-sage" /> : <span>🎯</span>}
+                  <span>Цели и копилки</span>
                 </button>
               </div>
             </div>
 
             {/* Лента сообщений */}
-            <div className="mb-3 flex max-h-[46vh] flex-col gap-2.5 overflow-y-auto px-1 py-1 no-scrollbar">
+            <div className="mb-3 flex max-h-[46vh] flex-col gap-3 overflow-y-auto px-1 py-1 no-scrollbar">
               {snap.messages.length === 0 ? (
                 <div className="py-8 text-center text-[13px] text-muted">
-                  Пока сообщений нет. Напишите что-нибудь в общую кассу или запросите отчёт у Агента!
+                  Пока сообщений нет. Напишите что-нибудь в общую кассу или запросите отчёт у Советника!
                 </div>
               ) : (
                 snap.messages.map((m) => {
@@ -1326,45 +1329,44 @@ function HousePage() {
 
                   if (isAgent) {
                     return (
-                      <div
-                        key={m.id}
-                        className="my-1 rounded-[14px] border border-sage/40 bg-[#f4f8f5] p-3 shadow-xs"
-                      >
-                        <div className="flex items-center gap-1.5 mb-1.5">
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-sage text-onsage">
-                            <Sparkles size={11} />
-                          </div>
-                          <span className="text-[12px] font-bold text-sage">ЧекАгент · Советник</span>
-                          <span className="text-[10px] text-muted/70 ml-auto">{timeRu(m.created_at)}</span>
+                      <div key={m.id} className="flex items-start gap-2.5 my-1">
+                        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-sage/15 text-sage shadow-xs">
+                          <Sparkles size={14} />
                         </div>
-                        <p className="text-[13.5px] leading-relaxed text-ink whitespace-pre-wrap">{m.text}</p>
+                        <div className="max-w-[88%] rounded-[18px] rounded-tl-xs border border-rule/80 bg-paper px-4 py-3 text-[13.5px] leading-relaxed text-ink shadow-paper">
+                          <div className="flex items-center justify-between gap-2 mb-1.5 border-b border-rule/40 pb-1">
+                            <span className="text-[11px] font-bold text-sage">ЧекАгент · Советник</span>
+                            <span className="text-[10px] text-muted/70">{timeRu(m.created_at)}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap">{m.text}</p>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  if (isMe) {
+                    return (
+                      <div key={m.id} className="flex flex-col items-end">
+                        <div className="max-w-[82%] rounded-[18px] rounded-br-xs bg-sage px-3.5 py-2.5 text-[13.5px] leading-snug text-onsage shadow-sm break-words">
+                          <p className="whitespace-pre-wrap">{m.text}</p>
+                        </div>
+                        <span className="mt-0.5 px-1 text-[10px] text-muted/70">
+                          {timeRu(m.created_at)}
+                        </span>
                       </div>
                     )
                   }
 
                   return (
-                    <div
-                      key={m.id}
-                      className={cn('flex flex-col', isMe ? 'items-end' : 'items-start')}
-                    >
-                      {!isMe ? (
-                        <span className="mb-0.5 ml-1 text-[11px] font-semibold text-sage">
-                          {m.name}
-                        </span>
-                      ) : null}
-                      <div
-                        className={cn(
-                          'max-w-[82%] rounded-[14px] px-3.5 py-2 text-[14px] leading-snug shadow-xs break-words',
-                          isMe
-                            ? 'bg-sage text-onsage rounded-tr-xs'
-                            : 'bg-white border border-rule text-ink rounded-tl-xs',
-                        )}
-                      >
-                        <p>{m.text}</p>
+                    <div key={m.id} className="flex items-start gap-2">
+                      <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cream border border-rule text-[10px] font-bold text-ink">
+                        {getInitials(m.name)}
                       </div>
-                      <span className="mt-0.5 px-1 text-[10px] text-muted/70">
-                        {timeRu(m.created_at)}
-                      </span>
+                      <div className="max-w-[80%] rounded-[18px] rounded-tl-xs border border-rule/80 bg-paper px-3.5 py-2 text-[13.5px] leading-snug text-ink shadow-xs break-words">
+                        <span className="mb-0.5 block text-[11px] font-semibold text-sage">{m.name}</span>
+                        <p className="whitespace-pre-wrap">{m.text}</p>
+                        <span className="mt-1 block text-right text-[9.5px] text-muted/70">{timeRu(m.created_at)}</span>
+                      </div>
                     </div>
                   )
                 })
@@ -2100,17 +2102,17 @@ function ChatInputBar({ onSend }: { onSend: (text: string) => Promise<void> }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Написать в кассу или советнику…"
-        className="h-11 rounded-[12px] bg-white text-[13.5px]"
+        className="h-10 rounded-[12px] bg-paper text-[13px] border-rule/80 focus:border-sage"
       />
       <Button
         type="submit"
         variant="sage"
         size="icon"
         disabled={busy || !text.trim()}
-        className="h-11 w-11 shrink-0 rounded-[12px]"
+        className="h-10 w-10 shrink-0 rounded-[12px]"
         aria-label="Отправить сообщение"
       >
-        <Send size={16} />
+        <Send size={15} />
       </Button>
     </form>
   )
