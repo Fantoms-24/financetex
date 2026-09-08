@@ -214,8 +214,8 @@ function HousePage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Касса «${houseName}» в ЧекАгенте`,
-          text: `Присоединяйся к семейной кассе «${houseName}» в приложении ЧекАгент. Код приглашения: ${code}`,
+          title: `Касса «${houseName}» в Листке`,
+          text: `Присоединяйся к семейной кассе «${houseName}» в приложении Листок. Код приглашения: ${code}`,
           url: window.location.href,
         })
         return
@@ -1365,7 +1365,7 @@ function HousePage() {
                         </div>
                         <div className="max-w-[88%] rounded-[18px] rounded-tl-xs border border-rule/80 bg-paper px-4 py-3 text-[13.5px] leading-relaxed text-ink shadow-paper">
                           <div className="flex items-center justify-between gap-2 mb-1.5 border-b border-rule/40 pb-1">
-                            <span className="text-[11px] font-bold text-sage">ЧекАгент · Советник</span>
+                            <span className="text-[11px] font-bold text-sage">Листок · Советник</span>
                             <span className="text-[10px] text-muted/70">{timeRu(m.created_at)}</span>
                           </div>
                           <p className="whitespace-pre-wrap">{m.text}</p>

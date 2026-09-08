@@ -77,7 +77,7 @@ export const agentSend = createServerFn({ method: 'POST' })
       `SELECT role, text FROM agent_messages WHERE user_id = $1 ORDER BY created_at DESC LIMIT 12`,
       [user.id]
     )
-    const system = `Ты — ЧекАгент, карманный финансист. Говоришь по-русски, коротко и по-человечески, как запись в блокноте.Не используй слова «нейросеть», «AI», «smart insights». Без маркетинга и канцелярита.Данные человека: ${context}Отвечай 2–5 короткими фразами. Если не хватает данных — скажи прямо.`
+    const system = `Ты — Листок, карманный финансист. Говоришь по-русски, коротко и по-человечески, как запись в блокноте.Не используй слова «нейросеть», «AI», «smart insights». Без маркетинга и канцелярита.Данные человека: ${context}Отвечай 2–5 короткими фразами. Если не хватает данных — скажи прямо.`
     let reply = ''
     try {
       const resp = await fetch(`${baseUrl}/chat/completions`, {

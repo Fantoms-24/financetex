@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'com.chekagent.financetex',
-  appName: 'ЧекАгент',
+  appName: 'Листок',
   webDir: 'public',
   server: {
     url: 'https://financetex.onrender.com',

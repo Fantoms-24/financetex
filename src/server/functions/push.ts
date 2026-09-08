@@ -66,7 +66,7 @@ export const pushTest = createServerFn({ method: 'POST' })
         }
       }
       const res = await sendToUser(user.id, {
-        title: 'ЧекАгент',
+        title: 'Листок',
         body: 'Проверка связи. Баннер должен дойти даже с выключенным экраном',
         data: { url: '/settings', type: 'test' },
       })

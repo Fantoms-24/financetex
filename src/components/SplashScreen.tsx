@@ -18,38 +18,22 @@ export function SplashScreen({ message }: { message?: string }) {
 
       {/* Центральная карточка-чек с анимацией парения */}
       <div className="relative z-10 flex flex-col items-center">
-        {/* Анимированный бумажный чек */}
-        <div className="relative mb-6 flex h-24 w-20 flex-col justify-between rounded-[14px] border border-rule/90 bg-[#faf6ee] p-3 shadow-paper-lg transition-transform duration-700 animate-[float_3s_ease-in-out_infinite]">
-          {/* Зубчатый край сверху */}
-          <div className="absolute -top-1 left-2 right-2 flex justify-between">
-            <span className="h-1 w-1.5 rounded-full bg-rule/70" />
-            <span className="h-1 w-1.5 rounded-full bg-rule/70" />
-            <span className="h-1 w-1.5 rounded-full bg-rule/70" />
-            <span className="h-1 w-1.5 rounded-full bg-rule/70" />
-            <span className="h-1 w-1.5 rounded-full bg-rule/70" />
+        {/* Анимированный 3D логотип Листок */}
+        <div className="relative mb-5 flex items-center justify-center transition-transform duration-700 animate-[float_3s_ease-in-out_infinite]">
+          <div className="relative h-24 w-24 overflow-hidden rounded-[24px] shadow-paper-lg ring-1 ring-rule/80 bg-paper">
+            <img
+              src="/logo.png"
+              alt="Листок"
+              className="h-full w-full object-cover"
+            />
           </div>
-
-          {/* Иконка печати/штампа */}
-          <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-sage/15 text-sage ring-4 ring-sage/10 animate-pulse">
-            <Sparkles size={16} />
-          </div>
-
-          {/* Имитация строк чека с эффектом сканирования */}
-          <div className="space-y-1.5 px-0.5">
-            <div className="h-1 w-full rounded-full bg-rule/80 animate-[pulse_1.5s_ease-in-out_infinite]" />
-            <div className="h-1 w-3/4 rounded-full bg-rule/60 animate-[pulse_1.5s_ease-in-out_infinite_200ms]" />
-            <div className="h-1 w-1/2 rounded-full bg-sage/40 animate-[pulse_1.5s_ease-in-out_infinite_400ms]" />
-          </div>
-
-          {/* Декоративная линия отрыва */}
-          <div className="border-b border-dashed border-rule" />
         </div>
 
         {/* Название бренда */}
-        <h1 className="t-display text-[26px] font-bold text-ink tracking-tight">
-          ЧекАгент
+        <h1 className="t-display text-[27px] font-bold text-ink tracking-tight">
+          Листок
         </h1>
-        <p className="mt-1 text-[13px] font-medium text-muted">
+        <p className="mt-1 text-[13.5px] font-medium text-muted">
           Карманный финансист
         </p>
 

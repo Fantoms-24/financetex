@@ -415,7 +415,7 @@ async function snapshot(houseId: string) {
       .map((m) => ({
         id: m.id,
         user_id: m.user_id,
-        name: m.user_id === 'agent' ? 'ЧекАгент' : (m.display_name || m.uname || m.email?.split('@')[0] || 'Человек'),
+        name: m.user_id === 'agent' ? 'Листок' : (m.display_name || m.uname || m.email?.split('@')[0] || 'Человек'),
         text: m.text,
         is_agent: m.user_id === 'agent',
         created_at: new Date(m.created_at).toISOString(),
@@ -577,7 +577,7 @@ export const askHouseAgent = createServerFn({ method: 'POST' })
         `Копилки: ${goalsText}.`,
       ].join(' ')
 
-      const system = `Ты — ЧекАгент, карманный финансовый советник семейной кассы.
+      const system = `Ты — Листок, карманный финансовый советник семейной кассы.
 Говоришь по-русски, тепло, дружелюбно, лаконично и по делу, как заметка в блокноте.
 Без корпоративного жаргона, без слов «нейросеть», «AI», «умные алгоритмы».
 Вот данные семейной кассы: ${context}
@@ -617,7 +617,7 @@ export const askHouseAgent = createServerFn({ method: 'POST' })
 
       const houseName = snap.house.name
       await notifyHouseExcept(data.houseId, user.id, {
-        title: `ЧекАгент (${houseName})`,
+        title: `Листок (${houseName})`,
         body: reply.slice(0, 120),
         data: { url: `/groups/${data.houseId}`, type: 'house-agent' },
       }).catch(() => {})

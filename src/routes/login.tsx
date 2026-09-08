@@ -87,7 +87,9 @@ function Login() {
         <header className="flex flex-col items-center text-center">
           <div className="relative">
             <div className="absolute -inset-1.5 rounded-[22px] bg-sage/15 blur-sm" />
-            <Logo size={70} className="relative drop-shadow-sm transition-transform hover:scale-105" />
+            <div className="relative h-[76px] w-[76px] overflow-hidden rounded-[22px] border border-rule/80 bg-paper shadow-paper-lg transition-transform hover:scale-105">
+              <img src="/logo.png" alt="Листок" className="h-full w-full object-cover" />
+            </div>
           </div>
 
           <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-sage/20 bg-sage/8 px-3 py-0.5 text-[11.5px] font-medium tracking-wide text-sage">
@@ -95,8 +97,8 @@ function Login() {
             <span>Умный финансовый помощник</span>
           </div>
 
-          <h1 className="t-display mt-2.5 text-[32px] font-medium leading-none tracking-tight text-ink">
-            ЧекАгент
+          <h1 className="t-display mt-2.5 text-[34px] font-semibold leading-none tracking-tight text-ink">
+            Листок
           </h1>
           <p className="mt-2 text-[14px] leading-relaxed text-muted">
             {mode === 'in'
