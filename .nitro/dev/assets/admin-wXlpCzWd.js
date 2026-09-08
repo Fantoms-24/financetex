@@ -1,1 +1,0 @@
-import{d as e,f as a}from"./index-BHHIIx0z.js";const c=e({method:"GET"}).handler(a("f9e281fd18d4b9142de9f5cf5e4d11ef494a7e0fd7c5cfad849e466a1940b406")),t=e({method:"POST"}).handler(a("54902348e78831e3b0fb09c978db9c79dbd4e1cc95c3e765ba7bbacf91713e78"));export{c as g,t as s};

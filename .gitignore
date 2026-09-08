@@ -5,6 +5,7 @@ dist/
 .output/
 .vercel/
 .tanstack/
+.nitro/
 
 # локальная БД (PGlite) — только для превью, на проде Neon
 .pglite-data/

@@ -1,1 +1,0 @@
-import{r,j as t,g as n}from"./index-BHHIIx0z.js";const o=r.forwardRef(({className:a,...e},s)=>t.jsx("input",{ref:s,className:n("field",a),...e}));o.displayName="Input";const x=r.forwardRef(({className:a,...e},s)=>t.jsx("textarea",{ref:s,className:n("field resize-none leading-relaxed",a),...e}));x.displayName="Textarea";export{o as I};
