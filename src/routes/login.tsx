@@ -28,7 +28,7 @@ function Login() {
     if (busy) return
     setError(null)
     if (!login.trim()) return setError('Впишите логин')
-    if (password.length < 8) return setError('Пароль — минимум 8 символов')
+    if (password.length < 4) return setError('Пароль — минимум 4 символа')
 
     setBusy(true)
     try {
@@ -134,7 +134,7 @@ function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="минимум 8 символов"
+                placeholder="минимум 4 символа"
                 autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
               />
             </div>

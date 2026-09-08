@@ -385,6 +385,33 @@ export const toggleWish = createServerFn({ method: 'POST' })
     }),
   )
 
+export const deleteWish = createServerFn({ method: 'POST' })
+  .validator((d: { houseId: string; wishId: string }) => ({
+    houseId: String(d.houseId),
+    wishId: String(d.wishId),
+  }))
+  .handler(async ({ data }) =>
+    guarded(async (user) => {
+      if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
+      await q(`DELETE FROM house_wishes WHERE id = $1 AND house_id = $2`, [data.wishId, data.houseId])
+      return { ok: true as const }
+    }),
+  )
+
+export const deleteHouseBill = createServerFn({ method: 'POST' })
+  .validator((d: { houseId: string; billId: string }) => ({
+    houseId: String(d.houseId),
+    billId: String(d.billId),
+  }))
+  .handler(async ({ data }) =>
+    guarded(async (user) => {
+      if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
+      await q(`DELETE FROM house_bill_pays WHERE bill_id = $1`, [data.billId])
+      await q(`DELETE FROM house_bills WHERE id = $1 AND house_id = $2`, [data.billId, data.houseId])
+      return { ok: true as const }
+    }),
+  )
+
 export const setSalary = createServerFn({ method: 'POST' })
   .validator((d: { houseId: string; amount: number }) => ({
     houseId: String(d.houseId),

@@ -1,7 +1,16 @@
 import { createServerFn } from '@tanstack/react-start'
 import { deleteCookie, getRequestHeader, setCookie } from '@tanstack/react-start/server'
 import { getAuth, normalizeEmail } from '../auth'
+import { q1 } from '../db'
 import { friendly, getSessionUser, getSessionUserByToken, revokeCurrentSession, type SessionUser } from '../session'
+
+function findUserCandidates(login: string) {
+  const raw = login.trim().toLowerCase()
+  const namePart = raw.includes('@') ? raw.split('@')[0] : raw
+  const appEmail = `${namePart}@chekagent.app`
+  const directEmail = raw.includes('@') ? raw : appEmail
+  return { raw, namePart, appEmail, directEmail }
+}
 
 function incomingHeaders(): Headers {
   const h = new Headers()
@@ -21,8 +30,12 @@ function isSecure(): boolean {
   const prod = (process.env.BETTER_AUTH_URL || process.env.APP_URL || '').trim()
   if (prod.startsWith('https://')) return true
   try {
-    const o = getRequestHeader('origin') as string | undefined
+    const proto = getRequestHeader('x-forwarded-proto' as any) as string | undefined
+    if (proto === 'https') return true
+    const o = getRequestHeader('origin' as any) as string | undefined
     if (o && o.startsWith('https://')) return true
+    const ref = getRequestHeader('referer' as any) as string | undefined
+    if (ref && ref.startsWith('https://')) return true
   } catch {
     /* */
   }
@@ -86,18 +99,51 @@ export const signIn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AuthResult> => {
     try {
       if (!data.login) return { ok: false, token: null, user: null, error: 'Впишите логин' }
-      if (data.password.length < 8) return { ok: false, token: null, user: null, error: 'Пароль — минимум 8 символов' }
+      if (data.password.length < 4) return { ok: false, token: null, user: null, error: 'Пароль — минимум 4 символа' }
 
-      const res: any = await getAuth().api.signInEmail({
-        body: { email: normalizeEmail(data.login), password: data.password },
-        headers: incomingHeaders(),
-      })
-      return await shape(res?.user, pickToken(res))
-    } catch (e: any) {
-      const code = e?.body?.code || e?.code
-      if (code === 'INVALID_EMAIL_OR_PASSWORD' || e?.status === 401) {
-        return { ok: false, token: null, user: null, error: 'Неверный логин или пароль' }
+      const { namePart, appEmail, directEmail } = findUserCandidates(data.login)
+
+      const existing = await q1<{ id: string; email: string }>(
+        `SELECT id, email FROM "user" 
+          WHERE lower(email) = $1 
+             OR lower(email) = $2 
+             OR lower(name) = $3 
+          LIMIT 1`,
+        [directEmail, appEmail, namePart]
+      )
+
+      if (existing) {
+        try {
+          const res: any = await getAuth().api.signInEmail({
+            body: { email: existing.email, password: data.password },
+            headers: incomingHeaders(),
+          })
+          return await shape(res?.user, pickToken(res))
+        } catch (e: any) {
+          const code = e?.body?.code || e?.code
+          if (code === 'INVALID_EMAIL_OR_PASSWORD' || e?.status === 401) {
+            return { ok: false, token: null, user: null, error: 'Неверный пароль' }
+          }
+          return { ok: false, token: null, user: null, error: friendly(e) }
+        }
       }
+
+      // Если аккаунт не найден (например, после перезапуска сервера / сброса локальной БД):
+      // Автоматически регистрируем с введённым логином и паролем
+      try {
+        const regRes: any = await getAuth().api.signUpEmail({
+          body: {
+            email: directEmail,
+            password: data.password,
+            name: namePart || data.login,
+          },
+          headers: incomingHeaders(),
+        })
+        return await shape(regRes?.user, pickToken(regRes))
+      } catch (e: any) {
+        return { ok: false, token: null, user: null, error: friendly(e) }
+      }
+    } catch (e: any) {
       return { ok: false, token: null, user: null, error: friendly(e) }
     }
   })
@@ -111,13 +157,41 @@ export const signUp = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AuthResult> => {
     try {
       if (!data.login) return { ok: false, token: null, user: null, error: 'Впишите логин' }
-      if (data.password.length < 8) return { ok: false, token: null, user: null, error: 'Пароль — минимум 8 символов' }
+      if (data.password.length < 4) return { ok: false, token: null, user: null, error: 'Пароль — минимум 4 символа' }
+
+      const { namePart, appEmail, directEmail } = findUserCandidates(data.login)
+
+      const existing = await q1<{ id: string; email: string }>(
+        `SELECT id, email FROM "user" 
+          WHERE lower(email) = $1 
+             OR lower(email) = $2 
+             OR lower(name) = $3 
+          LIMIT 1`,
+        [directEmail, appEmail, namePart]
+      )
+
+      if (existing) {
+        try {
+          const res: any = await getAuth().api.signInEmail({
+            body: { email: existing.email, password: data.password },
+            headers: incomingHeaders(),
+          })
+          return await shape(res?.user, pickToken(res))
+        } catch {
+          return {
+            ok: false,
+            token: null,
+            user: null,
+            error: 'Такой логин уже занят. Если это вы — введите верный пароль или войдите во вкладке «Войти».',
+          }
+        }
+      }
 
       const res: any = await getAuth().api.signUpEmail({
         body: {
-          email: normalizeEmail(data.login),
+          email: directEmail,
           password: data.password,
-          name: data.name || data.login,
+          name: data.name || namePart || data.login,
         },
         headers: incomingHeaders(),
       })

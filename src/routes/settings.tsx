@@ -4,10 +4,18 @@ import { ChevronRight, LogOut } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
-import { currentEndpoint, disablePush, enablePush, isIos, isStandalone, pushState, pushSupported } from '~/lib/push-client'
+import {
+  currentEndpoint,
+  disablePush,
+  enablePush,
+  isIos,
+  isStandalone,
+  pushState,
+  pushSupported,
+} from '~/lib/push-client'
+import { getAdminState } from '~/server/functions/admin'
 import { pushSubscribe, pushTest, vapidPublic } from '~/server/functions/push'
 import { saveProfile, saveSettings } from '~/server/functions/settings'
-import { getAdminState } from '~/server/functions/admin'
 
 export const Route = createFileRoute('/settings')({
   component: Settings,
@@ -20,8 +28,7 @@ function Settings() {
   const [bank, setBank] = React.useState('')
   const [budget, setBudget] = React.useState('')
   const [saved, setSaved] = React.useState(false)
-
-  const [perm, setPerm] = React.useState(() => pushState())
+  const [perm, setPerm] = React.useState({ permission: 'default' as NotificationPermission, granted: false })
   const [standalone, setStandalone] = React.useState(false)
   const [testResult, setTestResult] = React.useState<string | null>(null)
   const [testError, setTestError] = React.useState<string | null>(null)
@@ -36,22 +43,27 @@ function Settings() {
     setBudget(String(boot.settings.monthly_budget || 45000))
     setStandalone(isStandalone())
     setPerm(pushState())
+
     currentEndpoint()
       .then(async (ep) => {
         if (!ep) return
-        // подписка уже есть — убедимся, что сервер её знает
         try {
           const reg = await navigator.serviceWorker.getRegistration('/')
           const sub = await reg?.pushManager.getSubscription()
           const keys = (sub?.toJSON() as any)?.keys || {}
           if (sub) {
-            await pushSubscribe({ data: { endpoint: sub.endpoint, p256dh: keys.p256dh || '', auth: keys.auth || '' } })
+            await pushSubscribe({
+              data: {
+                endpoint: sub.endpoint,
+                p256dh: keys.p256dh || '',
+                auth: keys.auth || '',
+              },
+            })
           }
-        } catch {
-          /* */
-        }
+        } catch {}
       })
       .catch(() => {})
+
     getAdminState()
       .then((r: any) => setIsAdmin(!!r?.isAdmin))
       .catch(() => {})
@@ -60,9 +72,19 @@ function Settings() {
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
-    await saveProfile({ data: { display_name: name, phone, bank } })
+    await saveProfile({
+      data: {
+        display_name: name,
+        phone,
+        bank,
+      },
+    })
     const b = Math.round(Number(budget.replace(/[^\d]/g, '') || 45000))
-    await saveSettings({ data: { monthly_budget: b } })
+    await saveSettings({
+      data: {
+        monthly_budget: b,
+      },
+    })
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
     setBusy(false)
@@ -88,7 +110,7 @@ function Settings() {
       setBusy(false)
       return
     }
-    const r: any = await pushTest().catch(() => null)
+    const r = (await pushTest().catch(() => null)) as any
     if (!r) {
       setTestError('Не получилось отправить')
     } else {
@@ -105,21 +127,19 @@ function Settings() {
         <p className="mt-1.5 text-[13px] text-muted">{user?.email}</p>
       </header>
 
-      {/* пуши */}
       <section className="receipt-card rise mb-4 p-4">
         <h2 className="t-display mb-2 text-[17px]">Уведомления</h2>
         <p className="mb-3 text-[13px] leading-snug text-muted">
           {!pushSupported()
             ? 'Браузер не умеет пуши'
             : perm.granted
-              ? standalone
-                ? 'Включены. Приходят даже с выключенным экраном'
-                : isIos()
-                  ? 'Разрешение есть. Откройте приложение с иконки Домой'
-                  : 'Разрешение есть'
-              : 'Выключены — напоминания не придут'}
+            ? standalone
+              ? 'Включены. Приходят даже с выключенным экраном'
+              : isIos()
+              ? 'Разрешение есть. Откройте приложение с иконки Домой'
+              : 'Разрешение есть'
+            : 'Выключены — напоминания не придут'}
         </p>
-
         <div className="grid grid-cols-2 gap-2.5">
           {perm.granted ? (
             <Button variant="paper" size="md" disabled={busy} onClick={onTest}>
@@ -148,7 +168,6 @@ function Settings() {
             </Button>
           )}
         </div>
-
         {testResult ? <p className="mt-2.5 text-[13px] text-sage">{testResult}</p> : null}
         {testError ? <p className="mt-2.5 text-[13px] text-stamp">{testError}</p> : null}
         {isIos() && !standalone ? (
@@ -158,15 +177,22 @@ function Settings() {
         ) : null}
       </section>
 
-      {/* профиль */}
       <form onSubmit={save} className="receipt-card rise mb-4 p-4">
         <h2 className="t-display mb-3 text-[17px]">Профиль и лимит</h2>
         <div className="mb-3">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Имя</label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Как обращаться" />
+          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
+            Имя
+          </label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Как обращаться"
+          />
         </div>
         <div className="mb-3">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Лимит месяца, ₽</label>
+          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
+            Лимит месяца, ₽
+          </label>
           <Input
             value={budget}
             onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ''))}
@@ -174,14 +200,33 @@ function Settings() {
           />
         </div>
         <div className="mb-3">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Телефон для СБП</label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+7 900 000-00-00" inputMode="tel" />
+          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
+            Телефон для СБП
+          </label>
+          <Input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+7 900 000-00-00"
+            inputMode="tel"
+          />
         </div>
         <div className="mb-4">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Банк</label>
-          <Input value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Тинькофф" />
+          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
+            Банк
+          </label>
+          <Input
+            value={bank}
+            onChange={(e) => setBank(e.target.value)}
+            placeholder="Тинькофф"
+          />
         </div>
-        <Button type="submit" variant="sage" size="md" className="w-full" disabled={busy}>
+        <Button
+          type="submit"
+          variant="sage"
+          size="md"
+          className="w-full"
+          disabled={busy}
+        >
           {saved ? 'Сохранили' : 'Сохранить'}
         </Button>
       </form>

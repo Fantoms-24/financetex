@@ -1,39 +1,21 @@
-import {
-  Kysely,
-  PostgresAdapter,
-  PostgresIntrospector,
-  PostgresQueryCompiler,
-  type CompiledQuery,
-  type DatabaseConnection,
-  type Dialect,
-  type Driver,
-  type QueryResult,
-} from 'kysely'
-import { getDB, type DB } from './index'
+import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler, type Dialect, type Driver } from 'kysely'
+import { getDB } from './index'
 
-/**
- * Драйвер, который исполняет скомпилированный kysely-SQL через наш единый слой БД
- * (Neon/pg на проде, PGlite в превью). Один источник правды — один пул.
- */
 class BridgeDriver implements Driver {
   async init(): Promise<void> {}
-
-  async acquireConnection(): Promise<DatabaseConnection> {
-    const db: DB = await getDB()
+  async acquireConnection() {
+    const db = await getDB()
     return {
-      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
-        const rows = (await db.query(compiledQuery.sql, (compiledQuery.parameters ?? []) as Array<unknown>)) as Array<R>
+      async executeQuery<R>(compiledQuery: { sql: string; parameters?: ReadonlyArray<unknown> }) {
+        const rows = await db.query(compiledQuery.sql, compiledQuery.parameters as Array<any> ?? [])
         return {
-          rows: rows ?? [],
+          rows: (rows ?? []) as Array<R>,
           numAffectedRows: BigInt(rows?.length ?? 0),
-        } as QueryResult<R>
+        }
       },
-      async *streamQuery<R>(): AsyncIterableIterator<QueryResult<R>> {
-        /* поток не нужен */
-      },
+      async *streamQuery() {},
     }
   }
-
   async beginTransaction(): Promise<void> {}
   async commitTransaction(): Promise<void> {}
   async rollbackTransaction(): Promise<void> {}
@@ -51,6 +33,6 @@ const dialect: Dialect = {
 let instance: Kysely<any> | null = null
 
 export function getKysely(): Kysely<any> {
-  if (!instance) instance = new Kysely<any>({ dialect })
+  if (!instance) instance = new Kysely({ dialect })
   return instance
 }

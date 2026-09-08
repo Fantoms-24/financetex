@@ -1,5 +1,3 @@
-'use server'
-
 import { getRequestHeader } from '@tanstack/react-start/server'
 import { q, q1 } from './db'
 
@@ -11,14 +9,6 @@ export interface SessionUser {
   role: string
   phone: string | null
   bank: string | null
-}
-
-export interface UserSettings {
-  currency: string
-  monthly_budget: number
-  monthly_income: number
-  allocations: Record<string, number>
-  seen_welcome: boolean
 }
 
 function readToken(): string | null {
@@ -47,7 +37,6 @@ function rawCookie(): string {
   }
 }
 
-/** Токен берём из bearer (превью-Grok режет cookie) или из cookie (прод). */
 export function getToken(): string | null {
   const b = readToken()
   if (b) return b
@@ -57,52 +46,32 @@ export function getToken(): string | null {
   return m ? decodeURIComponent(m[1]) : null
 }
 
-/** Better Auth сам проверяет сессию — не гадаем, как он хранит токен. */
-/**
- * Better Auth 1.7 кладёт в cookie подписанное значение «<token>.<подпись>»,
- * а в теле ответа отдаёт голый token. Нам нужен один и тот же токен
- * и для bearer (превью-Grok режет cookie), и для cookie (прод),
- * поэтому откусываем подпись, если она есть.
- */
-export function normalizeToken(raw: string | null | undefined): string | null {
+function normalizeToken(raw: string | null): string | null {
   const v = (raw || '').trim()
   if (!v) return null
   const dot = v.indexOf('.')
   return dot > 0 ? v.slice(0, dot) : v
 }
 
-/**
- * Ядро: профиль по явному токену.
- *
- * Обязательно для момента входа/регистрации. Там сессия только что создана,
- * заголовки запроса её ещё не знают — ни bearer (клиент токена ещё не видел),
- * ни cookie (она уедет только в ответе). Если читать getToken(), получим null
- * и форма покажет «Не получилось войти» при живом и валидном токене.
- */
-export async function getSessionUserByToken(
-  rawToken: string | null | undefined,
-): Promise<SessionUser | null> {
+export async function getSessionUserByToken(rawToken: string | null): Promise<SessionUser | null> {
   const token = normalizeToken(rawToken)
   if (!token) return null
-
   try {
     const row = await q1<{
       user_id: string
-      name: string
-      email: string
-      expires_at: string | Date
+      name: string | null
+      email: string | null
+      expires_at: string | Date | null
     }>(
       `SELECT u.id AS user_id, u.name, u.email, s."expiresAt" AS expires_at
          FROM "session" s
          JOIN "user" u ON u.id = s."userId"
         WHERE s.token = $1`,
-      [token],
+      [token]
     )
     if (!row?.user_id) return null
-
     const exp = row.expires_at ? new Date(row.expires_at).getTime() : 0
     if (exp && exp < Date.now()) return null
-
     await ensureProfile(row.user_id, row.name || (row.email || '').split('@')[0] || 'Друг')
     const prof = await getProfile(row.user_id)
     return {
@@ -119,15 +88,10 @@ export async function getSessionUserByToken(
   }
 }
 
-/**
- * Сессию читаем сами: auth.api.getSession() верифицирует подпись cookie и
- * не понимает наш bearer, из-за чего каждый запрос считался бы «не вошли».
- */
 export async function getSessionUser(): Promise<SessionUser | null> {
   return getSessionUserByToken(getToken())
 }
 
-/** Выход: гасим сессию в БД, а не только cookie. */
 export async function revokeCurrentSession(): Promise<void> {
   const token = normalizeToken(getToken())
   if (!token) return
@@ -154,22 +118,16 @@ export async function ensureProfile(userId: string, name: string) {
   await q(
     `INSERT INTO profiles (user_id, display_name, role) VALUES ($1, $2, 'user')
      ON CONFLICT (user_id) DO NOTHING`,
-    [userId, name],
+    [userId, name]
   )
   await q(
     `INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
-    [userId],
+    [userId]
   )
 }
 
-export async function isAdmin(userId: string): Promise<boolean> {
-  const p = await getProfile(userId)
-  return (p?.role || '') === 'admin'
-}
-
-/** Ошибки — по-русски и коротко. */
-export function friendly(e: unknown): string {
-  const msg = (e as any)?.message || String(e || '')
+export function friendly(e: any): string {
+  const msg = e?.message || String(e || '')
   if (/войдите/i.test(msg)) return 'Войдите, чтобы продолжить'
   if (/уже есть|exists|duplicate/i.test(msg)) return 'Такой логин уже занят'
   if (/8 символ|password/i.test(msg)) return 'Пароль — минимум 8 символов'
@@ -181,7 +139,7 @@ export async function guarded<T>(fn: (user: SessionUser) => Promise<T>): Promise
   try {
     const user = await requireUser()
     return await fn(user)
-  } catch (e) {
-    return { error: friendly(e) } as { error: string }
+  } catch (e: any) {
+    return { error: friendly(e) }
   }
 }

@@ -15,31 +15,37 @@ export function getDB(): Promise<DB> {
 }
 
 async function create(): Promise<DB> {
-  const url = (process.env.DATABASE_URL || '').trim()
-  let db: DB
+  const rawUrl = (process.env.DATABASE_URL || '').trim()
+  const isDummyUrl = !rawUrl || rawUrl.includes('ep-xxx') || rawUrl.includes('user:pass')
+  const url = isDummyUrl ? '' : rawUrl
+  let db: DB | null = null
 
   if (url) {
-    const { Pool } = await import('pg')
-    const pool = new Pool({
-      connectionString: url,
-      max: 6,
-      idleTimeoutMillis: 20_000,
-      connectionTimeoutMillis: 15_000,
-      ...(url.includes('localhost') || url.includes('127.0.0.1')
-        ? {}
-        : { ssl: { rejectUnauthorized: false } }),
-    })
-    db = {
-      kind: 'pg',
-      async query(sql, params = []) {
-        const r = await pool.query(sql, params as Array<any>)
-        return r.rows as Array<any>
-      },
+    try {
+      const { Pool } = await import('pg')
+      const pool = new Pool({
+        connectionString: url,
+        max: 6,
+        idleTimeoutMillis: 20_000,
+        connectionTimeoutMillis: 3_000,
+        ...(url.includes('localhost') || url.includes('127.0.0.1')
+          ? {}
+          : { ssl: { rejectUnauthorized: false } }),
+      })
+      await pool.query('SELECT 1')
+      db = {
+        kind: 'pg',
+        async query(sql, params = []) {
+          const r = await pool.query(sql, params as Array<any>)
+          return r.rows as Array<any>
+        },
+      }
+    } catch (e) {
+      console.warn('[db] Remote Postgres unavailable, falling back to local PGlite:', (e as Error)?.message)
     }
-  } else {
-    // PGlite — только для локальной разработки и превью: в собранной
-    // serverless-функции его .wasm/.data не находятся, поэтому там без
-    // DATABASE_URL работать не будет. Падаем понятным сообщением, а не ENOENT.
+  }
+
+  if (!db) {
     let PGlite: any
     try {
       ;({ PGlite } = await import('@electric-sql/pglite'))
@@ -54,10 +60,15 @@ async function create(): Promise<DB> {
       pg = new PGlite(process.env.PGLITE_DIR || '.pglite-data')
       await pg.waitReady
     } catch (e) {
-      throw new Error(
-        `Не задана DATABASE_URL, а локальная БД (PGlite) не поднялась: ${(e as Error)?.message}. ` +
-          'Запускайте локально через npm run dev либо задайте DATABASE_URL.',
-      )
+      try {
+        pg = new PGlite()
+        await pg.waitReady
+      } catch (err) {
+        throw new Error(
+          `Не задана DATABASE_URL, а локальная БД (PGlite) не поднялась: ${(e as Error)?.message}. ` +
+            'Запускайте локально через npm run dev либо задайте DATABASE_URL.',
+        )
+      }
     }
     db = {
       kind: 'pglite',

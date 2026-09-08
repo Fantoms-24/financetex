@@ -86,34 +86,37 @@ export default defineConfig(({ command, mode }) => {
     ...(command === 'build'
       ? [
           // В nitro 3 плагин принимает { config: NitroConfig }, а не сам конфиг:
-          // если передать preset напрямую, он молча игнорируется и сборка уезжает
-          // в .output с пресетом node-server вместо .vercel/output.
-          nitro({
-            config: {
-              preset: 'vercel',
-              // По умолчанию пишем в .vercel/output (Build Output API для Vercel).
-              // NITRO_OUTPUT_DIR — только для локальных прогонов, когда
-              // .vercel/output занят; на деплое переменной нет, путь штатный.
-              output: { dir: process.env.NITRO_OUTPUT_DIR || '.vercel/output' },
-              // SW лежит в корне static, но область действия / разрешаем явно
-              routeRules: {
-                '/sw.js': {
-                  headers: {
-                    'Service-Worker-Allowed': '/',
-                    'Cache-Control': 'public, max-age=0, must-revalidate',
+          // если передать preset напрямую, он молча игнорируется.
+          // На Render (RENDER=true) или при явном NITRO_PRESET=node-server
+          // собираем стандартный Node.js сервер в .output для запуска через "npm start".
+          // На Vercel по умолчанию собираем в .vercel/output.
+          (() => {
+            const isRender = Boolean(process.env.RENDER)
+            const preset = process.env.NITRO_PRESET || (isRender ? 'node-server' : 'vercel')
+            const defaultDir = preset === 'vercel' ? '.vercel/output' : '.output'
+            return nitro({
+              config: {
+                preset,
+                output: { dir: process.env.NITRO_OUTPUT_DIR || defaultDir },
+                // SW лежит в корне static, но область действия / разрешаем явно
+                routeRules: {
+                  '/sw.js': {
+                    headers: {
+                      'Service-Worker-Allowed': '/',
+                      'Cache-Control': 'public, max-age=0, must-revalidate',
+                    },
                   },
                 },
               },
-            },
-          }),
+            })
+          })(),
         ]
       : []),
     ],
     server: {
-      // 0.0.0.0 — чтобы телефон в той же Wi-Fi сети дошёл до dev-сервера.
-      // HMR сам берёт hostname страницы, так что хот-релоад работает и по LAN.
       host: '0.0.0.0',
-      port: 8080,
+      port: 3000,
+      allowedHosts: true,
       ...(httpsOn ? { https: devHttps() } : {}),
     },
   }

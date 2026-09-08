@@ -1,0 +1,6 @@
+{
+  "name": "ЧекАгент",
+  "description": "Мобильное PWA-приложение для управления чеками, семейным бюджетом и кассами",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,22 +1,17 @@
-import { q, q1 } from './db'
+import { q } from './db'
 
-export async function getConfig(key: string): Promise<string | null> {
-  const row = await q1<{ value: string }>(`SELECT value FROM app_config WHERE key = $1`, [key])
-  return row?.value ?? null
-}
-
-export async function setConfig(key: string, value: string) {
+export async function setConfig(key: string, value: string): Promise<void> {
   await q(
     `INSERT INTO app_config (key, value, updated_at) VALUES ($1, $2, now())
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-    [key, value],
+    [key, value]
   )
 }
 
-export async function getAllConfig(keys: Array<string>): Promise<Record<string, string | null>> {
-  const rows = await q<{ key: string; value: string }>(
+export async function getAllConfig(keys: string[]): Promise<Record<string, string | null>> {
+  const rows = await q<{ key: string; value: string | null }>(
     `SELECT key, value FROM app_config WHERE key = ANY($1::text[])`,
-    [keys],
+    [keys]
   )
   const map: Record<string, string | null> = {}
   for (const k of keys) map[k] = null
@@ -24,13 +19,7 @@ export async function getAllConfig(keys: Array<string>): Promise<Record<string, 
   return map
 }
 
-export interface LlmConfig {
-  baseUrl: string
-  apiKey: string
-  model: string
-}
-
-export async function getLlmConfig(): Promise<LlmConfig> {
+export async function getLlmConfig(): Promise<{ baseUrl: string; apiKey: string; model: string }> {
   const cfg = await getAllConfig(['llm_base_url', 'llm_api_key', 'llm_model'])
   return {
     baseUrl: (cfg.llm_base_url || process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
@@ -39,7 +28,7 @@ export async function getLlmConfig(): Promise<LlmConfig> {
   }
 }
 
-export async function saveLlmConfig(c: Partial<LlmConfig>) {
+export async function saveLlmConfig(c: { baseUrl?: string; apiKey?: string; model?: string }): Promise<void> {
   if (c.baseUrl !== undefined) await setConfig('llm_base_url', c.baseUrl.trim())
   if (c.apiKey !== undefined) await setConfig('llm_api_key', c.apiKey.trim())
   if (c.model !== undefined) await setConfig('llm_model', c.model.trim())
