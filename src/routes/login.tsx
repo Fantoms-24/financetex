@@ -38,8 +38,8 @@ function Login() {
 
       // Решают ok и токен. Профиль может не дойти (например, он ещё не
       // создан) — не запираем вход на этом, ниже он подтянется через refresh.
-      if (!res.ok || !res.token) {
-        setError(res.error || 'Не получилось войти')
+      if (!res || !res.ok || !res.token) {
+        setError(res?.error || 'Не получилось войти. Проверьте подключение к серверу и базе данных.')
         setBusy(false)
         return
       }

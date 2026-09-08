@@ -25,9 +25,13 @@ function trustedOrigins(): Array<string> {
     'https://*.grok.me',
     'https://*.grok-sandbox.com',
     'https://*.grok-preview.com',
+    'https://*.onrender.com',
+    'https://*.render.com',
   ]
-  const prod = (process.env.BETTER_AUTH_URL || process.env.APP_URL || '').trim()
+  const prod = (process.env.BETTER_AUTH_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').trim()
   if (prod) list.push(prod.replace(/\/+$/, ''))
+  const renderUrl = process.env.RENDER_EXTERNAL_URL
+  if (renderUrl) list.push(renderUrl.replace(/\/+$/, ''))
   const vercel = process.env.VERCEL_URL
   if (vercel) list.push(`https://${vercel}`)
   const extra = (process.env.TRUSTED_ORIGINS || '')
@@ -55,7 +59,7 @@ let instance: ReturnType<typeof betterAuth> | null = null
 export function getAuth() {
   if (instance) return instance
 
-  const prodUrl = (process.env.BETTER_AUTH_URL || process.env.APP_URL || '').trim()
+  const prodUrl = (process.env.BETTER_AUTH_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').trim()
   const secure = prodUrl.startsWith('https://')
 
   const opts: BetterAuthOptions = {

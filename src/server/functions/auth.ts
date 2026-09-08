@@ -141,9 +141,11 @@ export const signIn = createServerFn({ method: 'POST' })
         })
         return await shape(regRes?.user, pickToken(regRes))
       } catch (e: any) {
+        console.error('[auth] Auto-registration failed:', e)
         return { ok: false, token: null, user: null, error: friendly(e) }
       }
     } catch (e: any) {
+      console.error('[auth] signIn failed:', e)
       return { ok: false, token: null, user: null, error: friendly(e) }
     }
   })
@@ -197,6 +199,7 @@ export const signUp = createServerFn({ method: 'POST' })
       })
       return await shape(res?.user, pickToken(res))
     } catch (e: any) {
+      console.error('[auth] signUp failed:', e)
       const code = e?.body?.code || e?.code
       if (code === 'USER_ALREADY_EXISTS' || /already/i.test(String(e?.message))) {
         return { ok: false, token: null, user: null, error: 'Такой логин уже занят' }
