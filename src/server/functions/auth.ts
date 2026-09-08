@@ -151,10 +151,10 @@ export const signIn = createServerFn({ method: 'POST' })
   })
 
 export const signUp = createServerFn({ method: 'POST' })
-  .validator((d: { login: string; password: string; name?: string }) => ({
-    login: String(d.login || '').trim(),
-    password: String(d.password || ''),
-    name: String(d.name || '').trim(),
+  .validator((d: { login?: string; password?: string; name?: string }) => ({
+    login: String(d?.login || '').trim(),
+    password: String(d?.password || ''),
+    name: String(d?.name || '').trim(),
   }))
   .handler(async ({ data }): Promise<AuthResult> => {
     try {

@@ -39,7 +39,7 @@ function Login() {
       // Решают ok и токен. Профиль может не дойти (например, он ещё не
       // создан) — не запираем вход на этом, ниже он подтянется через refresh.
       if (!res || !res.ok || !res.token) {
-        setError(res?.error || 'Не получилось войти. Проверьте подключение к серверу и базе данных.')
+        setError(res?.error || 'Не получилось войти. Проверьте данные и подключение.')
         setBusy(false)
         return
       }
@@ -49,7 +49,13 @@ function Login() {
       navigate({ to: '/', replace: true })
       refresh().catch(() => {})
     } catch (e: any) {
-      setError(e?.message || 'Не получилось войти')
+      console.error('[login] submit error:', e)
+      const msg = e?.message || ''
+      if (/500|failed to load/i.test(msg)) {
+        setError('Серверная ошибка (500). Проверьте DATABASE_URL и логи в Render Dashboard.')
+      } else {
+        setError(msg || 'Не получилось связаться с сервером')
+      }
       setBusy(false)
     }
   }
