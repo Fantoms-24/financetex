@@ -1,10 +1,11 @@
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Camera, ImagePlus, LoaderCircle, Receipt, RotateCcw, ScanLine, Sparkles, Users } from 'lucide-react'
+import { Camera, Check, ImagePlus, LoaderCircle, Receipt, RotateCcw, ScanLine, Sparkles, Users } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { useApp } from '~/lib/app-state'
 import { categoryLabel, money, moneyShort } from '~/lib/format'
 import { scanReceipt } from '~/server/functions/scan'
+import { showInAppNotification } from '~/components/NotificationBanner'
 import { cn } from '~/lib/utils'
 
 export const Route = createFileRoute('/scan')({
@@ -66,6 +67,14 @@ function Scan() {
   const [result, setResult] = React.useState<any>(null)
   const [selectedHouseId, setSelectedHouseId] = React.useState<string | null>(null)
 
+  const uniqueHouses = React.useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    for (const h of boot.houses ?? []) {
+      if (h && h.id && !map.has(h.id)) map.set(h.id, h)
+    }
+    return Array.from(map.values())
+  }, [boot.houses])
+
   async function pick(file?: File) {
     if (!file) return
     setError(null)
@@ -97,6 +106,11 @@ function Scan() {
         return
       }
       setResult(res)
+      showInAppNotification({
+        title: '🧾 Чек успешно разобран!',
+        body: `${(res as any)?.receipt?.store || 'Чек'} — ${money((res as any)?.receipt?.total || 0)} записано`,
+        icon: 'sparkles',
+      })
       await refresh()
     } catch (e: any) {
       setError(e?.message || 'Не получилось разобрать')
@@ -127,13 +141,13 @@ function Scan() {
       </header>
 
       {/* Селектор назначения: Личный чек или в Общую кассу */}
-      {boot.houses && boot.houses.length > 0 ? (
+      {uniqueHouses.length > 0 ? (
         <div className="rounded-[18px] border border-rule/80 bg-paper p-3.5 shadow-paper">
           <div className="flex items-center justify-between">
             <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">Куда записать чек</span>
             {selectedHouseId ? (
               <span className="rounded-full bg-sage/15 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
-                В общие расходы
+                В кассу
               </span>
             ) : (
               <span className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[10.5px] font-medium text-muted">
@@ -146,30 +160,38 @@ function Scan() {
               type="button"
               onClick={() => setSelectedHouseId(null)}
               className={cn(
-                'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition active:scale-95',
+                'group flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-all active:scale-95',
                 selectedHouseId === null
                   ? 'bg-sage text-onsage shadow-xs font-semibold'
-                  : 'bg-white/80 border border-rule/70 text-muted hover:text-ink',
+                  : 'bg-paper border border-rule/80 text-muted hover:text-ink',
               )}
             >
-              Личные расходы
+              <span className={cn('flex h-3.5 w-3.5 items-center justify-center rounded-full', selectedHouseId === null ? 'bg-white/25 text-onsage' : 'border border-rule text-transparent')}>
+                <Check size={10} strokeWidth={3} className={selectedHouseId === null ? 'opacity-100' : 'opacity-0'} />
+              </span>
+              <span>Личные расходы</span>
             </button>
-            {boot.houses.map((h) => (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => setSelectedHouseId(h.id)}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition active:scale-95',
-                  selectedHouseId === h.id
-                    ? 'bg-sage text-onsage shadow-xs font-semibold'
-                    : 'bg-white/80 border border-rule/70 text-muted hover:text-ink',
-                )}
-              >
-                <Users size={13} />
-                <span>Касса «{h.name}»</span>
-              </button>
-            ))}
+            {uniqueHouses.map((h) => {
+              const active = selectedHouseId === h.id
+              return (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => setSelectedHouseId(h.id)}
+                  className={cn(
+                    'group flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-all active:scale-95',
+                    active
+                      ? 'bg-sage text-onsage shadow-xs font-semibold'
+                      : 'bg-paper border border-rule/80 text-muted hover:text-ink',
+                  )}
+                >
+                  <span className={cn('flex h-3.5 w-3.5 items-center justify-center rounded-full', active ? 'bg-white/25 text-onsage' : 'border border-rule text-transparent')}>
+                    <Check size={10} strokeWidth={3} className={active ? 'opacity-100' : 'opacity-0'} />
+                  </span>
+                  <span>{h.name}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
       ) : null}

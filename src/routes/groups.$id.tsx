@@ -48,7 +48,8 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
 import { billDueLabel, categoryLabel, dateRu, money, moneyShort, plural, timeRu } from '~/lib/format'
-import { cn } from '~/lib/utils'
+import { cn, haptic } from '~/lib/utils'
+import { showInAppNotification } from '~/components/NotificationBanner'
 import {
   addHouseBill,
   addWish,
@@ -824,7 +825,16 @@ function HousePage() {
                       <div className="mt-3 flex items-center justify-between border-t border-rule/40 pt-2.5">
                         <button
                           onClick={async () => {
-                            await payHouseBill({ data: { houseId: id, billId: b.id, paid: !paid } })
+                            haptic(10)
+                            const nextPaid = !paid
+                            await payHouseBill({ data: { houseId: id, billId: b.id, paid: nextPaid } })
+                            if (nextPaid) {
+                              showInAppNotification({
+                                title: '✓ Платёж оплачен',
+                                body: `«${b.title}» (${money(b.amount)}) отмечен как оплаченный`,
+                                icon: 'sparkles',
+                              })
+                            }
                             await load()
                           }}
                           className={cn(
@@ -1122,15 +1132,30 @@ function HousePage() {
                             <DepositModal
                               goalTitle={w.title}
                               onDeposit={async (amt, note) => {
+                                haptic(12)
                                 await depositGoal({
                                   data: { houseId: id, wishId: w.id, amount: amt, note },
+                                })
+                                showInAppNotification({
+                                  title: '🎯 Взнос в цель сохранён',
+                                  body: `В цель «${w.title}» внесено ${money(amt)}`,
+                                  icon: 'sparkles',
                                 })
                                 await load()
                               }}
                             />
                             <button
                               onClick={async () => {
+                                haptic(12)
+                                const willComplete = !isComplete
                                 await toggleWish({ data: { houseId: id, wishId: w.id } })
+                                if (willComplete) {
+                                  showInAppNotification({
+                                    title: '🎉 Цель достигнута!',
+                                    body: `Поздравляем! «${w.title}» куплена!`,
+                                    icon: 'sparkles',
+                                  })
+                                }
                                 await load()
                               }}
                               className="rounded-[10px] border border-rule bg-white px-2.5 py-1.5 text-[12px] font-medium text-muted hover:text-ink shadow-xs transition"

@@ -6,7 +6,8 @@ import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
 import { billDueLabel, money, moneyShort } from '~/lib/format'
 import { addBill, deleteBill, listBills, setBillPaid, toggleBillNotify } from '~/server/functions/bills'
-import { cn } from '~/lib/utils'
+import { showInAppNotification } from '~/components/NotificationBanner'
+import { cn, haptic } from '~/lib/utils'
 
 export const Route = createFileRoute('/bills')({
   component: Bills,
@@ -169,7 +170,16 @@ function Bills() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await setBillPaid({ data: { billId: b.id, paid: !paid } })
+                      haptic(10)
+                      const nextPaid = !paid
+                      await setBillPaid({ data: { billId: b.id, paid: nextPaid } })
+                      if (nextPaid) {
+                        showInAppNotification({
+                          title: '✓ Платёж оплачен',
+                          body: `«${b.title}» (${money(b.amount)}) отмечен как оплаченный`,
+                          icon: 'sparkles',
+                        })
+                      }
                       await reload()
                     }}
                     className={cn(
