@@ -14,7 +14,7 @@ function normalize(payload) {
   const p = payload || {}
   const n = p.notification || {}
 
-  const title = p.title || n.title || (p.data && p.data.title) || 'ЧекАгент'
+  const title = p.title || n.title || (p.data && p.data.title) || 'Листок'
   const body = p.body || n.body || (p.data && p.data.body) || ''
 
   const rawData = Object.assign({}, p.data || {}, n.data || {})
@@ -31,7 +31,7 @@ self.addEventListener('push', (event) => {
       payload = event.data.json()
     } catch {
       try {
-        payload = { title: 'ЧекАгент', body: event.data.text() || '' }
+        payload = { title: 'Листок', body: event.data.text() || '' }
       } catch {
         payload = null
       }
@@ -40,8 +40,6 @@ self.addEventListener('push', (event) => {
 
   const { title, body, url, type } = normalize(payload)
 
-  // Напоминания и тест заменяют сами себя: второе сообщение в чате не должно
-  // стирать первое непрочитанное, поэтому им тег не задаём.
   const collapsing =
     type === 'default' ||
     type === 'bill-reminder' ||
@@ -50,15 +48,18 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body,
-    tag: collapsing ? `chekagent-${type}` : undefined,
-    renotify: false,
+    tag: collapsing ? `listok-${type}` : undefined,
+    renotify: true,
     lang: 'ru',
     dir: 'ltr',
     badge: '/icon-192.png',
     icon: '/icon-192.png',
+    vibrate: [100, 50, 100],
     timestamp: Date.now(),
     data: { url: url, type: type, dateOfArrival: Date.now() },
-    actions: [],
+    actions: [
+      { action: 'open', title: 'Открыть в Листке 🌿' }
+    ],
   }
 
   event.waitUntil(

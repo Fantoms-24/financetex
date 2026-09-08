@@ -517,8 +517,8 @@ export const depositGoal = createServerFn({ method: 'POST' })
       const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
       const uName = user.displayName || user.name || 'Участник'
       await notifyHouseExcept(data.houseId, user.id, {
-        title: house?.name || 'Касса',
-        body: `${uName} внёс ${data.amount.toLocaleString('ru-RU')} ₽ в копилку «${wish.title}»`,
+        title: `🎯 ${house?.name || 'Касса'} · Копилка`,
+        body: `${uName} внёс ${data.amount.toLocaleString('ru-RU')} ₽ в «${wish.title}»`,
         data: { url: `/groups/${data.houseId}`, type: 'house-deposit' },
       }).catch(() => {})
       return { ok: true as const, collected: nextCollected, isComplete }
@@ -842,9 +842,10 @@ export const sendHouseMessage = createServerFn({ method: 'POST' })
         data.text.slice(0, 2000),
       ])
       const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+      const uName = user.displayName || user.name || 'Участник'
       await notifyHouseExcept(data.houseId, user.id, {
-        title: house?.name || 'Касса',
-        body: data.text.slice(0, 120),
+        title: `👥 ${house?.name || 'Касса'}`,
+        body: `${uName}: ${data.text.slice(0, 100)}`,
         data: { url: `/groups/${data.houseId}`, type: 'house-message' },
       })
       return { ok: true as const }

@@ -1,8 +1,9 @@
 import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Bell, ChevronRight, LogOut, Settings as SettingsIcon, ShieldCheck } from 'lucide-react'
+import { Bell, ChevronRight, LogOut, Settings as SettingsIcon, ShieldCheck, Sparkles } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { showInAppNotification } from '~/components/NotificationBanner'
 import { useApp } from '~/lib/app-state'
 import {
   currentEndpoint,
@@ -104,6 +105,12 @@ function Settings() {
     setBusy(true)
     setTestResult(null)
     setTestError(null)
+    showInAppNotification({
+      title: '🌿 Листок · На связи',
+      body: 'Уведомления настроены! Напоминания о чеках и счетах придут вовремя.',
+      icon: 'sparkles',
+      url: '/settings',
+    })
     const key = await vapidPublic().catch(() => ({ publicKey: '' }))
     if (!key?.publicKey) {
       setTestError('Ключ пушей не задан на сервере')
@@ -112,7 +119,7 @@ function Settings() {
     }
     const r = (await pushTest().catch(() => null)) as any
     if (!r) {
-      setTestError('Не получилось отправить')
+      setTestError('Не получилось отправить системный пуш')
     } else {
       setTestResult(`устройств в канале: ${r.devices ?? 0}, ушло: ${r.sent ?? 0}`)
       if (r.error) setTestError(String(r.error))
@@ -187,6 +194,50 @@ function Settings() {
         </div>
         {testResult ? <p className="text-[12.5px] text-sage">{testResult}</p> : null}
         {testError ? <p className="text-[12.5px] text-stamp">{testError}</p> : null}
+
+        {/* Живое превью шаблона уведомления */}
+        <div className="rounded-[16px] border border-rule/60 bg-cream/50 p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+              Шаблон уведомления Листка
+            </span>
+            <span className="rounded-full bg-sage/12 px-2 py-0.5 text-[10px] font-bold text-sage">
+              iOS & Android
+            </span>
+          </div>
+
+          <div
+            onClick={() => {
+              showInAppNotification({
+                title: '⚡ Листок · Интернет',
+                body: 'Оплата завтра — 650 ₽. Нажмите для отметки.',
+                icon: 'card',
+                url: '/bills',
+              })
+            }}
+            className="group flex items-start gap-3 rounded-[16px] border border-rule/80 bg-paper p-3 shadow-xs transition-all hover:border-sage/40 active:scale-[0.99] cursor-pointer"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sage text-onsage shadow-xs">
+              <Sparkles size={15} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-sage">Листок · Напоминание</span>
+                <span className="text-[10px] text-muted">сейчас</span>
+              </div>
+              <p className="text-[13px] font-semibold text-ink leading-tight mt-0.5">
+                ⚡ Интернет — 650 ₽
+              </p>
+              <p className="text-[11.5px] text-muted leading-snug mt-0.5">
+                Оплата завтра. Нажмите для отметки в приложении.
+              </p>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted text-center">
+            Нажмите на карточку, чтобы протестировать появление баннера
+          </p>
+        </div>
+
         {isIos() && !standalone ? (
           <p className="text-[12px] leading-snug text-muted">
             На iPhone сначала добавьте приложение на домашний экран: Поделиться → На экран Домой.

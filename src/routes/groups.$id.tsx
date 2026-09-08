@@ -12,6 +12,7 @@ import {
   ChevronUp,
   Coins,
   Copy,
+  ChevronRight,
   CreditCard,
   Crown,
   Eye,
@@ -20,14 +21,12 @@ import {
   Layers,
   LoaderCircle,
   LogOut,
-  MessageSquare,
   Package,
   PiggyBank,
   Plus,
   Receipt,
   ReceiptText,
   ScanLine,
-  Send,
   Settings2,
   Share2,
   ShoppingBag,
@@ -53,7 +52,6 @@ import { cn } from '~/lib/utils'
 import {
   addHouseBill,
   addWish,
-  askHouseAgent,
   deleteHouse,
   deleteHouseBill,
   deleteWish,
@@ -64,7 +62,6 @@ import {
   linkReceiptToHouse,
   liveHouse,
   payHouseBill,
-  sendHouseMessage,
   setHouseBudget,
   setSalary,
   toggleWish,
@@ -150,12 +147,11 @@ function HousePage() {
 
   const [snap, setSnap] = React.useState<Snap | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [tab, setTab] = React.useState<'bills' | 'receipts' | 'goals' | 'analytics' | 'chat'>('bills')
+  const [tab, setTab] = React.useState<'bills' | 'receipts' | 'goals' | 'analytics'>('bills')
   const [showSettings, setShowSettings] = React.useState(false)
   const [copiedCode, setCopiedCode] = React.useState(false)
   const [showMembersDetail, setShowMembersDetail] = React.useState(false)
   const [openReceiptId, setOpenReceiptId] = React.useState<string | null>(null)
-  const [agentBusy, setAgentBusy] = React.useState(false)
   const versionRef = React.useRef<string>('')
 
   const load = React.useCallback(async () => {
@@ -614,7 +610,36 @@ function HousePage() {
         </div>
       </section>
 
-      {/* 4. Фирменный сегментированный переключатель вкладок в стиле ЧекАгента */}
+      {/* Персональный финансовый советник кассы */}
+      <div className="mb-3 px-4">
+        <Link
+          to="/agent"
+          search={{ houseId: id }}
+          className="group flex items-center justify-between rounded-[18px] border border-rule/80 bg-paper p-3.5 shadow-paper transition-all hover:border-sage/40 active:scale-[0.99]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage transition-colors group-hover:bg-sage group-hover:text-onsage">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="t-display text-[14px] font-semibold text-ink leading-tight">
+                  Советник кассы
+                </span>
+                <span className="rounded-full bg-sage/10 px-2 py-0.2 text-[10px] font-bold text-sage">
+                  ИИ
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11.5px] text-muted leading-tight">
+                Анализ общих расходов, баланс долей и копилки
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={17} className="text-muted transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+
+      {/* 4. Фирменный сегментированный переключатель вкладок */}
       <div className="mb-4 px-4">
         <div className="relative flex items-center rounded-[16px] border border-rule/80 bg-paper p-1 shadow-paper select-none overflow-x-auto no-scrollbar">
           {(
@@ -623,7 +648,6 @@ function HousePage() {
               { id: 'receipts', label: 'Чеки', count: snap.receipts.length, icon: ReceiptText },
               { id: 'goals', label: 'Цели', count: activeGoalsCount, icon: PiggyBank },
               { id: 'analytics', label: 'Лимит', count: 0, icon: BarChart3 },
-              { id: 'chat', label: 'Чат', count: snap.messages.length, icon: MessageSquare },
             ] as const
           ).map((item) => {
             const active = tab === item.id
@@ -1264,151 +1288,6 @@ function HousePage() {
           </div>
         ) : null}
 
-        {/* --- ВКЛАДКА 5: ЧАТ КАССЫ И СЕМЕЙНЫЙ AI-СОВЕТНИК (CHAT) --- */}
-        {tab === 'chat' ? (
-          <div className="rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper">
-            {/* Панель быстрого вызова ЧекАгента */}
-            <div className="mb-4 rounded-[16px] border border-rule/70 bg-cream/40 p-3.5">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-sage/15 text-sage">
-                  <Sparkles size={15} />
-                </div>
-                <h4 className="t-display text-[15px] font-semibold text-ink leading-tight">
-                  Семейный советник
-                </h4>
-                <span className="ml-auto rounded-full bg-sage/10 px-2 py-0.5 text-[10.5px] font-bold text-sage">
-                  ИИ
-                </span>
-              </div>
-              <p className="text-[12px] text-muted mb-2.5 leading-relaxed">
-                Задайте вопрос о финансах семьи или выберите быстрый вопрос:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  disabled={agentBusy}
-                  onClick={async () => {
-                    setAgentBusy(true)
-                    try {
-                      await askHouseAgent({
-                        data: { houseId: id, prompt: 'Подведи финансовые итоги кассы за этот месяц' },
-                      })
-                      await load()
-                    } finally {
-                      setAgentBusy(false)
-                    }
-                  }}
-                  className="rounded-full border border-rule/80 bg-paper hover:bg-cream px-3 py-1.5 text-[12px] font-medium text-ink transition-all active:scale-95 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {agentBusy ? <LoaderCircle size={12} className="animate-spin text-sage" /> : <span>📊</span>}
-                  <span>Итоги месяца</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={agentBusy}
-                  onClick={async () => {
-                    setAgentBusy(true)
-                    try {
-                      await askHouseAgent({
-                        data: { houseId: id, prompt: 'Подскажи, где семья может оптимизировать расходы' },
-                      })
-                      await load()
-                    } finally {
-                      setAgentBusy(false)
-                    }
-                  }}
-                  className="rounded-full border border-rule/80 bg-paper hover:bg-cream px-3 py-1.5 text-[12px] font-medium text-ink transition-all active:scale-95 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {agentBusy ? <LoaderCircle size={12} className="animate-spin text-sage" /> : <span>💡</span>}
-                  <span>Где сэкономить?</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={agentBusy}
-                  onClick={async () => {
-                    setAgentBusy(true)
-                    try {
-                      await askHouseAgent({
-                        data: { houseId: id, prompt: 'Оцени текущий прогресс по общим целям и копилкам и дай советы' },
-                      })
-                      await load()
-                    } finally {
-                      setAgentBusy(false)
-                    }
-                  }}
-                  className="rounded-full border border-rule/80 bg-paper hover:bg-cream px-3 py-1.5 text-[12px] font-medium text-ink transition-all active:scale-95 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {agentBusy ? <LoaderCircle size={12} className="animate-spin text-sage" /> : <span>🎯</span>}
-                  <span>Цели и копилки</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Лента сообщений */}
-            <div className="mb-3 flex max-h-[46vh] flex-col gap-3 overflow-y-auto px-1 py-1 no-scrollbar">
-              {snap.messages.length === 0 ? (
-                <div className="py-8 text-center text-[13px] text-muted">
-                  Пока сообщений нет. Напишите что-нибудь в общую кассу или запросите отчёт у Советника!
-                </div>
-              ) : (
-                snap.messages.map((m) => {
-                  const isAgent = m.is_agent || m.user_id === 'agent'
-                  const isMe = m.user_id === user?.id
-
-                  if (isAgent) {
-                    return (
-                      <div key={m.id} className="flex items-start gap-2.5 my-1">
-                        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-sage/15 text-sage shadow-xs">
-                          <Sparkles size={14} />
-                        </div>
-                        <div className="max-w-[88%] rounded-[18px] rounded-tl-xs border border-rule/80 bg-paper px-4 py-3 text-[13.5px] leading-relaxed text-ink shadow-paper">
-                          <div className="flex items-center justify-between gap-2 mb-1.5 border-b border-rule/40 pb-1">
-                            <span className="text-[11px] font-bold text-sage">Листок · Советник</span>
-                            <span className="text-[10px] text-muted/70">{timeRu(m.created_at)}</span>
-                          </div>
-                          <p className="whitespace-pre-wrap">{m.text}</p>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  if (isMe) {
-                    return (
-                      <div key={m.id} className="flex flex-col items-end">
-                        <div className="max-w-[82%] rounded-[18px] rounded-br-xs bg-sage px-3.5 py-2.5 text-[13.5px] leading-snug text-onsage shadow-sm break-words">
-                          <p className="whitespace-pre-wrap">{m.text}</p>
-                        </div>
-                        <span className="mt-0.5 px-1 text-[10px] text-muted/70">
-                          {timeRu(m.created_at)}
-                        </span>
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <div key={m.id} className="flex items-start gap-2">
-                      <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cream border border-rule text-[10px] font-bold text-ink">
-                        {getInitials(m.name)}
-                      </div>
-                      <div className="max-w-[80%] rounded-[18px] rounded-tl-xs border border-rule/80 bg-paper px-3.5 py-2 text-[13.5px] leading-snug text-ink shadow-xs break-words">
-                        <span className="mb-0.5 block text-[11px] font-semibold text-sage">{m.name}</span>
-                        <p className="whitespace-pre-wrap">{m.text}</p>
-                        <span className="mt-1 block text-right text-[9.5px] text-muted/70">{timeRu(m.created_at)}</span>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            <ChatInputBar
-              onSend={async (text) => {
-                await sendHouseMessage({ data: { houseId: id, text } })
-                await load()
-              }}
-            />
-          </div>
-        ) : null}
           </motion.div>
       </div>
     </div>
@@ -2150,44 +2029,5 @@ function AddGoalModal({
         </form>
       </BottomSheet>
     </>
-  )
-}
-
-function ChatInputBar({ onSend }: { onSend: (text: string) => Promise<void> }) {
-  const [text, setText] = React.useState('')
-  const [busy, setBusy] = React.useState(false)
-
-  return (
-    <form
-      className="flex items-center gap-2 border-t border-rule/60 pt-3"
-      onSubmit={async (e) => {
-        e.preventDefault()
-        if (!text.trim() || busy) return
-        setBusy(true)
-        try {
-          await onSend(text.trim())
-          setText('')
-        } finally {
-          setBusy(false)
-        }
-      }}
-    >
-      <Input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Написать в кассу или советнику…"
-        className="h-10 rounded-[12px] bg-paper text-[13px] border-rule/80 focus:border-sage"
-      />
-      <Button
-        type="submit"
-        variant="sage"
-        size="icon"
-        disabled={busy || !text.trim()}
-        className="h-10 w-10 shrink-0 rounded-[12px]"
-        aria-label="Отправить сообщение"
-      >
-        <Send size={15} />
-      </Button>
-    </form>
   )
 }

@@ -12,6 +12,7 @@ import { motion } from 'motion/react'
 import { AppStateProvider, useApp } from '~/lib/app-state'
 import { Nav } from '~/components/Nav'
 import { SplashScreen } from '~/components/SplashScreen'
+import { NotificationBanner } from '~/components/NotificationBanner'
 import { registerSW } from '~/lib/push-client'
 import '~/styles/app.css'
 
@@ -123,6 +124,7 @@ function Shell() {
 
   return (
     <div className="sheet safe-top">
+      <NotificationBanner />
       <main className={bare ? 'flex-1 flex flex-col' : 'safe-bottom flex-1 flex flex-col'}>
         <motion.div
           key={pathname}

@@ -63,8 +63,8 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     const already = parseAlertKey(b.last_alert_key, cycle)
     if (already !== null && already >= slotRank(offset)) continue
     const res = await sendToUser(b.user_id, {
-      title: b.title,
-      body: `${offsetLabel(offset)} — ${Number(b.amount).toLocaleString('ru-RU')} ₽`,
+      title: `⚡ Листок · ${b.title}`,
+      body: `${offsetLabel(offset)} списание ${Number(b.amount).toLocaleString('ru-RU')} ₽. Нажмите для отметки.`,
       data: { url: '/bills', type: 'bill-reminder' },
     })
     result.sent += res.sent
@@ -98,8 +98,8 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     const already = parseAlertKey(b.last_alert_key, cycle)
     if (already !== null && already >= slotRank(offset)) continue
     const res = await notifyHouseExcept(b.house_id, null, {
-      title: `${b.house_name} · ${b.title}`,
-      body: `${offsetLabel(offset)} — ${Number(b.amount).toLocaleString('ru-RU')} ₽`,
+      title: `👥 ${b.house_name} · ${b.title}`,
+      body: `${offsetLabel(offset)} списание ${Number(b.amount).toLocaleString('ru-RU')} ₽`,
       data: { url: `/groups/${b.house_id}`, type: 'house-bill-reminder' },
     })
     result.sent += res.sent

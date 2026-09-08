@@ -66,8 +66,8 @@ export const pushTest = createServerFn({ method: 'POST' })
         }
       }
       const res = await sendToUser(user.id, {
-        title: 'Листок',
-        body: 'Проверка связи. Баннер должен дойти даже с выключенным экраном',
+        title: '🌿 Листок · На связи',
+        body: 'Уведомления включены! Напоминания о чеках и счетах будут приходить вовремя.',
         data: { url: '/settings', type: 'test' },
       })
       return {
