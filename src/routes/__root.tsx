@@ -116,6 +116,8 @@ function Shell() {
   }, [ready, user, pathname, navigate])
 
   const bare = pathname === '/login'
+  const isChat = pathname === '/agent' || pathname.startsWith('/agent/')
+  const hideNav = bare || isChat
 
   // Пока не знаем, вошли ли — стильный загрузочный экран с тактильной анимацией
   if (!ready) {
@@ -125,7 +127,7 @@ function Shell() {
   return (
     <div className="sheet safe-top">
       <NotificationBanner />
-      <main className={bare ? 'flex-1 flex flex-col' : 'safe-bottom flex-1 flex flex-col'}>
+      <main className={hideNav ? 'flex-1 flex flex-col min-h-0 overflow-hidden' : 'safe-bottom flex-1 flex flex-col min-h-0'}>
         <motion.div
           key={pathname}
           initial={{ opacity: 0 }}
@@ -136,7 +138,7 @@ function Shell() {
           <Outlet />
         </motion.div>
       </main>
-      {!bare && user ? <Nav /> : null}
+      {!hideNav && user ? <Nav /> : null}
     </div>
   )
 }
