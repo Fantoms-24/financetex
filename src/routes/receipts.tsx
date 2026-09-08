@@ -1,11 +1,27 @@
 import * as React from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { Plus, X } from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import {
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  Package,
+  Plus,
+  Receipt as ReceiptIcon,
+  ScanLine,
+  Search,
+  Store,
+  Trash2,
+  TrendingDown,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
-import { categoryLabel, dateRu, money, moneyShort, plural } from '~/lib/format'
-import { addReceipt, deleteReceipt, getReceipt, listReceipts } from '~/server/functions/receipts'
+import { CATEGORIES, categoryLabel, dateRu, money, moneyShort, plural } from '~/lib/format'
+import { addReceipt, deleteReceipt, getReceipt, listReceipts, setReceiptHouse } from '~/server/functions/receipts'
 import type { Receipt, ReceiptItem } from '~/server/functions/bootstrap'
 import { cn } from '~/lib/utils'
 
@@ -13,23 +29,34 @@ export const Route = createFileRoute('/receipts')({
   component: Receipts,
 })
 
-const VERDICT: Record<string, string> = {
-  good: 'норма',
-  fair: 'терпимо',
-  overpriced: 'дорого',
-  impulse: 'импульс',
+const VERDICT: Record<string, { label: string; color: string }> = {
+  good: { label: 'норма', color: 'bg-sage/10 text-sage border-sage/20' },
+  fair: { label: 'терпимо', color: 'bg-amber-500/10 text-amber-800 border-amber-500/20' },
+  overpriced: { label: 'дорого', color: 'bg-stamp/10 text-stamp border-stamp/20' },
+  impulse: { label: 'импульс', color: 'bg-stamp/10 text-stamp border-stamp/20' },
 }
+
+const QUICK_STORES = ['Пятёрочка', 'ВкусВилл', 'Магнит', 'Самокат', 'Озон', 'Аптека']
 
 function Receipts() {
   const { user, boot, refresh } = useApp()
-  const [items, setItems] = React.useState<Array<Receipt>>(boot.receipts)
+  const [items, setItems] = React.useState<Array<Receipt>>(boot.receipts || [])
   const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState('')
+  const [selectedCategory, setSelectedCategory] = React.useState<string>('all')
+
+  // Поля формы добавления чека
   const [store, setStore] = React.useState('')
   const [total, setTotal] = React.useState('')
+  const [category, setCategory] = React.useState('food')
   const [note, setNote] = React.useState('')
+  const [formHouseId, setFormHouseId] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+
+  // Раскрытый чек и его позиции
   const [openId, setOpenId] = React.useState<string | null>(null)
   const [detail, setDetail] = React.useState<Array<ReceiptItem>>([])
+  const [loadingDetail, setLoadingDetail] = React.useState(false)
 
   React.useEffect(() => {
     if (!user) return
@@ -38,6 +65,22 @@ function Receipts() {
       .catch(() => {})
   }, [user])
 
+  async function updateReceiptHouse(receiptId: string, nextHouseId: string | null) {
+    await setReceiptHouse({ data: { id: receiptId, houseId: nextHouseId } })
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== receiptId) return it
+        const targetH = boot.houses.find((h) => h.id === nextHouseId)
+        return {
+          ...it,
+          house_id: nextHouseId,
+          house_name: targetH?.name || null,
+        }
+      }),
+    )
+    await refresh()
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (busy) return
@@ -45,10 +88,20 @@ function Receipts() {
     if (!amount) return
     setBusy(true)
     try {
-      await addReceipt({ data: { store: store || 'Без названия', total: amount, note } })
+      await addReceipt({
+        data: {
+          store: store.trim() || 'Без названия',
+          total: amount,
+          category,
+          note: note.trim() || undefined,
+          houseId: formHouseId,
+        },
+      })
       setStore('')
       setTotal('')
       setNote('')
+      setCategory('food')
+      setFormHouseId(null)
       setOpen(false)
       await refresh()
       const r = await listReceipts({ data: { limit: 120 } })
@@ -65,8 +118,13 @@ function Receipts() {
     }
     setOpenId(id)
     setDetail([])
-    const r = await getReceipt({ data: { id } }).catch(() => null)
-    setDetail((r as any)?.items ?? [])
+    setLoadingDetail(true)
+    try {
+      const r = await getReceipt({ data: { id } }).catch(() => null)
+      setDetail((r as any)?.items ?? [])
+    } finally {
+      setLoadingDetail(false)
+    }
   }
 
   async function drop(id: string) {
@@ -77,134 +135,504 @@ function Receipts() {
     setItems((r as any)?.receipts ?? [])
   }
 
+  // Фильтрация по поиску и категории
+  const filtered = React.useMemo(() => {
+    return items.filter((r) => {
+      const matchSearch =
+        !search.trim() ||
+        (r.store || '').toLowerCase().includes(search.toLowerCase()) ||
+        (r.note || '').toLowerCase().includes(search.toLowerCase())
+      const matchCategory = selectedCategory === 'all' || r.category === selectedCategory
+      return matchSearch && matchCategory
+    })
+  }, [items, search, selectedCategory])
+
+  // Группировка по дням
   const grouped = React.useMemo(() => {
     const map = new Map<string, Array<Receipt>>()
-    for (const r of items) {
+    for (const r of filtered) {
       const key = r.purchased_at || 'без даты'
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(r)
     }
     return Array.from(map.entries())
-  }, [items])
+  }, [filtered])
 
   const monthTotal = boot.month.spent
+  const avgCheck = items.length > 0 ? Math.round(monthTotal / items.length) : 0
 
   return (
-    <div className="px-4 pb-8 pt-5">
-      <header className="mb-4 flex items-end justify-between">
+    <div className="space-y-4 px-4 pb-12 pt-4 sm:px-5">
+      {/* Шапка раздела */}
+      <header className="flex items-center justify-between">
         <div>
-          <h1 className="t-display text-[26px] leading-none">Ящик чеков</h1>
-          <p className="mt-1.5 text-[13px] text-muted">
-            {items.length > 0
-              ? `${items.length} ${plural(items.length, 'чек', 'чека', 'чеков')} · ${money(monthTotal)} за месяц`
-              : 'ящик пока пуст'}
-          </p>
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
+            <ReceiptIcon size={14} className="text-sage" />
+            <span>Учёт расходов</span>
+          </div>
+          <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
+            Чеки и покупки
+          </h1>
         </div>
-        <Button size="sm" variant={open ? 'ghost' : 'paper'} onClick={() => setOpen(!open)}>
-          {open ? <X size={16} /> : <Plus size={16} />}
-          {open ? 'Скрыть' : 'Вписать'}
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <Link
+            to="/scan"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-rule/80 bg-paper text-ink shadow-sm transition-all hover:border-sage/40 active:scale-95"
+            title="Сканировать чек"
+            aria-label="Сканировать чек"
+          >
+            <ScanLine size={18} className="text-sage" />
+          </Link>
+          <Button
+            size="sm"
+            variant={open ? 'ghost' : 'sage'}
+            onClick={() => setOpen(!open)}
+            className="gap-1.5"
+          >
+            {open ? <X size={16} /> : <Plus size={16} />}
+            <span>{open ? 'Закрыть' : 'Вписать'}</span>
+          </Button>
+        </div>
       </header>
 
+      {/* Сводная карточка аналитики */}
+      <section className="grid grid-cols-3 gap-2.5 rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper">
+        <div className="flex flex-col">
+          <span className="flex items-center gap-1 text-[11px] text-muted">
+            <TrendingDown size={12} className="text-sage" />
+            За месяц
+          </span>
+          <span className="t-num mt-1 text-[16px] font-semibold text-ink">
+            {money(monthTotal)}
+          </span>
+          <span className="text-[10.5px] text-muted">всего трат</span>
+        </div>
+
+        <div className="flex flex-col border-x border-rule/60 px-2.5">
+          <span className="flex items-center gap-1 text-[11px] text-muted">
+            <Package size={12} className="text-sage" />
+            Чеков
+          </span>
+          <span className="t-num mt-1 text-[16px] font-semibold text-ink">
+            {items.length}
+          </span>
+          <span className="text-[10.5px] text-muted">
+            {plural(items.length, 'запись', 'записи', 'записей')}
+          </span>
+        </div>
+
+        <div className="flex flex-col pl-1">
+          <span className="flex items-center gap-1 text-[11px] text-muted">
+            <Wallet size={12} className="text-sage" />
+            Средний
+          </span>
+          <span className="t-num mt-1 text-[16px] font-semibold text-ink">
+            {money(avgCheck)}
+          </span>
+          <span className="text-[10.5px] text-muted">за один чек</span>
+        </div>
+      </section>
+
+      {/* Форма ручной записи чека */}
       {open ? (
-        <form onSubmit={save} className="receipt-card rise mb-4 p-4">
-          <p className="t-display mb-3 text-[15px]">Записать вручную</p>
-          <div className="mb-3">
-            <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Магазин</label>
-            <Input value={store} onChange={(e) => setStore(e.target.value)} placeholder="Пятёрочка" />
+        <form
+          onSubmit={save}
+          className="relative overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper-lg"
+        >
+          <div className="mb-3 flex items-center justify-between border-b border-rule/60 pb-2.5">
+            <div className="flex items-center gap-2">
+              <Store size={17} className="text-sage" />
+              <p className="t-display text-[16px] font-medium text-ink">Вписать чек вручную</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg p-1 text-muted hover:text-ink"
+            >
+              <X size={16} />
+            </button>
           </div>
-          <div className="mb-3">
-            <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Сумма, ₽</label>
-            <Input
-              value={total}
-              onChange={(e) => setTotal(e.target.value)}
-              placeholder="1250"
-              inputMode="numeric"
-            />
+
+          <div className="space-y-3">
+            {/* Магазин */}
+            <div>
+              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Магазин / Сервис
+              </label>
+              <Input
+                value={store}
+                onChange={(e) => setStore(e.target.value)}
+                placeholder="Пятёрочка, ВкусВилл, Аптека…"
+                required
+              />
+              {/* Быстрые чипы магазинов */}
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {QUICK_STORES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStore(s)}
+                    className={cn(
+                      'rounded-full border px-2.5 py-0.5 text-[11px] transition-colors',
+                      store === s
+                        ? 'border-sage bg-sage text-onsage'
+                        : 'border-rule/80 bg-black/[0.02] text-muted hover:bg-black/[0.05]',
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Сумма */}
+            <div>
+              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Сумма чека, ₽
+              </label>
+              <Input
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder="1 250"
+                inputMode="numeric"
+                required
+              />
+            </div>
+
+            {/* Категория */}
+            <div>
+              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Категория
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategory(cat.id)}
+                    className={cn(
+                      'rounded-xl border px-2.5 py-1 text-[11.5px] font-medium transition-all',
+                      category === cat.id
+                        ? 'border-sage bg-sage text-onsage shadow-sm'
+                        : 'border-rule/80 bg-paper text-muted hover:text-ink',
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Заметка */}
+            <div>
+              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                Заметка (необязательно)
+              </label>
+              <Input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Например: кофе на прогулке, подарок"
+              />
+            </div>
+
+            {/* Назначение чека: личный или в кассу */}
+            {boot.houses && boot.houses.length > 0 ? (
+              <div>
+                <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+                  Куда записать чек
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setFormHouseId(null)}
+                    className={cn(
+                      'rounded-[10px] px-2.5 py-1 text-[12px] font-medium transition',
+                      formHouseId === null ? 'bg-sage text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
+                    )}
+                  >
+                    Личный
+                  </button>
+                  {boot.houses.map((h) => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      onClick={() => setFormHouseId(h.id)}
+                      className={cn(
+                        'flex items-center gap-1 rounded-[10px] px-2.5 py-1 text-[12px] font-medium transition',
+                        formHouseId === h.id ? 'bg-amber-800 text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
+                      )}
+                    >
+                      <Users size={12} />
+                      <span>{h.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <Button
+              type="submit"
+              variant="sage"
+              size="md"
+              className="w-full"
+              disabled={busy}
+            >
+              {busy ? 'Сохранение…' : 'Положить чек в ящик'}
+            </Button>
           </div>
-          <div className="mb-4">
-            <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">Заметка</label>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="необязательно" />
-          </div>
-          <Button type="submit" variant="sage" size="md" className="w-full" disabled={busy}>
-            Положить в ящик
-          </Button>
         </form>
       ) : null}
 
+      {/* Поиск и фильтр по категориям */}
+      <div className="space-y-2">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по магазину или заметке…"
+          startIcon={<Search size={16} />}
+          endIcon={
+            search ? (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="text-muted hover:text-ink"
+              >
+                <X size={15} />
+              </button>
+            ) : undefined
+          }
+        />
+
+        {/* Чипы категорий */}
+        <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('all')}
+            className={cn(
+              'shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-all',
+              selectedCategory === 'all'
+                ? 'border-sage bg-sage text-onsage shadow-sm'
+                : 'border-rule/80 bg-paper text-muted hover:text-ink',
+            )}
+          >
+            Все ({items.length})
+          </button>
+          {CATEGORIES.map((cat) => {
+            const count = items.filter((r) => r.category === cat.id).length
+            if (count === 0 && selectedCategory !== cat.id) return null
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={cn(
+                  'shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-all',
+                  selectedCategory === cat.id
+                    ? 'border-sage bg-sage text-onsage shadow-sm'
+                    : 'border-rule/80 bg-paper text-muted hover:text-ink',
+                )}
+              >
+                {cat.label} {count > 0 ? `(${count})` : ''}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Список чеков */}
       {grouped.length === 0 ? (
-        <div className="slip rise px-5 py-10 text-center">
-          <p className="t-display text-[17px]">Пока пусто</p>
-          <p className="mt-1.5 text-[13px] leading-snug text-muted">
-            Отсканируйте чек или впишите сумму руками — и он ляжет в ящик.
+        <div className="rounded-[20px] border border-rule/80 bg-paper p-8 text-center shadow-paper">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage">
+            <ReceiptIcon size={24} />
+          </div>
+          <p className="t-display mt-3 text-[17px] font-medium text-ink">
+            {search || selectedCategory !== 'all' ? 'Ничего не найдено' : 'В ящике пока нет чеков'}
           </p>
+          <p className="mx-auto mt-1.5 max-w-[280px] text-[13px] leading-snug text-muted">
+            {search || selectedCategory !== 'all'
+              ? 'Попробуйте изменить поисковый запрос или сбросить фильтр.'
+              : 'Отсканируйте бумажный чек, загрузите фото или впишите сумму вручную.'}
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Link to="/scan">
+              <Button size="sm" variant="sage">
+                <ScanLine size={16} /> Сканировать
+              </Button>
+            </Link>
+            <Button size="sm" variant="paper" onClick={() => setOpen(true)}>
+              <Plus size={16} /> Вписать вручную
+            </Button>
+          </div>
         </div>
       ) : (
-        <div className="space-y-5">
-          {grouped.map(([day, list]) => (
-            <section key={day}>
-              <p className="mb-2 px-1 text-[12px] uppercase tracking-[0.09em] text-muted">
-                {dateRu(day)}
-                <span className="ml-2 t-num text-muted/70">
-                  {money(list.reduce((s, r) => s + r.total, 0))}
-                </span>
-              </p>
-              <div className="space-y-2.5">
-                {list.map((r) => (
-                  <div key={r.id} className="slip rise px-4 py-3.5" style={{ transform: 'rotate(-0.2deg)' }}>
-                    <button className="w-full text-left" onClick={() => toggle(r.id)}>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="t-display truncate text-[16px]">{r.store || 'Без названия'}</span>
-                        <span className="t-num shrink-0 text-[16px]">{moneyShort(r.total)}</span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-[12px] text-muted">
-                        <span>{categoryLabel(r.category)}</span>
-                        {r.verdict ? (
-                          <>
-                            <span className="text-rule">·</span>
-                            <span className={cn(r.verdict === 'impulse' || r.verdict === 'overpriced' ? 'text-stamp' : '')}>
-                              {VERDICT[r.verdict] || r.verdict}
-                            </span>
-                          </>
-                        ) : null}
-                        {r.note ? (
-                          <>
-                            <span className="text-rule">·</span>
-                            <span className="truncate">{r.note}</span>
-                          </>
-                        ) : null}
-                      </div>
-                    </button>
+        <div className="space-y-4">
+          {grouped.map(([day, list]) => {
+            const daySum = list.reduce((s, r) => s + r.total, 0)
+            return (
+              <section key={day} className="space-y-2">
+                {/* Дата и дневной итог */}
+                <div className="flex items-center justify-between px-1">
+                  <span className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-muted">
+                    <Calendar size={13} className="text-sage" />
+                    <span>{dateRu(day)}</span>
+                  </span>
+                  <span className="t-num text-[12.5px] font-semibold text-ink/80">
+                    {money(daySum)}
+                  </span>
+                </div>
 
-                    {openId === r.id ? (
-                      <div className="rule mt-3 pt-3">
-                        {detail.length > 0 ? (
-                          <ul className="mb-3 space-y-1">
-                            {detail.map((it) => (
-                              <li key={it.id} className="flex items-baseline justify-between gap-3 text-[13px]">
-                                <span className="min-w-0 truncate">
-                                  {it.name}
-                                  {it.qty ? <span className="text-muted"> ×{it.qty}</span> : null}
+                {/* Карточки чеков дня */}
+                <div className="divide-y divide-rule-soft overflow-hidden rounded-[18px] border border-rule/80 bg-paper shadow-paper">
+                  {list.map((r) => {
+                    const isOpen = openId === r.id
+                    const verdictInfo = r.verdict ? VERDICT[r.verdict] : null
+
+                    return (
+                      <div key={r.id} className="transition-colors hover:bg-black/[0.015]">
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between p-3.5 text-left"
+                          onClick={() => toggle(r.id)}
+                        >
+                          <div className="min-w-0 flex-1 pr-3">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-[15px] font-semibold text-ink">
+                                {r.store || 'Без названия'}
+                              </span>
+                              {r.house_name ? (
+                                <span className="flex items-center gap-1 rounded-full bg-amber-800/10 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
+                                  <Users size={11} />
+                                  {r.house_name}
                                 </span>
-                                <span className="t-num shrink-0">{moneyShort(it.price)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="mb-3 text-[12.5px] text-muted">Позиции не записаны</p>
-                        )}
-                        <Button size="sm" variant="stamp" onClick={() => drop(r.id)}>
-                          Убрать из ящика
-                        </Button>
+                              ) : null}
+                              {verdictInfo ? (
+                                <span
+                                  className={cn(
+                                    'rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none',
+                                    verdictInfo.color,
+                                  )}
+                                >
+                                  {verdictInfo.label}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <div className="mt-1 flex items-center gap-2 text-[12px] text-muted">
+                              <span>{categoryLabel(r.category)}</span>
+                              {r.note ? (
+                                <>
+                                  <span>•</span>
+                                  <span className="truncate text-ink/70">{r.note}</span>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="t-num text-[16px] font-semibold text-ink">
+                              {moneyShort(r.total)}
+                            </span>
+                            <div className="text-muted">
+                              {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </div>
+                          </div>
+                        </button>
+
+                        {/* Раскрытый список позиций */}
+                        {isOpen ? (
+                          <div className="border-t border-rule/60 bg-black/[0.015] px-4 py-3">
+                            {loadingDetail ? (
+                              <p className="py-2 text-[12.5px] text-muted">Загрузка позиций…</p>
+                            ) : detail.length > 0 ? (
+                              <div className="space-y-1.5">
+                                <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
+                                  Позиции из чека ({detail.length}):
+                                </p>
+                                <ul className="divide-y divide-rule/40 rounded-xl border border-rule/60 bg-paper p-2">
+                                  {detail.map((it) => (
+                                    <li
+                                      key={it.id}
+                                      className="flex items-baseline justify-between gap-3 py-1.5 text-[13px]"
+                                    >
+                                      <span className="min-w-0 truncate text-ink">
+                                        {it.name}
+                                        {it.qty ? (
+                                          <span className="text-muted"> ×{it.qty}</span>
+                                        ) : null}
+                                      </span>
+                                      <span className="t-num shrink-0 font-medium text-ink">
+                                        {moneyShort(it.price)}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <p className="py-1 text-[12px] text-muted">
+                                Отдельные позиции не были распознаны или записаны.
+                              </p>
+                            )}
+
+                            {/* Назначение чека: личный или в кассу */}
+                            {boot.houses && boot.houses.length > 0 ? (
+                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-rule/50 pt-2.5">
+                                <span className="flex items-center gap-1 text-[12px] font-medium text-muted">
+                                  <Users size={13} className="text-amber-800" />
+                                  Куда отнесён:
+                                </span>
+                                <div className="flex flex-wrap gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateReceiptHouse(r.id, null)}
+                                    className={cn(
+                                      'rounded-[8px] px-2 py-1 text-[11px] font-medium transition',
+                                      !r.house_id ? 'bg-sage text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
+                                    )}
+                                  >
+                                    Личные
+                                  </button>
+                                  {boot.houses.map((h) => (
+                                    <button
+                                      key={h.id}
+                                      type="button"
+                                      onClick={() => updateReceiptHouse(r.id, h.id)}
+                                      className={cn(
+                                        'flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] font-medium transition',
+                                        r.house_id === h.id ? 'bg-amber-800 text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
+                                      )}
+                                    >
+                                      <Users size={10} />
+                                      <span>{h.name}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            <div className="mt-3 flex items-center justify-end">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => drop(r.id)}
+                                className="gap-1.5 text-stamp hover:bg-stamp/10 hover:text-stamp"
+                              >
+                                <Trash2 size={14} />
+                                <span>Удалить чек</span>
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+                    )
+                  })}
+                </div>
+              </section>
+            )
+          })}
         </div>
       )}
     </div>
   )
 }
+

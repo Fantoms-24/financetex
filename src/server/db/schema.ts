@@ -72,9 +72,11 @@ export const APP_TABLES = [
      verdict text,
      note text,
      image text,
+     house_id text,
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE INDEX IF NOT EXISTS receipts_user_created_idx ON receipts (user_id, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS receipts_house_idx ON receipts (house_id, created_at DESC)`,
   `CREATE TABLE IF NOT EXISTS receipt_items (
      id text PRIMARY KEY,
      receipt_id text NOT NULL REFERENCES receipts(id) ON DELETE CASCADE,
@@ -116,6 +118,7 @@ export const APP_TABLES = [
      name text NOT NULL,
      code text UNIQUE NOT NULL,
      owner_id text NOT NULL,
+     monthly_budget integer NOT NULL DEFAULT 0,
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE TABLE IF NOT EXISTS house_members (
@@ -152,11 +155,24 @@ export const APP_TABLES = [
      house_id text NOT NULL,
      title text NOT NULL,
      amount integer NOT NULL DEFAULT 0,
+     collected integer NOT NULL DEFAULT 0,
+     target_date date,
      by_user text,
      bought_at timestamptz,
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE INDEX IF NOT EXISTS house_wishes_house_idx ON house_wishes (house_id, created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS house_goal_deposits (
+     id text PRIMARY KEY,
+     house_id text NOT NULL,
+     wish_id text NOT NULL REFERENCES house_wishes(id) ON DELETE CASCADE,
+     user_id text NOT NULL,
+     amount integer NOT NULL DEFAULT 0,
+     note text,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS house_goal_deposits_wish_idx ON house_goal_deposits (wish_id, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS house_goal_deposits_house_idx ON house_goal_deposits (house_id, created_at DESC)`,
   `CREATE TABLE IF NOT EXISTS house_messages (
      id text PRIMARY KEY,
      house_id text NOT NULL,
@@ -197,16 +213,31 @@ export const HEAL_STATEMENTS: Array<[string, string]> = [
   ["house_bills", `ALTER TABLE house_bills ADD COLUMN IF NOT EXISTS split text NOT NULL DEFAULT 'equal'`],
   ["house_bills", `ALTER TABLE house_bills ADD COLUMN IF NOT EXISTS payer_id text`],
   ["house_bills", `ALTER TABLE house_bills ADD COLUMN IF NOT EXISTS last_alert_key text`],
+  ["houses", `ALTER TABLE houses ADD COLUMN IF NOT EXISTS monthly_budget integer NOT NULL DEFAULT 0`],
+  ["house_wishes", `ALTER TABLE house_wishes ADD COLUMN IF NOT EXISTS collected integer NOT NULL DEFAULT 0`],
+  ["house_wishes", `ALTER TABLE house_wishes ADD COLUMN IF NOT EXISTS target_date date`],
   ["house_wishes", `ALTER TABLE house_wishes ADD COLUMN IF NOT EXISTS bought_at timestamptz`],
   ["house_wishes", `ALTER TABLE house_wishes ADD COLUMN IF NOT EXISTS by_user text`],
+  ["receipts", `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS house_id text`],
+  ["receipts", `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS image text`],
+  ["receipts", `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS verdict text`],
+  ["house_goal_deposits", `CREATE TABLE IF NOT EXISTS house_goal_deposits (
+     id text PRIMARY KEY,
+     house_id text NOT NULL,
+     wish_id text NOT NULL,
+     user_id text NOT NULL,
+     amount integer NOT NULL DEFAULT 0,
+     note text,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["house_goal_deposits", `CREATE INDEX IF NOT EXISTS house_goal_deposits_wish_idx ON house_goal_deposits (wish_id, created_at DESC)`],
+  ["receipts", `CREATE INDEX IF NOT EXISTS receipts_house_idx ON receipts (house_id, created_at DESC)`],
   ["profiles", `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user'`],
   ["profiles", `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone text`],
   ["profiles", `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bank text`],
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS monthly_income integer NOT NULL DEFAULT 0`],
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS allocations jsonb NOT NULL DEFAULT '{}'::jsonb`],
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS seen_welcome boolean NOT NULL DEFAULT false`],
-  ["receipts", `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS image text`],
-  ["receipts", `ALTER TABLE receipts ADD COLUMN IF NOT EXISTS verdict text`],
   ["recurring_bills", `ALTER TABLE recurring_bills ADD COLUMN IF NOT EXISTS last_alert_key text`],
   ["push_subs", `ALTER TABLE push_subs ADD COLUMN IF NOT EXISTS vapid_pub text`],
   ["push_subs", `ALTER TABLE push_subs ALTER COLUMN id SET DEFAULT gen_random_uuid()::text`]

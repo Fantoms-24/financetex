@@ -1,7 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { guarded } from '../session'
-import { q, newId } from '../db'
+import { q, q1, newId } from '../db'
 import { getLlmConfig } from '../config'
+import { notifyHouseExcept } from '../push'
 
 const CATEGORIES = ['food', 'prepared', 'household', 'hygiene', 'health', 'drinks', 'snacks', 'other']
 const VERDICTS = ['good', 'fair', 'overpriced', 'impulse']
@@ -50,8 +51,9 @@ function asCategory(v: any): string {
 }
 
 export const scanReceipt = createServerFn({ method: 'POST' })
-  .validator((d: { image?: string }) => ({
+  .validator((d: { image?: string; houseId?: string | null }) => ({
     image: String(d.image || ''),
+    houseId: d.houseId ? String(d.houseId).trim() : null,
   }))
   .handler(async ({ data }) => guarded(async (user) => {
     const { baseUrl, apiKey, model } = await getLlmConfig()
@@ -140,9 +142,9 @@ export const scanReceipt = createServerFn({ method: 'POST' })
 
     const id = newId('r')
     await q(
-      `INSERT INTO receipts (id, user_id, store, purchased_at, total, category, verdict, image)
-       VALUES ($1, $2, $3, coalesce($4::date, current_date), $5, $6, $7, $8)`,
-      [id, user.id, store, purchasedAt, total, category, verdict, data.image]
+      `INSERT INTO receipts (id, user_id, store, purchased_at, total, category, verdict, image, house_id)
+       VALUES ($1, $2, $3, coalesce($4::date, current_date), $5, $6, $7, $8, $9)`,
+      [id, user.id, store, purchasedAt, total, category, verdict, data.image, data.houseId]
     )
 
     for (const it of items) {
@@ -153,10 +155,19 @@ export const scanReceipt = createServerFn({ method: 'POST' })
       )
     }
 
+    if (data.houseId) {
+      const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+      await notifyHouseExcept(data.houseId, user.id, {
+        title: house?.name || 'Касса',
+        body: `${user.displayName} добавил чек: ${store} (${total} ₽)`,
+        data: { url: `/groups/${data.houseId}`, type: 'house-receipt' },
+      }).catch(() => {})
+    }
+
     return {
       ok: true,
       id,
-      receipt: { id, store, purchased_at: purchasedAt, total, category, verdict },
+      receipt: { id, store, purchased_at: purchasedAt, total, category, verdict, house_id: data.houseId },
       items,
     }
   }))

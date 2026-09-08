@@ -21,13 +21,17 @@ function trustedOrigins(): Array<string> {
     'https://*.run.app',
     'https://*.google.com',
     'https://*.aistudio.google.com',
+    'https://*.onrender.com',
+    'https://*.render.com',
     'https://grok.com',
     'https://*.grok.me',
     'https://*.grok-sandbox.com',
     'https://*.grok-preview.com',
   ]
-  const prod = (process.env.BETTER_AUTH_URL || process.env.APP_URL || '').trim()
+  const prod = (process.env.BETTER_AUTH_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').trim()
   if (prod) list.push(prod.replace(/\/+$/, ''))
+  const renderExternal = process.env.RENDER_EXTERNAL_URL?.trim()
+  if (renderExternal) list.push(renderExternal.replace(/\/+$/, ''))
   const vercel = process.env.VERCEL_URL
   if (vercel) list.push(`https://${vercel}`)
   const extra = (process.env.TRUSTED_ORIGINS || '')

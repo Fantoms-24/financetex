@@ -141,18 +141,20 @@ export const signIn = createServerFn({ method: 'POST' })
         })
         return await shape(regRes?.user, pickToken(regRes))
       } catch (e: any) {
+        console.error('[auth] Auto-registration failed:', e)
         return { ok: false, token: null, user: null, error: friendly(e) }
       }
     } catch (e: any) {
+      console.error('[auth] signIn failed:', e)
       return { ok: false, token: null, user: null, error: friendly(e) }
     }
   })
 
 export const signUp = createServerFn({ method: 'POST' })
-  .validator((d: { login: string; password: string; name?: string }) => ({
-    login: String(d.login || '').trim(),
-    password: String(d.password || ''),
-    name: String(d.name || '').trim(),
+  .validator((d: { login?: string; password?: string; name?: string }) => ({
+    login: String(d?.login || '').trim(),
+    password: String(d?.password || ''),
+    name: String(d?.name || '').trim(),
   }))
   .handler(async ({ data }): Promise<AuthResult> => {
     try {
@@ -197,6 +199,7 @@ export const signUp = createServerFn({ method: 'POST' })
       })
       return await shape(res?.user, pickToken(res))
     } catch (e: any) {
+      console.error('[auth] signUp failed:', e)
       const code = e?.body?.code || e?.code
       if (code === 'USER_ALREADY_EXISTS' || /already/i.test(String(e?.message))) {
         return { ok: false, token: null, user: null, error: 'Такой логин уже занят' }

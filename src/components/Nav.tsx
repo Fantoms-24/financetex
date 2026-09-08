@@ -1,13 +1,13 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Home, PenLine, Receipt, ScanLine, Users } from 'lucide-react'
+import { Home, MessageSquareQuote, Receipt, ScanLine, Users } from 'lucide-react'
 import { cn } from '~/lib/utils'
 
 const ITEMS = [
-  { to: '/', label: 'Меню', icon: Home },
+  { to: '/', label: 'Главная', icon: Home },
   { to: '/receipts', label: 'Чеки', icon: Receipt },
   { to: '/scan', label: 'Скан', icon: ScanLine, center: true },
   { to: '/groups', label: 'Кассы', icon: Users },
-  { to: '/agent', label: 'Агент', icon: PenLine },
+  { to: '/agent', label: 'Агент', icon: MessageSquareQuote },
 ] as const
 
 export function Nav() {
@@ -18,10 +18,10 @@ export function Nav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-rule bg-paper/95 backdrop-blur-sm"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2"
+      aria-label="Основная навигация"
     >
-      <div className="mx-auto flex max-w-[430px] items-end justify-between px-3 pb-2 pt-1.5">
+      <div className="mx-auto flex max-w-[430px] items-center justify-between rounded-[22px] border border-rule/80 bg-paper/95 px-2 py-1.5 shadow-paper-lg backdrop-blur-md">
         {ITEMS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.to)
@@ -31,18 +31,22 @@ export function Nav() {
               <Link
                 key={item.to}
                 to={item.to}
-                className="flex w-[68px] shrink-0 flex-col items-center gap-1"
+                className="group relative -mt-5 flex flex-col items-center"
                 aria-label="Сканировать чек"
               >
-                <span
+                <div
                   className={cn(
-                    'flex h-[52px] w-[52px] items-center justify-center rounded-full bg-sage text-onsage shadow-paper-lg transition-transform',
-                    active ? 'scale-100' : 'scale-100 active:scale-95',
+                    'relative flex h-[54px] w-[54px] items-center justify-center rounded-2xl bg-sage text-onsage shadow-md transition-all duration-200 group-hover:scale-105 group-active:scale-95',
+                    active ? 'ring-2 ring-sage ring-offset-2 ring-offset-paper' : '',
                   )}
                 >
-                  <ScanLine size={23} strokeWidth={2} />
-                </span>
-                <span className="text-[10px] text-muted">Скан</span>
+                  <ScanLine size={24} strokeWidth={2.2} />
+                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-onsage/60 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-onsage" />
+                  </span>
+                </div>
+                <span className="mt-1 text-[10.5px] font-semibold tracking-wide text-sage">Скан</span>
               </Link>
             )
           }
@@ -51,15 +55,28 @@ export function Nav() {
             <Link
               key={item.to}
               to={item.to}
-              className="flex w-[60px] flex-col items-center gap-1 py-1"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center rounded-xl py-1 transition-all duration-150',
+                active ? 'text-sage' : 'text-muted hover:text-ink',
+              )}
               aria-label={item.label}
             >
-              <Icon
-                size={21}
-                strokeWidth={1.8}
-                className={active ? 'text-sage' : 'text-muted'}
-              />
-              <span className={cn('text-[10px]', active ? 'text-sage' : 'text-muted')}>{item.label}</span>
+              <div
+                className={cn(
+                  'flex h-8 w-11 items-center justify-center rounded-lg transition-colors',
+                  active ? 'bg-sage/12 text-sage' : 'text-muted group-hover:text-ink',
+                )}
+              >
+                <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
+              </div>
+              <span
+                className={cn(
+                  'text-[10.5px] tracking-tight transition-all',
+                  active ? 'font-semibold text-sage' : 'font-normal text-muted',
+                )}
+              >
+                {item.label}
+              </span>
             </Link>
           )
         })}
@@ -67,3 +84,4 @@ export function Nav() {
     </nav>
   )
 }
+

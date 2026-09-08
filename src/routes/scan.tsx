@@ -1,10 +1,11 @@
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Camera, ImagePlus, LoaderCircle, RotateCcw } from 'lucide-react'
+import { Camera, ImagePlus, LoaderCircle, RotateCcw, Users } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { useApp } from '~/lib/app-state'
 import { categoryLabel, moneyShort } from '~/lib/format'
 import { scanReceipt } from '~/server/functions/scan'
+import { cn } from '~/lib/utils'
 
 export const Route = createFileRoute('/scan')({
   component: Scan,
@@ -56,13 +57,14 @@ const VERDICT: Record<string, string> = {
 
 function Scan() {
   const navigate = useNavigate()
-  const { refresh } = useApp()
+  const { refresh, boot } = useApp()
   const cameraRef = React.useRef<HTMLInputElement>(null)
   const galleryRef = React.useRef<HTMLInputElement>(null)
   const [preview, setPreview] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [result, setResult] = React.useState<any>(null)
+  const [selectedHouseId, setSelectedHouseId] = React.useState<string | null>(null)
 
   async function pick(file?: File) {
     if (!file) return
@@ -83,7 +85,12 @@ function Scan() {
     setBusy(true)
     setError(null)
     try {
-      const res = await scanReceipt({ data: { image: preview } })
+      const res = await scanReceipt({
+        data: {
+          image: preview,
+          houseId: selectedHouseId,
+        },
+      })
       if ((res as any)?.error) {
         setError((res as any).error)
         setBusy(false)
@@ -106,12 +113,60 @@ function Scan() {
 
   return (
     <div className="px-4 pb-8 pt-5">
-      <header className="mb-4">
+      <header className="mb-3">
         <h1 className="t-display text-[26px] leading-none">Скан</h1>
         <p className="mt-1.5 text-[13px] text-muted">
           {result ? 'чек разобран' : 'положите чек на ровное место'}
         </p>
       </header>
+
+      {/* Селектор назначения: Личный чек или в Общую кассу */}
+      {boot.houses && boot.houses.length > 0 ? (
+        <div className="mb-4 rounded-[16px] border border-rule/80 bg-paper p-3 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">Куда записать чек</span>
+            {selectedHouseId ? (
+              <span className="rounded-full bg-amber-800/10 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
+                В общие расходы
+              </span>
+            ) : (
+              <span className="rounded-full bg-sage/10 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
+                Личный чек
+              </span>
+            )}
+          </div>
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedHouseId(null)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium transition active:scale-95',
+                selectedHouseId === null
+                  ? 'bg-sage text-onsage shadow-xs font-semibold'
+                  : 'bg-cream/90 text-muted hover:text-ink hover:bg-white',
+              )}
+            >
+              Личные расходы
+            </button>
+            {boot.houses.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => setSelectedHouseId(h.id)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium transition active:scale-95',
+                  selectedHouseId === h.id
+                    ? 'bg-amber-800 text-onsage shadow-xs font-semibold'
+                    : 'bg-cream/90 text-muted hover:text-ink hover:bg-white',
+                )}
+              >
+                <Users size={13} />
+                <span>Касса «{h.name}»</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <input
         ref={cameraRef}
@@ -187,13 +242,33 @@ function Scan() {
                 </ul>
               ) : null}
 
+              {result.receipt?.house_id || selectedHouseId ? (
+                <div className="mt-3 flex items-center gap-1.5 rounded-[10px] bg-amber-800/10 px-3 py-1.5 text-[12px] font-medium text-amber-850">
+                  <Users size={14} className="text-amber-800 shrink-0" />
+                  <span>
+                    Записан в общие расходы кассы «
+                    {boot.houses.find((h) => h.id === (result.receipt?.house_id || selectedHouseId))?.name || 'Касса'}
+                    »
+                  </span>
+                </div>
+              ) : null}
+
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <Button variant="paper" onClick={reset}>
                   <RotateCcw size={16} /> Ещё чек
                 </Button>
-                <Button variant="sage" onClick={() => navigate({ to: '/receipts' })}>
-                  В ящик
-                </Button>
+                {result.receipt?.house_id || selectedHouseId ? (
+                  <Button
+                    variant="sage"
+                    onClick={() => navigate({ to: `/groups/${result.receipt?.house_id || selectedHouseId}` })}
+                  >
+                    В кассу →
+                  </Button>
+                ) : (
+                  <Button variant="sage" onClick={() => navigate({ to: '/receipts' })}>
+                    В ящик
+                  </Button>
+                )}
               </div>
             </div>
           ) : (

@@ -7,7 +7,8 @@
     "dev": "vite dev --host 0.0.0.0 --port 3000",
     "dev:https": "vite dev --host 0.0.0.0 --port 3000",
     "lan": "node scripts/lan.mjs",
-    "build": "vite build",
+    "postinstall": "node scripts/patch-srvx.mjs",
+    "build": "node scripts/patch-srvx.mjs && vite build && node scripts/patch-srvx.mjs",
     "start": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit"

@@ -3,98 +3,93 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
+  BarChart3,
   Calendar,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Circle,
+  Coins,
   Copy,
   CreditCard,
   Crown,
+  Eye,
   Home,
   Info,
+  Layers,
+  LoaderCircle,
   LogOut,
   MessageSquare,
+  Package,
+  PiggyBank,
   Plus,
   Receipt,
+  ReceiptText,
+  ScanLine,
   Send,
   Settings2,
   Share2,
   ShoppingBag,
   Sparkles,
+  Target,
   Trash2,
+  TrendingDown,
+  TrendingUp,
   Tv,
   Users,
   Wallet,
   Wifi,
+  X,
   Zap,
 } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
-import { billDueLabel, dateRu, moneyShort, plural, timeRu } from '~/lib/format'
+import { billDueLabel, categoryLabel, dateRu, money, moneyShort, plural, timeRu } from '~/lib/format'
 import { cn } from '~/lib/utils'
 import {
   addHouseBill,
   addWish,
+  askHouseAgent,
   deleteHouse,
   deleteHouseBill,
   deleteWish,
+  depositGoal,
   getHouse,
   kickMember,
   leaveHouse,
+  linkReceiptToHouse,
   liveHouse,
   payHouseBill,
   sendHouseMessage,
+  setHouseBudget,
   setSalary,
   toggleWish,
+  type GoalDeposit,
+  type HouseAnalytics,
+  type HouseBill,
+  type HouseReceipt,
+  type Member,
+  type Msg,
+  type Pay,
+  type Wish,
 } from '~/server/functions/houses'
+import { listReceipts } from '~/server/functions/receipts'
 
 export const Route = createFileRoute('/groups/$id')({
   component: HousePage,
 })
 
-interface Member {
-  id: string
-  user_id: string
-  name: string
-  salary: number
-}
-
-interface Bill {
-  id: string
-  title: string
-  amount: number
-  day_of_month: number
-  split: 'equal' | 'salary' | 'payer' | string
-  payer_id: string | null
-}
-
-interface Wish {
-  id: string
-  title: string
-  amount: number
-  by_user: string | null
-  by_name: string | null
-  bought_at: string | null
-}
-
-interface Msg {
-  id: string
-  user_id: string
-  name: string
-  text: string
-  created_at: string
-}
-
 interface Snap {
-  house: { id: string; name: string; code: string; owner_id: string } | null
+  house: { id: string; name: string; code: string; owner_id: string; monthly_budget: number; created_at: string } | null
   members: Array<Member>
-  bills: Array<Bill>
+  bills: Array<HouseBill>
   wishes: Array<Wish>
+  receipts: Array<HouseReceipt>
   messages: Array<Msg>
-  pays: Array<{ bill_id: string; cycle: string; user_id: string; paid_at: string }>
+  pays: Array<Pay>
+  analytics: HouseAnalytics
   shares: Record<string, Record<string, number>>
   cycle: string
   version?: string
@@ -153,10 +148,12 @@ function HousePage() {
 
   const [snap, setSnap] = React.useState<Snap | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [tab, setTab] = React.useState<'bills' | 'wishes' | 'chat'>('bills')
+  const [tab, setTab] = React.useState<'bills' | 'receipts' | 'goals' | 'analytics' | 'chat'>('bills')
   const [showSettings, setShowSettings] = React.useState(false)
   const [copiedCode, setCopiedCode] = React.useState(false)
   const [showMembersDetail, setShowMembersDetail] = React.useState(false)
+  const [openReceiptId, setOpenReceiptId] = React.useState<string | null>(null)
+  const [agentBusy, setAgentBusy] = React.useState(false)
   const versionRef = React.useRef<string>('')
 
   const load = React.useCallback(async () => {
@@ -176,7 +173,7 @@ function HousePage() {
     load()
   }, [load])
 
-  // live polling
+  // Live polling
   React.useEffect(() => {
     if (!id) return
     let alive = true
@@ -277,7 +274,8 @@ function HousePage() {
   const myUnpaidShare = Math.max(0, myTotalShare - myPaidShare)
 
   const totalSalaries = snap.members.reduce((s, m) => s + Math.max(0, m.salary), 0)
-  const unboughtWishesCount = snap.wishes.filter((w) => !w.bought_at).length
+  const activeGoalsCount = snap.wishes.filter((w) => !w.bought_at).length
+  const receiptsSum = snap.receipts.reduce((s, r) => s + (Number(r.total) || 0), 0)
 
   return (
     <div className="pb-28 pt-3 sm:pb-24">
@@ -332,7 +330,9 @@ function HousePage() {
             <h1 className="t-display truncate text-[25px] font-semibold leading-tight text-ink">{snap.house.name}</h1>
             <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-muted">
               <Users size={13} className="shrink-0 text-sage" />
-              <span className="font-medium">{snap.members.length} {plural(snap.members.length, 'участник', 'участника', 'участников')}</span>
+              <span className="font-medium">
+                {snap.members.length} {plural(snap.members.length, 'участник', 'участника', 'участников')}
+              </span>
               <span>·</span>
               <span className="truncate">{snap.members.map((m) => m.name).join(', ')}</span>
             </p>
@@ -357,11 +357,33 @@ function HousePage() {
               </button>
             </div>
 
-            {/* Код приглашения */}
-            <div className="mb-4 rounded-[12px] border border-dashed border-sage/40 bg-sage/5 p-3">
+            {/* Месячный бюджет кассы */}
+            <div className="mb-3 rounded-[12px] border border-rule/60 bg-white/70 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-[11.5px] font-medium uppercase tracking-wider text-sage">Код для близких</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Месячный бюджет кассы</p>
+                  <p className="t-num text-[16px] font-bold text-ink">
+                    {snap.house.monthly_budget > 0 ? money(snap.house.monthly_budget) : 'Не установлен'}
+                  </p>
+                </div>
+                <EditBudgetModal
+                  currentBudget={snap.house.monthly_budget}
+                  onSave={async (val) => {
+                    await setHouseBudget({ data: { houseId: id, budget: val } })
+                    await load()
+                  }}
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-muted">
+                Общий лимит расходов семьи на месяц для аналитики и контроля трат.
+              </p>
+            </div>
+
+            {/* Код приглашения */}
+            <div className="mb-3 rounded-[12px] border border-dashed border-sage/40 bg-sage/5 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-sage">Код для близких</p>
                   <p className="font-mono text-[16px] font-bold tracking-widest text-ink">{snap.house.code}</p>
                 </div>
                 <Button
@@ -373,9 +395,6 @@ function HousePage() {
                   <Copy size={13} /> {copiedCode ? 'Скопировано' : 'Копировать'}
                 </Button>
               </div>
-              <p className="mt-1.5 text-[11.5px] text-muted">
-                Отправьте этот код тем, с кем делите бюджет. Они введут его в разделе «Кассы → Войти».
-              </p>
             </div>
 
             {/* Управление участниками (для владельца) */}
@@ -415,7 +434,7 @@ function HousePage() {
                   <button
                     className="flex items-center gap-1 rounded-[8px] border border-stamp/30 px-2.5 py-1.5 text-[12px] text-stamp hover:bg-stamp/10"
                     onClick={async () => {
-                      if (!confirm('Удалить кассу полностью? Все платежи, список желаний и переписка будут стёрты.')) return
+                      if (!confirm('Удалить кассу полностью? Все платежи, чеки и переписка будут стёрты.')) return
                       await deleteHouse({ data: { houseId: id } })
                       navigate({ to: '/groups' })
                     }}
@@ -429,7 +448,7 @@ function HousePage() {
                   <button
                     className="flex items-center gap-1 rounded-[8px] border border-stamp/30 px-2.5 py-1.5 text-[12px] text-stamp hover:bg-stamp/10"
                     onClick={async () => {
-                      if (!confirm('Выйти из кассы? Вы перестанете получать уведомления о платежах.')) return
+                      if (!confirm('Выйти из кассы? Вы перестанете получать уведомления.')) return
                       await leaveHouse({ data: { houseId: id } })
                       navigate({ to: '/groups' })
                     }}
@@ -443,41 +462,30 @@ function HousePage() {
         </div>
       ) : null}
 
-      {/* 2. Финтех-сводка: Главная карточка баланса обязательств */}
+      {/* 2. Финтех-сводка: Главная карточка баланса */}
       <section className="mb-4 px-4">
         <div className="relative overflow-hidden rounded-[20px] border border-rule bg-gradient-to-b from-[#faf7ef] to-[#f4eee2] p-4 shadow-paper">
-          {/* Верхняя строка сводки */}
           <div className="flex items-center justify-between text-[12.5px]">
-            <span className="flex items-center gap-1.5 font-medium text-muted">
-              <Calendar size={13} className="text-sage" />
-              <span>Обязательства за {formatCycleMonth(snap.cycle)}</span>
+            <span className="font-semibold uppercase tracking-wider text-muted">
+              Расходы {formatCycleMonth(snap.cycle)}
             </span>
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-medium',
-                percentPaid === 100 && totalBillsCount > 0
-                  ? 'bg-sage/15 text-sage'
-                  : 'bg-cream text-muted border border-rule/70',
-              )}
-            >
-              {totalBillsCount === 0
-                ? 'Нет платежей'
-                : percentPaid === 100
-                  ? 'Все оплачены ✓'
-                  : `${paidCount} из ${totalBillsCount} оплачено`}
+            <span className="rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-medium text-sage">
+              {paidCount} из {totalBillsCount} счетов закрыто
             </span>
           </div>
 
           {/* Главные показатели */}
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="rounded-[14px] border border-rule/70 bg-white/70 p-3 shadow-xs">
-              <span className="text-[11.5px] text-muted">Общая сумма</span>
-              <p className="t-num mt-0.5 text-[20px] font-bold text-ink">{moneyShort(totalBillsAmount)}</p>
-              <span className="text-[10.5px] text-muted">в месяц на всех</span>
+              <span className="text-[11.5px] text-muted">Всего за месяц</span>
+              <p className="t-num mt-0.5 text-[20px] font-bold text-ink">
+                {moneyShort(snap.analytics.totalSpent)}
+              </p>
+              <span className="text-[10.5px] text-muted">счета + чеки кассы</span>
             </div>
 
             <div className="rounded-[14px] border border-sage/30 bg-sage/10 p-3 shadow-xs">
-              <span className="text-[11.5px] font-medium text-sage">Ваша доля</span>
+              <span className="text-[11.5px] font-medium text-sage">Ваша доля счетов</span>
               <p className="t-num mt-0.5 text-[20px] font-bold text-ink">{moneyShort(myTotalShare)}</p>
               <span className="text-[10.5px] text-sage">
                 {myUnpaidShare === 0 && myTotalShare > 0 ? 'оплачено полностью' : `осталось ${moneyShort(myUnpaidShare)}`}
@@ -489,7 +497,7 @@ function HousePage() {
           {totalBillsCount > 0 ? (
             <div className="mt-3">
               <div className="flex items-center justify-between text-[11.5px] text-muted">
-                <span>Прогресс закрытия</span>
+                <span>Прогресс закрытия счетов</span>
                 <span className="font-semibold text-ink">{percentPaid}%</span>
               </div>
               <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-rule-soft">
@@ -503,7 +511,7 @@ function HousePage() {
         </div>
       </section>
 
-      {/* 3. Участники и долевое распределение (аккордеон/карточка) */}
+      {/* 3. Участники и доходы (аккордеон) */}
       <section className="mb-4 px-4">
         <div className="rounded-[18px] border border-rule bg-paper p-3.5 shadow-paper">
           <button
@@ -526,7 +534,9 @@ function HousePage() {
                 ))}
               </div>
               <div className="min-w-0">
-                <span className="t-display block text-[14.5px] font-semibold text-ink leading-tight">Участники и доходы</span>
+                <span className="t-display block text-[14.5px] font-semibold text-ink leading-tight">
+                  Участники и доходы
+                </span>
                 <p className="mt-0.5 text-[11.5px] text-muted leading-tight">доли при делении «по зарплате»</p>
               </div>
             </div>
@@ -550,7 +560,7 @@ function HousePage() {
                       isMe ? 'bg-cream/80 border border-rule/70' : 'bg-white/60 border border-rule/40',
                     )}
                   >
-                    <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div
                         className={cn(
                           'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold',
@@ -560,17 +570,23 @@ function HousePage() {
                         {getInitials(m.name)}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="truncate text-[13.5px] font-semibold text-ink leading-none">{m.name}</span>
-                          {isCreator ? (
-                            <span className="inline-flex items-center gap-0.5 rounded-[4px] px-1 py-0.5 text-[10px] font-semibold text-amber-800 bg-amber-100/90 border border-amber-200/60 leading-none">
-                              <Crown size={9} className="shrink-0" /> владелец
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-[13.5px] font-semibold text-ink leading-tight">
+                            {m.name}
+                          </span>
+                          {isMe ? (
+                            <span className="rounded-[4px] bg-sage/15 px-1 py-0.2 text-[9.5px] font-bold text-sage leading-tight">
+                              вы
                             </span>
                           ) : null}
-                          {isMe ? <span className="inline-flex items-center text-[11px] font-medium text-sage leading-none">· вы</span> : null}
+                          {isCreator ? (
+                            <span title="Создатель кассы">
+                              <Crown size={12} className="text-amber-600 shrink-0" />
+                            </span>
+                          ) : null}
                         </div>
-                        <p className="mt-1 text-[11px] text-muted leading-tight">
-                          {totalSalaries > 0 ? `доля в расходах ~${proportion}%` : 'доход не указан'}
+                        <p className="mt-0.5 text-[11.5px] text-muted leading-tight">
+                          {m.salary > 0 ? `${moneyShort(m.salary)} в мес. · ${proportion}%` : 'доход не указан'}
                         </p>
                       </div>
                     </div>
@@ -578,36 +594,34 @@ function HousePage() {
                     {isMe ? (
                       <SalaryWidget
                         initialSalary={m.salary}
-                        onSave={async (val) => {
-                          await setSalary({ data: { houseId: id, amount: val } })
+                        onSave={async (newSal) => {
+                          await setSalary({ data: { houseId: id, amount: newSal } })
                           await load()
                         }}
                       />
                     ) : (
-                      <span className="t-num shrink-0 text-[13px] font-semibold text-ink">
-                        {m.salary ? moneyShort(m.salary) : '—'}
+                      <span className="t-num text-[12.5px] font-medium text-muted">
+                        {m.salary > 0 ? moneyShort(m.salary) : '—'}
                       </span>
                     )}
                   </div>
                 )
               })}
-              <div className="mt-3 flex items-start gap-2 rounded-[10px] bg-cream/70 border border-rule/60 p-2.5 text-[11.5px] leading-relaxed text-muted">
-                <span className="shrink-0 text-[13px] leading-none mt-0.5">💡</span>
-                <span>Укажите доходы участников, чтобы касса автоматически распределяла общие счета пропорционально заработку.</span>
-              </div>
             </div>
           ) : null}
         </div>
       </section>
 
-      {/* 4. Современные вкладки (Сегментированный переключатель) */}
+      {/* 4. Пять стильных вкладок с горизонтальным скроллом */}
       <div className="mb-4 px-4">
-        <div className="flex rounded-[14px] border border-rule bg-paper p-1 shadow-paper">
+        <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
           {(
             [
               { id: 'bills', label: 'Платежи', count: snap.bills.length, icon: Receipt },
-              { id: 'wishes', label: 'Желания', count: unboughtWishesCount, icon: Sparkles },
-              { id: 'chat', label: 'Чат', count: snap.messages.length, icon: MessageSquare },
+              { id: 'receipts', label: 'Чеки', count: snap.receipts.length, icon: ReceiptText },
+              { id: 'goals', label: 'Копилки', count: activeGoalsCount, icon: PiggyBank },
+              { id: 'analytics', label: 'Аналитика', count: 0, icon: BarChart3 },
+              { id: 'chat', label: 'Чат & AI', count: snap.messages.length, icon: MessageSquare },
             ] as const
           ).map((item) => {
             const active = tab === item.id
@@ -617,18 +631,18 @@ function HousePage() {
                 key={item.id}
                 onClick={() => setTab(item.id)}
                 className={cn(
-                  'relative flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-[11px] px-2 text-[13px] font-medium transition-all duration-200 active:scale-95 whitespace-nowrap leading-none',
+                  'flex shrink-0 items-center gap-1.5 rounded-[12px] border px-3 py-2 text-[12.5px] font-medium transition-all active:scale-95 whitespace-nowrap shadow-xs',
                   active
-                    ? 'bg-sage text-onsage shadow-sm font-semibold'
-                    : 'text-muted hover:text-ink hover:bg-cream/50',
+                    ? 'border-sage bg-sage text-onsage font-semibold shadow-sm'
+                    : 'border-rule/80 bg-paper text-muted hover:border-sage/40 hover:text-ink',
                 )}
               >
-                <Icon size={15} className="shrink-0" />
+                <Icon size={14} className="shrink-0" />
                 <span>{item.label}</span>
                 {item.count > 0 ? (
                   <span
                     className={cn(
-                      'ml-0.5 inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none',
+                      'ml-0.5 inline-flex h-4 min-w-[17px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none',
                       active ? 'bg-white/25 text-onsage' : 'bg-rule-soft text-muted',
                     )}
                   >
@@ -643,7 +657,7 @@ function HousePage() {
 
       {/* 5. Содержимое вкладок */}
       <div className="px-4">
-        {/* --- ВКЛАДКА: ПЛАТЕЖИ --- */}
+        {/* --- ВКЛАДКА 1: ПЛАТЕЖИ (BILLS) --- */}
         {tab === 'bills' ? (
           <div className="space-y-3">
             {snap.bills.length === 0 ? (
@@ -651,7 +665,9 @@ function HousePage() {
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cream text-sage">
                   <Receipt size={22} />
                 </div>
-                <h3 className="t-display text-[16.5px] font-semibold text-ink leading-tight">Регулярных платежей пока нет</h3>
+                <h3 className="t-display text-[16.5px] font-semibold text-ink leading-tight">
+                  Регулярных платежей пока нет
+                </h3>
                 <p className="mx-auto mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-muted">
                   Добавьте аренду, интернет, ЖКУ или другие ежемесячные счета, чтобы не забывать о них
                 </p>
@@ -698,90 +714,99 @@ function HousePage() {
                               'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border',
                               paid
                                 ? 'border-sage/40 bg-sage/10 text-sage'
-                                : 'border-rule bg-cream text-muted',
+                                : 'border-rule/80 bg-white text-ink shadow-xs',
                             )}
                           >
-                            {getBillIcon(b.title)}
+                            {paid ? <CheckCircle2 size={18} /> : getBillIcon(b.title)}
                           </div>
                           <div className="min-w-0">
-                            <h4 className="t-display truncate text-[16px] font-semibold text-ink leading-snug">{b.title}</h4>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] leading-none">
-                              {/* День месяца */}
-                              <span className="inline-flex items-center rounded-[5px] bg-cream px-1.5 py-0.5 font-medium text-muted leading-none">
-                                {b.day_of_month} числа
-                              </span>
-
-                              {/* Срок оплаты */}
-                              <span
-                                className={cn(
-                                  'inline-flex items-center rounded-[5px] px-1.5 py-0.5 font-medium leading-none',
-                                  due.key === 'today' || due.key === 'overdue'
-                                    ? 'bg-stamp/10 text-stamp'
-                                    : 'bg-rule-soft text-muted',
-                                )}
-                              >
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="t-display text-[15.5px] font-semibold text-ink leading-snug">
+                                {b.title}
+                              </h4>
+                              {paid ? (
+                                <span className="rounded-[5px] bg-sage/15 px-1.5 py-0.5 text-[10.5px] font-bold text-sage leading-none">
+                                  оплачен
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-1 flex items-center gap-2 text-[12px] text-muted flex-wrap">
+                              <span className={cn(due.key === 'today' || due.key === 'overdue' ? 'text-stamp font-medium' : '')}>
                                 {due.label}
                               </span>
-
-                              {/* Способ деления */}
-                              <span className="inline-flex items-center rounded-[5px] bg-cream px-1.5 py-0.5 text-muted leading-none">
+                              <span>·</span>
+                              <span>
                                 {b.split === 'payer' && payerMember
-                                  ? `Платит ${payerMember.name}`
-                                  : SPLIT_LABEL[b.split] || b.split}
+                                  ? `платит ${payerMember.name}`
+                                  : SPLIT_LABEL[b.split] || 'Поровну'}
                               </span>
                             </div>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span className="t-num block text-[17px] font-bold text-ink leading-none">{moneyShort(b.amount)}</span>
-                          <p className="mt-0.5 text-[10.5px] text-muted leading-tight">общий счёт</p>
+                          <p className="t-num text-[17px] font-bold text-ink leading-tight">
+                            {moneyShort(b.amount)}
+                          </p>
+                          <p className="mt-0.5 text-[11.5px] text-sage font-medium leading-tight">
+                            ваша доля: {moneyShort(share)}
+                          </p>
                         </div>
                       </div>
 
-                      {/* Нижняя строка: Доля пользователя и кнопка оплаты */}
-                      <div className="mt-3 flex items-center justify-between border-t border-rule/60 pt-2.5">
-                        <div className="flex items-baseline gap-1 text-[12.5px] leading-none">
-                          <span className="text-muted">Ваша часть:</span>
-                          <span className="t-num font-bold text-ink text-[13.5px]">{moneyShort(share)}</span>
-                        </div>
+                      {/* Доли всех участников */}
+                      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-rule/50 pt-2.5">
+                        {snap.members.map((m) => {
+                          const mShare = snap.shares?.[b.id]?.[m.user_id] ?? 0
+                          const isM = m.user_id === user?.id
+                          return (
+                            <span
+                              key={m.user_id}
+                              className={cn(
+                                'rounded-[7px] px-2 py-0.5 text-[11px] font-medium leading-none',
+                                isM ? 'bg-sage/12 text-sage font-semibold' : 'bg-cream text-muted',
+                              )}
+                            >
+                              {m.name}: {moneyShort(mShare)}
+                            </span>
+                          )
+                        })}
+                      </div>
 
-                        <div className="flex items-center gap-1.5">
-                          {/* Кнопка удаления для создателя или участника */}
-                          <button
-                            onClick={async () => {
-                              if (!confirm(`Удалить платёж «${b.title}»?`)) return
-                              await deleteHouseBill({ data: { houseId: id, billId: b.id } })
-                              await load()
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted/60 hover:text-stamp hover:bg-stamp/10 transition"
-                            title="Удалить платёж"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                      {/* Кнопка отметки об оплате и удаление */}
+                      <div className="mt-3 flex items-center justify-between border-t border-rule/40 pt-2.5">
+                        <button
+                          onClick={async () => {
+                            await payHouseBill({ data: { houseId: id, billId: b.id, paid: !paid } })
+                            await load()
+                          }}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-[10px] border px-3 py-1.5 text-[12.5px] font-medium transition active:scale-95 shadow-xs',
+                            paid
+                              ? 'border-sage/40 bg-white text-sage hover:bg-sage/5'
+                              : 'border-sage bg-sage text-onsage hover:bg-sage/95',
+                          )}
+                        >
+                          <Check size={14} />
+                          <span>{paid ? 'Отменить оплату' : 'Отметить оплаченным'}</span>
+                        </button>
 
-                          <button
-                            onClick={async () => {
-                              await payHouseBill({ data: { houseId: id, billId: b.id, paid: !paid } })
-                              await load()
-                            }}
-                            className={cn(
-                              'inline-flex min-h-[34px] items-center gap-1.5 rounded-[9px] px-3 text-[12.5px] font-medium transition active:scale-95 leading-none',
-                              paid
-                                ? 'border border-sage/40 bg-sage/10 text-sage hover:bg-sage/15'
-                                : 'border border-rule bg-white text-ink hover:border-sage shadow-xs',
-                            )}
-                          >
-                            {paid ? <CheckCircle2 size={15} /> : <Circle size={15} />}
-                            <span>{paid ? 'Оплачено' : 'Я оплатил'}</span>
-                          </button>
-                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Удалить платёж «${b.title}»?`)) return
+                            await deleteHouseBill({ data: { houseId: id, billId: b.id } })
+                            await load()
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted/50 transition hover:bg-stamp/10 hover:text-stamp"
+                          title="Удалить платёж"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   )
                 })}
 
-                {/* Форма добавления регулярного платежа */}
                 <AddBillModal
                   members={snap.members}
                   onAdd={async (v) => {
@@ -794,20 +819,141 @@ function HousePage() {
           </div>
         ) : null}
 
-        {/* --- ВКЛАДКА: ЖЕЛАНИЯ --- */}
-        {tab === 'wishes' ? (
+        {/* --- ВКЛАДКА 2: ЧЕКИ КАССЫ (RECEIPTS) --- */}
+        {tab === 'receipts' ? (
+          <div className="space-y-3">
+            {/* Панель действий с чеками */}
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <span className="text-[12px] uppercase tracking-wider text-muted font-semibold">Чеки кассы</span>
+                <p className="t-num text-[17px] font-bold text-ink leading-tight">
+                  {money(receiptsSum)}
+                </p>
+              </div>
+              <div className="flex gap-1.5">
+                <Link to="/scan">
+                  <Button size="sm" variant="sage" className="gap-1 rounded-[10px] text-[12px]">
+                    <ScanLine size={14} /> Скан чека
+                  </Button>
+                </Link>
+                <AttachReceiptModal
+                  houseId={id}
+                  onAttached={async () => {
+                    await load()
+                  }}
+                />
+              </div>
+            </div>
+
+            {snap.receipts.length === 0 ? (
+              <div className="rounded-[18px] border border-rule bg-paper p-6 text-center shadow-paper">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cream text-amber-800">
+                  <ReceiptText size={22} />
+                </div>
+                <h3 className="t-display text-[16.5px] font-semibold text-ink leading-tight">
+                  Общих чеков пока нет
+                </h3>
+                <p className="mx-auto mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-muted">
+                  Сканируйте покупки в магазине или привязывайте чеки из личного ящика к этой кассе
+                </p>
+                <div className="mt-4 flex justify-center gap-2">
+                  <Link to="/scan">
+                    <Button variant="sage" size="md" className="gap-1.5 rounded-[12px] px-4 text-[13.5px]">
+                      <ScanLine size={16} /> Сканировать чек
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {snap.receipts.map((r) => {
+                  const isOpen = openReceiptId === r.id
+                  const isMyReceipt = r.user_id === user?.id
+
+                  return (
+                    <div
+                      key={r.id}
+                      className="rounded-[16px] border border-rule bg-paper transition-all shadow-paper overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setOpenReceiptId(isOpen ? null : r.id)}
+                        className="flex w-full items-center justify-between p-3.5 text-left transition hover:bg-black/[0.015]"
+                      >
+                        <div className="min-w-0 flex-1 pr-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="truncate text-[15px] font-semibold text-ink">
+                              {r.store}
+                            </span>
+                            <span className="rounded-full bg-cream border border-rule/80 px-2 py-0.5 text-[10.5px] font-medium text-muted">
+                              {categoryLabel(r.category)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2 text-[12px] text-muted flex-wrap">
+                            <span>{dateRu(r.purchased_at || r.created_at)}</span>
+                            <span>·</span>
+                            <span className="text-sage font-medium">Купил(а) {r.payer_name}</span>
+                            {r.note ? (
+                              <>
+                                <span>·</span>
+                                <span className="truncate text-ink/70">{r.note}</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="t-num text-[16.5px] font-bold text-ink">
+                            {moneyShort(r.total)}
+                          </span>
+                          <div className="text-muted">
+                            {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </div>
+                        </div>
+                      </button>
+
+                      {isOpen ? (
+                        <div className="border-t border-rule/60 bg-black/[0.015] px-4 py-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[12px] text-muted">Чек в общей кассе</span>
+                            {isMyReceipt ? (
+                              <button
+                                onClick={async () => {
+                                  await linkReceiptToHouse({ data: { houseId: id, receiptId: r.id, link: false } })
+                                  await load()
+                                }}
+                                className="text-[12px] font-medium text-stamp hover:underline"
+                              >
+                                Отвязать от кассы
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* --- ВКЛАДКА 3: КОПИЛКИ И ЦЕЛИ (GOALS) --- */}
+        {tab === 'goals' ? (
           <div className="space-y-3">
             {snap.wishes.length === 0 ? (
               <div className="rounded-[18px] border border-rule bg-paper p-6 text-center shadow-paper">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cream text-sage">
-                  <Sparkles size={22} />
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cream text-amber-800">
+                  <PiggyBank size={22} />
                 </div>
-                <h3 className="t-display text-[16.5px] font-semibold text-ink leading-tight">Список желаний пуст</h3>
+                <h3 className="t-display text-[16.5px] font-semibold text-ink leading-tight">
+                  Копилок и целей пока нет
+                </h3>
                 <p className="mx-auto mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-muted">
-                  Записывайте совместные покупки: от кофемашины до нового дивана
+                  Копите вместе на отпуск, новый холодильник, ремонт или подарки близким
                 </p>
                 <div className="mt-4 flex justify-center">
-                  <AddWishModal
+                  <AddGoalModal
                     onAdd={async (v) => {
                       await addWish({ data: { houseId: id, ...v } })
                       await load()
@@ -819,7 +965,7 @@ function HousePage() {
                         className="gap-1.5 rounded-[12px] px-4 text-[13.5px]"
                         onClick={open}
                       >
-                        <Plus size={16} /> Добавить желание
+                        <Plus size={16} /> Создать первую цель
                       </Button>
                     )}
                   />
@@ -827,70 +973,131 @@ function HousePage() {
               </div>
             ) : (
               <>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {snap.wishes.map((w) => {
-                    const isBought = !!w.bought_at
+                    const isComplete = !!w.bought_at || (w.amount > 0 && w.collected >= w.amount)
+                    const percent = w.amount > 0 ? Math.min(100, Math.round((w.collected / w.amount) * 100)) : 0
+                    const remaining = Math.max(0, w.amount - w.collected)
+
                     return (
                       <div
                         key={w.id}
                         className={cn(
-                          'flex items-center gap-3 rounded-[14px] border p-3 transition shadow-sm',
-                          isBought
-                            ? 'border-rule/50 bg-cream/40 opacity-70'
-                            : 'border-rule bg-paper hover:border-sage/40',
+                          'rounded-[16px] border p-4 transition-all shadow-paper',
+                          isComplete ? 'border-sage/40 bg-[#fafcf9]' : 'border-rule bg-paper',
                         )}
                       >
-                        <button
-                          onClick={async () => {
-                            await toggleWish({ data: { houseId: id, wishId: w.id } })
-                            await load()
-                          }}
-                          className={cn(
-                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] border transition active:scale-90',
-                            isBought
-                              ? 'border-sage bg-sage text-onsage'
-                              : 'border-rule bg-white hover:border-sage text-transparent',
-                          )}
-                          aria-label={isBought ? 'Отметить не купленным' : 'Отметить купленным'}
-                        >
-                          <Check size={14} className={isBought ? 'opacity-100' : 'opacity-0'} />
-                        </button>
-
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={cn(
-                              't-display truncate text-[14.5px] font-medium leading-snug',
-                              isBought ? 'text-muted line-through' : 'text-ink',
-                            )}
-                          >
-                            {w.title}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-muted leading-tight">
-                            {w.by_name ? `добавил(а) ${w.by_name}` : 'общая идея'}
-                            {isBought ? ' · куплено' : ''}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {w.amount > 0 ? (
-                            <span
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div
                               className={cn(
-                                't-num rounded-[6px] px-2 py-0.5 text-[13px] font-semibold leading-none',
-                                isBought ? 'bg-cream text-muted line-through' : 'bg-cream text-ink',
+                                'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border',
+                                isComplete
+                                  ? 'border-sage/40 bg-sage/15 text-sage'
+                                  : 'border-amber-800/30 bg-amber-800/10 text-amber-850',
                               )}
                             >
+                              {isComplete ? <CheckCircle2 size={18} /> : <Target size={18} />}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="t-display text-[16px] font-semibold text-ink leading-tight">
+                                  {w.title}
+                                </h4>
+                                {isComplete ? (
+                                  <span className="rounded-[5px] bg-sage/15 px-1.5 py-0.5 text-[10px] font-bold text-sage leading-none">
+                                    достигнуто!
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1 text-[11.5px] text-muted">
+                                {w.by_name ? `автор: ${w.by_name}` : 'общая цель'}
+                                {w.target_date ? ` · до ${dateRu(w.target_date)}` : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <p className="t-num text-[17px] font-bold text-ink leading-tight">
                               {moneyShort(w.amount)}
-                            </span>
-                          ) : null}
+                            </p>
+                            <span className="text-[11px] text-muted">цель</span>
+                          </div>
+                        </div>
+
+                        {/* Шкала прогресса копилки */}
+                        {w.amount > 0 ? (
+                          <div className="mt-3.5">
+                            <div className="flex items-center justify-between text-[11.5px]">
+                              <span className="font-medium text-ink">
+                                Собрано: <span className="text-sage font-bold">{moneyShort(w.collected)}</span>
+                              </span>
+                              <span className="text-muted">
+                                {isComplete ? '100%' : `осталось ${moneyShort(remaining)} (${percent}%)`}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-rule-soft">
+                              <div
+                                className={cn(
+                                  'h-full rounded-full transition-all duration-500',
+                                  isComplete ? 'bg-sage' : 'bg-amber-700',
+                                )}
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* История взносов */}
+                        {w.deposits && w.deposits.length > 0 ? (
+                          <div className="mt-3 border-t border-rule/50 pt-2.5">
+                            <p className="text-[11px] font-medium uppercase tracking-wider text-muted mb-1.5">
+                              Взносы участников ({w.deposits.length}):
+                            </p>
+                            <div className="space-y-1">
+                              {w.deposits.slice(0, 4).map((d) => (
+                                <div key={d.id} className="flex items-center justify-between text-[12px]">
+                                  <span className="text-muted">
+                                    {d.name} {d.note ? `(${d.note})` : ''}
+                                  </span>
+                                  <span className="t-num font-semibold text-ink">+{moneyShort(d.amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* Действия: Внести взнос, Завершить, Удалить */}
+                        <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-rule/50 pt-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <DepositModal
+                              goalTitle={w.title}
+                              onDeposit={async (amt, note) => {
+                                await depositGoal({
+                                  data: { houseId: id, wishId: w.id, amount: amt, note },
+                                })
+                                await load()
+                              }}
+                            />
+                            <button
+                              onClick={async () => {
+                                await toggleWish({ data: { houseId: id, wishId: w.id } })
+                                await load()
+                              }}
+                              className="rounded-[10px] border border-rule bg-white px-2.5 py-1.5 text-[12px] font-medium text-muted hover:text-ink shadow-xs transition"
+                            >
+                              {isComplete ? 'В процесс' : 'Куплено'}
+                            </button>
+                          </div>
 
                           <button
                             onClick={async () => {
-                              if (!confirm(`Удалить «${w.title}» из списка?`)) return
+                              if (!confirm(`Удалить «${w.title}»?`)) return
                               await deleteWish({ data: { houseId: id, wishId: w.id } })
                               await load()
                             }}
-                            className="flex h-7 w-7 items-center justify-center text-muted/50 hover:text-stamp transition"
-                            title="Удалить желание"
+                            className="flex h-8 w-8 items-center justify-center text-muted/50 hover:text-stamp transition"
+                            title="Удалить цель"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -900,8 +1107,7 @@ function HousePage() {
                   })}
                 </div>
 
-                {/* Форма добавления желания */}
-                <AddWishModal
+                <AddGoalModal
                   onAdd={async (v) => {
                     await addWish({ data: { houseId: id, ...v } })
                     await load()
@@ -912,22 +1118,271 @@ function HousePage() {
           </div>
         ) : null}
 
-        {/* --- ВКЛАДКА: ЧАТ КАССЫ --- */}
-        {tab === 'chat' ? (
-          <div className="rounded-[18px] border border-rule bg-paper p-3.5 shadow-paper">
-            <div className="mb-2 flex items-center justify-between border-b border-rule/60 pb-2 text-[12px] text-muted">
-              <span>Сообщения и уведомления</span>
-              <span className="text-[11px]">приходят пушем</span>
+        {/* --- ВКЛАДКА 4: АНАЛИТИКА И БЮДЖЕТ (ANALYTICS) --- */}
+        {tab === 'analytics' ? (
+          <div className="space-y-4">
+            {/* 1. Карточка общего бюджета кассы */}
+            <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
+              <div className="flex items-center justify-between">
+                <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+                  Бюджет кассы
+                </span>
+                <EditBudgetModal
+                  currentBudget={snap.analytics.budget}
+                  onSave={async (val) => {
+                    await setHouseBudget({ data: { houseId: id, budget: val } })
+                    await load()
+                  }}
+                  trigger={(open) => (
+                    <button
+                      type="button"
+                      onClick={open}
+                      className="text-[12px] font-medium text-sage hover:underline"
+                    >
+                      {snap.analytics.budget > 0 ? 'Изменить' : '+ Задать бюджет'}
+                    </button>
+                  )}
+                />
+              </div>
+
+              {snap.analytics.budget > 0 ? (
+                <>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <p className="t-display text-[32px] font-bold leading-none text-ink">
+                      {money(snap.analytics.left)}
+                    </p>
+                    <span className="text-[12.5px] text-muted">остаток лимита</span>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-[11.5px] text-muted">
+                      <span>Израсходовано {snap.analytics.percentSpent}%</span>
+                      <span className="t-num">Лимит: {money(snap.analytics.budget)}</span>
+                    </div>
+                    <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-rule-soft">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          snap.analytics.percentSpent > 90
+                            ? 'bg-stamp'
+                            : snap.analytics.percentSpent > 75
+                              ? 'bg-amber-600'
+                              : 'bg-sage',
+                        )}
+                        style={{ width: `${Math.max(3, snap.analytics.percentSpent)}%` }}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-2 py-3 text-center">
+                  <p className="text-[13.5px] text-ink font-medium">Семейный лимит не установлен</p>
+                  <p className="mt-1 text-[12px] text-muted">
+                    Задайте общий бюджет кассы на месяц, чтобы контролировать перерасход.
+                  </p>
+                </div>
+              )}
+
+              {/* Метрики расходов */}
+              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-rule/60 pt-3">
+                <div className="rounded-[10px] bg-cream/70 p-2.5">
+                  <span className="text-[11px] text-muted">Потрачено в кассе</span>
+                  <p className="t-num mt-0.5 text-[15px] font-bold text-ink">
+                    {money(snap.analytics.totalSpent)}
+                  </p>
+                </div>
+                <div className="rounded-[10px] bg-cream/70 p-2.5">
+                  <span className="text-[11px] text-muted">Количество чеков</span>
+                  <p className="t-num mt-0.5 text-[15px] font-bold text-ink">
+                    {snap.receipts.length} шт.
+                  </p>
+                </div>
+              </div>
             </div>
 
+            {/* 2. Вклад каждого участника (Кто сколько внёс) */}
+            <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
+              <h3 className="t-display text-[15.5px] font-semibold text-ink leading-tight mb-1">
+                Вклад участников в траты
+              </h3>
+              <p className="text-[11.5px] text-muted mb-3">
+                оплаченные счета + покупки по чекам за этот месяц
+              </p>
+
+              {snap.analytics.byMember.length === 0 || snap.analytics.totalSpent === 0 ? (
+                <p className="py-2 text-center text-[12.5px] text-muted">Трат в этом месяце пока не было.</p>
+              ) : (
+                <div className="space-y-3">
+                  {snap.analytics.byMember.map((m, idx) => (
+                    <div key={m.user_id}>
+                      <div className="flex items-center justify-between text-[13px] mb-1">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              'flex h-6 w-6 items-center justify-center rounded-full border text-[9.5px] font-bold',
+                              AVATAR_COLORS[idx % AVATAR_COLORS.length],
+                            )}
+                          >
+                            {getInitials(m.name)}
+                          </div>
+                          <span className="font-medium text-ink">{m.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="t-num font-bold text-ink">{money(m.total)}</span>
+                          <span className="text-[11.5px] text-muted">({m.percent}%)</span>
+                        </div>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-rule-soft">
+                        <div
+                          className={cn(
+                            'h-full rounded-full transition-all duration-500',
+                            idx === 0 ? 'bg-sage' : idx === 1 ? 'bg-amber-700' : 'bg-blue-700',
+                          )}
+                          style={{ width: `${Math.max(4, m.percent)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Расходы по категориям */}
+            <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
+              <h3 className="t-display text-[15.5px] font-semibold text-ink leading-tight mb-1">
+                Расходы по категориям
+              </h3>
+              <p className="text-[11.5px] text-muted mb-3">структура трат кассы за месяц</p>
+
+              {snap.analytics.byCategory.length === 0 ? (
+                <p className="py-2 text-center text-[12.5px] text-muted">Данных по категориям пока нет.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {snap.analytics.byCategory.map((cat) => (
+                    <div key={cat.category}>
+                      <div className="flex items-center justify-between text-[12.5px] mb-1">
+                        <span className="font-medium text-ink">{cat.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="t-num font-semibold text-ink">{money(cat.total)}</span>
+                          <span className="text-[11px] text-muted">({cat.percent}%)</span>
+                        </div>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-rule-soft">
+                        <div
+                          className="h-full rounded-full bg-sage/80"
+                          style={{ width: `${Math.max(3, cat.percent)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {/* --- ВКЛАДКА 5: ЧАТ КАССЫ И СЕМЕЙНЫЙ AI-СОВЕТНИК (CHAT) --- */}
+        {tab === 'chat' ? (
+          <div className="rounded-[18px] border border-rule bg-paper p-3.5 shadow-paper">
+            {/* Панель быстрого вызова ЧекАгента */}
+            <div className="mb-3 rounded-[14px] border border-sage/30 bg-sage/5 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={15} className="text-sage" />
+                <span className="t-display text-[13.5px] font-semibold text-sage">
+                  Семейный советник ЧекАгент
+                </span>
+              </div>
+              <p className="text-[11.5px] text-muted mb-2.5">
+                Задайте вопрос по финансам кассы или используйте быстрые команды:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  disabled={agentBusy}
+                  onClick={async () => {
+                    setAgentBusy(true)
+                    try {
+                      await askHouseAgent({
+                        data: { houseId: id, prompt: 'Подведи финансовые итоги кассы за этот месяц' },
+                      })
+                      await load()
+                    } finally {
+                      setAgentBusy(false)
+                    }
+                  }}
+                  className="rounded-[9px] border border-sage/40 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sage hover:bg-sage/10 transition shadow-xs disabled:opacity-50"
+                >
+                  {agentBusy ? <LoaderCircle size={11} className="inline animate-spin mr-1" /> : null}
+                  📊 Итоги месяца
+                </button>
+                <button
+                  type="button"
+                  disabled={agentBusy}
+                  onClick={async () => {
+                    setAgentBusy(true)
+                    try {
+                      await askHouseAgent({
+                        data: { houseId: id, prompt: 'Подскажи, где семья может оптимизировать расходы' },
+                      })
+                      await load()
+                    } finally {
+                      setAgentBusy(false)
+                    }
+                  }}
+                  className="rounded-[9px] border border-sage/40 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sage hover:bg-sage/10 transition shadow-xs disabled:opacity-50"
+                >
+                  💡 Где сэкономить?
+                </button>
+                <button
+                  type="button"
+                  disabled={agentBusy}
+                  onClick={async () => {
+                    setAgentBusy(true)
+                    try {
+                      await askHouseAgent({
+                        data: { houseId: id, prompt: 'Оцени вклады участников и прогресс по копилкам' },
+                      })
+                      await load()
+                    } finally {
+                      setAgentBusy(false)
+                    }
+                  }}
+                  className="rounded-[9px] border border-sage/40 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sage hover:bg-sage/10 transition shadow-xs disabled:opacity-50"
+                >
+                  ⚖️ Анализ вкладов
+                </button>
+              </div>
+            </div>
+
+            {/* Лента сообщений */}
             <div className="mb-3 flex max-h-[46vh] flex-col gap-2.5 overflow-y-auto px-1 py-1 no-scrollbar">
               {snap.messages.length === 0 ? (
                 <div className="py-8 text-center text-[13px] text-muted">
-                  Пока сообщений нет. Напишите что-нибудь в общую кассу!
+                  Пока сообщений нет. Напишите что-нибудь в общую кассу или запросите отчёт у Агента!
                 </div>
               ) : (
                 snap.messages.map((m) => {
+                  const isAgent = m.is_agent || m.user_id === 'agent'
                   const isMe = m.user_id === user?.id
+
+                  if (isAgent) {
+                    return (
+                      <div
+                        key={m.id}
+                        className="my-1 rounded-[14px] border border-sage/40 bg-[#f4f8f5] p-3 shadow-xs"
+                      >
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-sage text-onsage">
+                            <Sparkles size={11} />
+                          </div>
+                          <span className="text-[12px] font-bold text-sage">ЧекАгент · Советник</span>
+                          <span className="text-[10px] text-muted/70 ml-auto">{timeRu(m.created_at)}</span>
+                        </div>
+                        <p className="text-[13.5px] leading-relaxed text-ink whitespace-pre-wrap">{m.text}</p>
+                      </div>
+                    )
+                  }
+
                   return (
                     <div
                       key={m.id}
@@ -1053,6 +1508,310 @@ function SalaryWidget({
   )
 }
 
+function EditBudgetModal({
+  currentBudget,
+  onSave,
+  trigger,
+}: {
+  currentBudget: number
+  onSave: (val: number) => Promise<void>
+  trigger?: (open: () => void) => React.ReactNode
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [val, setVal] = React.useState(currentBudget ? String(currentBudget) : '')
+  const [busy, setBusy] = React.useState(false)
+
+  if (!open) {
+    if (trigger) return <>{trigger(() => setOpen(true))}</>
+    return (
+      <Button
+        size="sm"
+        variant="paper"
+        onClick={() => setOpen(true)}
+        className="h-8 rounded-[8px] text-[12px]"
+      >
+        {currentBudget > 0 ? 'Изменить' : 'Задать'}
+      </Button>
+    )
+  }
+
+  return (
+    <form
+      className="mt-3 rounded-[12px] border border-rule bg-white p-3 shadow-sm"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        setBusy(true)
+        try {
+          await onSave(Math.round(Number(val.replace(/[^\d]/g, '') || 0)))
+          setOpen(false)
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[12px] font-semibold text-ink">Месячный лимит кассы</span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-[11px] text-muted hover:text-ink"
+        >
+          ✕
+        </button>
+      </div>
+      <Input
+        value={val}
+        onChange={(e) => setVal(e.target.value.replace(/[^\d]/g, ''))}
+        placeholder="Сумма в ₽ (например: 80000)"
+        inputMode="numeric"
+        autoFocus
+        className="h-9 text-[13px] mb-2.5"
+      />
+      <div className="flex gap-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen(false)}
+          className="flex-1 text-[12px] h-8"
+        >
+          Отмена
+        </Button>
+        <Button
+          type="submit"
+          variant="sage"
+          size="sm"
+          disabled={busy}
+          className="flex-1 text-[12px] h-8"
+        >
+          {busy ? '…' : 'Сохранить'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function DepositModal({
+  goalTitle,
+  onDeposit,
+}: {
+  goalTitle: string
+  onDeposit: (amount: number, note?: string) => Promise<void>
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [amount, setAmount] = React.useState('1000')
+  const [note, setNote] = React.useState('')
+  const [busy, setBusy] = React.useState(false)
+
+  if (!open) {
+    return (
+      <Button
+        size="sm"
+        variant="sage"
+        onClick={() => setOpen(true)}
+        className="h-8 gap-1 rounded-[10px] text-[12px] px-3"
+      >
+        <Plus size={13} /> Внести взнос
+      </Button>
+    )
+  }
+
+  const PRESETS = [500, 1000, 3000, 5000]
+
+  return (
+    <form
+      className="rounded-[14px] border border-sage/40 bg-white p-3 shadow-md w-full"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        const amt = Math.round(Number(amount.replace(/[^\d]/g, '') || 0))
+        if (!amt) return
+        setBusy(true)
+        try {
+          await onDeposit(amt, note.trim() || undefined)
+          setOpen(false)
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[12px] font-semibold text-ink">Взнос в «{goalTitle}»</span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-[11px] text-muted hover:text-ink"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="mb-2 flex gap-1">
+        {PRESETS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setAmount(String(p))}
+            className={cn(
+              'rounded-[6px] border px-2 py-0.5 text-[11px] font-medium transition',
+              amount === String(p) ? 'border-sage bg-sage text-onsage' : 'border-rule bg-cream text-muted',
+            )}
+          >
+            +{p}
+          </button>
+        ))}
+      </div>
+
+      <Input
+        value={amount}
+        onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+        placeholder="Сумма взноса в ₽"
+        inputMode="numeric"
+        autoFocus
+        className="h-9 text-[13px] mb-2"
+        required
+      />
+
+      <Input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Заметка (необязательно)"
+        className="h-9 text-[12.5px] mb-2.5"
+      />
+
+      <div className="flex gap-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen(false)}
+          className="flex-1 text-[12px] h-8"
+        >
+          Отмена
+        </Button>
+        <Button
+          type="submit"
+          variant="sage"
+          size="sm"
+          disabled={busy}
+          className="flex-1 text-[12px] h-8"
+        >
+          {busy ? '…' : 'Внести'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function AttachReceiptModal({
+  houseId,
+  onAttached,
+}: {
+  houseId: string
+  onAttached: () => Promise<void>
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [myReceipts, setMyReceipts] = React.useState<Array<any>>([])
+  const [loading, setLoading] = React.useState(false)
+
+  const openModal = async () => {
+    setOpen(true)
+    setLoading(true)
+    try {
+      const res: any = await listReceipts({ data: { limit: 40 } })
+      // Показываем чеки, которые ещё не в этой кассе
+      const filtered = (res?.receipts ?? []).filter((r: any) => r.house_id !== houseId)
+      setMyReceipts(filtered)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button
+        size="sm"
+        variant="paper"
+        onClick={openModal}
+        className="gap-1 rounded-[10px] text-[12px]"
+      >
+        <Plus size={14} /> Прикрепить
+      </Button>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-[430px] rounded-[20px] border border-rule bg-paper p-4 shadow-paper-lg max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between border-b border-rule/60 pb-2.5 mb-3">
+          <div>
+            <h3 className="t-display text-[16px] font-semibold text-ink">Прикрепить чек к кассе</h3>
+            <p className="text-[11.5px] text-muted">Выберите чек из своего личного ящика</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-cream text-muted hover:text-ink"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-2 no-scrollbar py-1">
+          {loading ? (
+            <p className="py-6 text-center text-[13px] text-muted">Загрузка чеков…</p>
+          ) : myReceipts.length === 0 ? (
+            <div className="py-6 text-center text-[13px] text-muted">
+              Нет доступных личных чеков. Отсканируйте новый чек в разделе «Скан».
+            </div>
+          ) : (
+            myReceipts.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between gap-3 rounded-[12px] border border-rule/60 bg-white p-3 shadow-xs"
+              >
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-ink truncate">{r.store || 'Чек'}</p>
+                  <p className="text-[11.5px] text-muted">
+                    {dateRu(r.purchased_at || r.created_at)} · {categoryLabel(r.category)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="t-num font-bold text-ink">{moneyShort(r.total)}</span>
+                  <Button
+                    size="sm"
+                    variant="sage"
+                    className="h-7 px-2 text-[11.5px]"
+                    onClick={async () => {
+                      await linkReceiptToHouse({
+                        data: { houseId, receiptId: r.id, link: true },
+                      })
+                      setOpen(false)
+                      await onAttached()
+                    }}
+                  >
+                    + В кассу
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="pt-3 border-t border-rule/60 mt-2">
+          <Button
+            variant="paper"
+            size="md"
+            className="w-full"
+            onClick={() => setOpen(false)}
+          >
+            Закрыть
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AddBillModal({
   members,
   onAdd,
@@ -1099,16 +1858,17 @@ function AddBillModal({
       className="rounded-[16px] border border-rule bg-paper p-4 shadow-paper"
       onSubmit={async (e) => {
         e.preventDefault()
+        if (!title.trim()) return
         const amt = Math.round(Number(amount.replace(/[^\d]/g, '') || 0))
-        if (!title.trim() || !amt) return
+        if (!amt) return
         setBusy(true)
         try {
           await onAdd({
             title: title.trim(),
             amount: amt,
-            day_of_month: Math.min(31, Math.max(1, Number(day || 1))),
+            day_of_month: Math.min(31, Math.max(1, parseInt(day, 10) || 1)),
             split,
-            payer_id: split === 'payer' ? payer || members[0]?.user_id || null : null,
+            payer_id: split === 'payer' ? (payer || members[0]?.user_id || null) : null,
           })
           setTitle('')
           setAmount('')
@@ -1119,7 +1879,9 @@ function AddBillModal({
       }}
     >
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="t-display text-[15px] font-semibold text-ink leading-none">Новый регулярный счёт</h4>
+        <h4 className="t-display text-[15.5px] font-semibold text-ink leading-none">
+          Новый регулярный платёж
+        </h4>
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -1129,14 +1891,13 @@ function AddBillModal({
         </button>
       </div>
 
-      {/* Быстрые пресеты */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-3 flex flex-wrap gap-1">
         {PRESETS.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setTitle(p)}
-            className="rounded-[8px] border border-rule/70 bg-white px-2.5 py-1 text-[11.5px] font-medium text-muted hover:border-sage hover:text-sage transition leading-none"
+            className="rounded-[7px] border border-rule bg-white px-2 py-0.5 text-[11.5px] text-muted transition hover:border-sage hover:text-sage leading-none"
           >
             {p}
           </button>
@@ -1144,54 +1905,41 @@ function AddBillModal({
       </div>
 
       <div className="space-y-2.5 mb-3">
-        <div>
-          <label className="mb-1 block text-[11.5px] font-medium text-muted leading-tight">Название счёта</label>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Название (например: Интернет)"
+          className="h-10 text-[13.5px]"
+          required
+        />
+        <div className="grid grid-cols-2 gap-2">
           <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Например, Интернет в квартире"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="Сумма в ₽"
+            inputMode="numeric"
+            className="h-10 text-[13.5px]"
+            required
+          />
+          <Input
+            value={day}
+            onChange={(e) => setDay(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="Число месяца (1–31)"
+            inputMode="numeric"
             className="h-10 text-[13.5px]"
             required
           />
         </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <div>
-            <label className="mb-1 block text-[11.5px] font-medium text-muted leading-tight">Сумма (₽)</label>
-            <Input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-              placeholder="3 500"
-              inputMode="numeric"
-              className="h-10 text-[13.5px]"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-[11.5px] font-medium text-muted leading-tight">Число месяца</label>
-            <Input
-              value={day}
-              onChange={(e) => setDay(e.target.value.replace(/[^\d]/g, '').slice(0, 2))}
-              placeholder="10"
-              inputMode="numeric"
-              className="h-10 text-[13.5px]"
-              required
-            />
-          </div>
-        </div>
       </div>
 
-      {/* Выбор типа деления счёта */}
       <div className="mb-3">
-        <label className="mb-1.5 block text-[11.5px] font-medium text-muted leading-tight">Как делим этот счёт</label>
+        <label className="mb-1 block text-[11.5px] font-medium text-muted leading-tight">Как делим</label>
         <div className="grid grid-cols-3 gap-1.5">
-          {(
-            [
-              ['equal', 'Поровну'],
-              ['salary', 'По доходу'],
-              ['payer', 'Платит 1'],
-            ] as const
-          ).map(([val, label]) => (
+          {[
+            { val: 'equal', label: 'Поровну' },
+            { val: 'salary', label: 'По доходу' },
+            { val: 'payer', label: 'Один платит' },
+          ].map(({ val, label }) => (
             <button
               key={val}
               type="button"
@@ -1248,16 +1996,18 @@ function AddBillModal({
   )
 }
 
-function AddWishModal({
+function AddGoalModal({
   onAdd,
   trigger,
 }: {
-  onAdd: (v: { title: string; amount: number }) => Promise<void>
+  onAdd: (v: { title: string; amount: number; target_date?: string | null; initialAmount?: number }) => Promise<void>
   trigger?: (open: () => void) => React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
   const [title, setTitle] = React.useState('')
   const [amount, setAmount] = React.useState('')
+  const [initialAmount, setInitialAmount] = React.useState('')
+  const [targetDate, setTargetDate] = React.useState('')
   const [busy, setBusy] = React.useState(false)
 
   if (!open) {
@@ -1271,7 +2021,7 @@ function AddWishModal({
         className="w-full gap-2 rounded-[14px] border border-dashed border-rule-soft bg-paper/60 hover:bg-white text-[13.5px]"
         onClick={() => setOpen(true)}
       >
-        <Plus size={16} /> Добавить совместное желание
+        <Plus size={16} /> Создать новую копилку / цель
       </Button>
     )
   }
@@ -1287,9 +2037,13 @@ function AddWishModal({
           await onAdd({
             title: title.trim(),
             amount: Math.round(Number(amount.replace(/[^\d]/g, '') || 0)),
+            initialAmount: Math.round(Number(initialAmount.replace(/[^\d]/g, '') || 0)),
+            target_date: targetDate.trim() || null,
           })
           setTitle('')
           setAmount('')
+          setInitialAmount('')
+          setTargetDate('')
           setOpen(false)
         } finally {
           setBusy(false)
@@ -1297,7 +2051,7 @@ function AddWishModal({
       }}
     >
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="t-display text-[15px] font-semibold text-ink leading-none">Новое совместное желание</h4>
+        <h4 className="t-display text-[15px] font-semibold text-ink leading-none">Новая цель или копилка</h4>
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -1311,16 +2065,33 @@ function AddWishModal({
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Что хотим купить? (робот-пылесос, билеты...)"
+          placeholder="Название цели (отпуск, ремонт, новый диван...)"
           className="h-10 text-[13.5px]"
           autoFocus
           required
         />
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="Целевая сумма в ₽"
+            inputMode="numeric"
+            className="h-10 text-[13.5px]"
+            required
+          />
+          <Input
+            value={initialAmount}
+            onChange={(e) => setInitialAmount(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="Уже накоплено в ₽"
+            inputMode="numeric"
+            className="h-10 text-[13.5px]"
+          />
+        </div>
         <Input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-          placeholder="Примерная стоимость в ₽ (необязательно)"
-          inputMode="numeric"
+          type="date"
+          value={targetDate}
+          onChange={(e) => setTargetDate(e.target.value)}
+          placeholder="Срок сбора"
           className="h-10 text-[13.5px]"
         />
       </div>
@@ -1340,7 +2111,7 @@ function AddWishModal({
           disabled={busy}
           className="flex-1 text-[13px]"
         >
-          {busy ? 'Секунду…' : 'В список'}
+          {busy ? 'Секунду…' : 'Создать цель'}
         </Button>
       </div>
     </form>
@@ -1369,7 +2140,7 @@ function ChatInputBar({ onSend }: { onSend: (text: string) => Promise<void> }) {
       <Input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Написать в кассу…"
+        placeholder="Написать в кассу или советнику…"
         className="h-11 rounded-[12px] bg-white text-[13.5px]"
       />
       <Button

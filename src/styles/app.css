@@ -220,11 +220,14 @@ button, input, textarea, select {
 .field {
   border: 1px solid var(--color-rule);
   background: #fffdf7;
-  border-radius: 10px;
+  border-radius: 12px;
   outline: none;
   width: 100%;
   min-height: 48px;
   padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .field::placeholder {

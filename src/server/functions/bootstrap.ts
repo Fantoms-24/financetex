@@ -12,6 +12,8 @@ export interface Receipt {
   verdict: string | null
   note: string | null
   image: string | null
+  house_id?: string | null
+  house_name?: string | null
   created_at: string
 }
 
@@ -119,10 +121,12 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
       [user.id, startOfMonth]
     ),
     q<any>(
-      `SELECT id, store, purchased_at, total, category, verdict, note, image, created_at
-         FROM receipts
-        WHERE user_id = $1
-        ORDER BY purchased_at DESC NULLS LAST, created_at DESC
+      `SELECT r.id, r.store, r.purchased_at, r.total, r.category, r.verdict, r.note, r.image, r.created_at, r.house_id,
+              h.name AS house_name
+         FROM receipts r
+         LEFT JOIN houses h ON h.id = r.house_id
+        WHERE r.user_id = $1
+        ORDER BY r.purchased_at DESC NULLS LAST, r.created_at DESC
         LIMIT 60`,
       [user.id]
     ),
