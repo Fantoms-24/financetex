@@ -1,7 +1,7 @@
 {
   "name": "Листок — карманный финансист",
   "short_name": "Листок",
-  "description": "Карманный финансист. Чеки, бюджет и кассы на одном листке.",
+  "description": "Карманный финансист. Чеки, бюджет и совместные расходы на одном листке.",
   "lang": "ru",
   "dir": "ltr",
   "start_url": "/",
@@ -26,14 +26,20 @@
   "shortcuts": [
     {
       "name": "Сканировать чек",
-      "short_name": "Скан",
+      "short_name": "Скан чека",
       "url": "/scan",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Кассы",
-      "short_name": "Кассы",
+      "name": "Вместе (Общий бюджет)",
+      "short_name": "Вместе",
       "url": "/groups",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Ассистент Листок",
+      "short_name": "Ассистент",
+      "url": "/agent",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]

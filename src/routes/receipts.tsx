@@ -4,7 +4,6 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
-  Filter,
   Package,
   Plus,
   Receipt as ReceiptIcon,
@@ -12,29 +11,29 @@ import {
   Search,
   Store,
   Trash2,
-  TrendingDown,
   Users,
   Wallet,
   X,
 } from 'lucide-react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { BottomSheet } from '~/components/BottomSheet'
 import { useApp } from '~/lib/app-state'
 import { CATEGORIES, categoryLabel, dateRu, money, moneyShort, plural } from '~/lib/format'
 import { addReceipt, deleteReceipt, getReceipt, listReceipts, setReceiptHouse } from '~/server/functions/receipts'
 import type { Receipt, ReceiptItem } from '~/server/functions/bootstrap'
-import { cn } from '~/lib/utils'
+import { cn, haptic } from '~/lib/utils'
 
 export const Route = createFileRoute('/receipts')({
   component: Receipts,
 })
 
 const VERDICT: Record<string, { label: string; color: string }> = {
-  good: { label: 'норма', color: 'bg-sage/10 text-sage border-sage/20' },
-  fair: { label: 'терпимо', color: 'bg-amber-500/10 text-amber-800 border-amber-500/20' },
-  overpriced: { label: 'дорого', color: 'bg-stamp/10 text-stamp border-stamp/20' },
-  impulse: { label: 'импульс', color: 'bg-stamp/10 text-stamp border-stamp/20' },
+  good: { label: 'норма', color: 'bg-sage/12 text-sage border-sage/25' },
+  fair: { label: 'терпимо', color: 'bg-amber-600/12 text-amber-800 border-amber-500/25' },
+  overpriced: { label: 'дорого', color: 'bg-stamp/10 text-stamp border-stamp/25' },
+  impulse: { label: 'импульс', color: 'bg-stamp/10 text-stamp border-stamp/25' },
 }
 
 const QUICK_STORES = ['Пятёрочка', 'ВкусВилл', 'Магнит', 'Самокат', 'Озон', 'Аптека']
@@ -42,7 +41,7 @@ const QUICK_STORES = ['Пятёрочка', 'ВкусВилл', 'Магнит', 
 function Receipts() {
   const { user, boot, refresh } = useApp()
   const [items, setItems] = React.useState<Array<Receipt>>(boot.receipts || [])
-  const [open, setOpen] = React.useState(false)
+  const [openAddSheet, setOpenAddSheet] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all')
 
@@ -67,6 +66,7 @@ function Receipts() {
   }, [user])
 
   async function updateReceiptHouse(receiptId: string, nextHouseId: string | null) {
+    haptic(6)
     await setReceiptHouse({ data: { id: receiptId, houseId: nextHouseId } })
     setItems((prev) =>
       prev.map((it) => {
@@ -103,7 +103,8 @@ function Receipts() {
       setNote('')
       setCategory('food')
       setFormHouseId(null)
-      setOpen(false)
+      setOpenAddSheet(false)
+      haptic(10)
       await refresh()
       const r = await listReceipts({ data: { limit: 120 } })
       setItems((r as any)?.receipts ?? [])
@@ -113,6 +114,7 @@ function Receipts() {
   }
 
   async function toggle(id: string) {
+    haptic(6)
     if (openId === id) {
       setOpenId(null)
       return
@@ -129,6 +131,8 @@ function Receipts() {
   }
 
   async function drop(id: string) {
+    if (!confirm('Удалить этот чек из истории?')) return
+    haptic(10)
     await deleteReceipt({ data: { id } })
     setOpenId(null)
     await refresh()
@@ -163,268 +167,109 @@ function Receipts() {
   const avgCheck = items.length > 0 ? Math.round(monthTotal / items.length) : 0
 
   return (
-    <div className="space-y-4 px-4 pb-32 pt-2 sm:px-5">
-      {/* Шапка раздела */}
+    <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
+      {/* 1. Шапка раздела с кнопками действий */}
       <header className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
             <ReceiptIcon size={14} className="text-sage" />
-            <span>Учёт расходов</span>
+            <span>Архив покупок</span>
           </div>
           <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
-            Чеки и покупки
+            Чеки и расходы
           </h1>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
             to="/scan"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-rule/80 bg-paper text-ink shadow-sm transition-all hover:border-sage/40 active:scale-95"
+            onClick={() => haptic(8)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-rule/70 bg-paper text-ink shadow-xs transition hover:border-sage/50 active:scale-95"
             title="Сканировать чек"
-            aria-label="Сканировать чек"
           >
             <ScanLine size={18} className="text-sage" />
           </Link>
           <Button
             size="sm"
-            variant={open ? 'ghost' : 'sage'}
-            onClick={() => setOpen(!open)}
-            className="gap-1.5"
+            variant="sage"
+            onClick={() => {
+              haptic(8)
+              setOpenAddSheet(true)
+            }}
+            className="gap-1.5 rounded-full px-3.5 h-10"
           >
-            {open ? <X size={16} /> : <Plus size={16} />}
-            <span>{open ? 'Закрыть' : 'Вписать'}</span>
+            <Plus size={16} />
+            <span>Вписать</span>
           </Button>
         </div>
       </header>
 
-      {/* Сводная карточка аналитики */}
-      <section className="grid grid-cols-3 gap-2.5 rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper">
-        <div className="flex flex-col">
-          <span className="flex items-center gap-1 text-[11px] text-muted">
-            <TrendingDown size={12} className="text-sage" />
-            За месяц
+      {/* 2. Легкая карточка сводки за месяц (без жесткой сетки) */}
+      <section className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-5 shadow-paper">
+        <div className="flex items-center justify-between text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+          <span>Сумма всех покупок</span>
+          <span className="t-num font-medium text-sage">
+            {items.length} {plural(items.length, 'чек', 'чека', 'чеков')}
           </span>
-          <span className="t-num mt-1 text-[16px] font-semibold text-ink">
+        </div>
+
+        <div className="mt-1.5 flex items-baseline gap-3">
+          <p className="t-display t-num text-[34px] font-bold text-ink leading-tight">
             {money(monthTotal)}
+          </p>
+          <span className="text-[12.5px] text-muted">
+            · средний {money(avgCheck)}
           </span>
-          <span className="text-[10.5px] text-muted">всего трат</span>
-        </div>
-
-        <div className="flex flex-col border-x border-rule/60 px-2.5">
-          <span className="flex items-center gap-1 text-[11px] text-muted">
-            <Package size={12} className="text-sage" />
-            Чеков
-          </span>
-          <span className="t-num mt-1 text-[16px] font-semibold text-ink">
-            {items.length}
-          </span>
-          <span className="text-[10.5px] text-muted">
-            {plural(items.length, 'запись', 'записи', 'записей')}
-          </span>
-        </div>
-
-        <div className="flex flex-col pl-1">
-          <span className="flex items-center gap-1 text-[11px] text-muted">
-            <Wallet size={12} className="text-sage" />
-            Средний
-          </span>
-          <span className="t-num mt-1 text-[16px] font-semibold text-ink">
-            {money(avgCheck)}
-          </span>
-          <span className="text-[10.5px] text-muted">за один чек</span>
         </div>
       </section>
 
-      {/* Форма ручной записи чека */}
-      {open ? (
-        <form
-          onSubmit={save}
-          className="relative overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper-lg"
-        >
-          <div className="mb-3 flex items-center justify-between border-b border-rule/60 pb-2.5">
-            <div className="flex items-center gap-2">
-              <Store size={17} className="text-sage" />
-              <p className="t-display text-[16px] font-medium text-ink">Вписать чек вручную</p>
-            </div>
+      {/* 3. Поиск и фильтрация по категориям */}
+      <div className="space-y-3">
+        {/* Поисковая строка */}
+        <div className="relative">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск по магазину или заметке…"
+            className="h-11 rounded-[16px] pl-10 pr-9 border-rule/70 bg-paper/80 shadow-xs"
+          />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+          {search && (
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1 text-muted hover:text-ink"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-ink"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
-          </div>
-
-          <div className="space-y-3">
-            {/* Магазин */}
-            <div>
-              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-                Магазин / Сервис
-              </label>
-              <Input
-                value={store}
-                onChange={(e) => setStore(e.target.value)}
-                placeholder="Пятёрочка, ВкусВилл, Аптека…"
-                required
-              />
-              {/* Быстрые чипы магазинов */}
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {QUICK_STORES.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setStore(s)}
-                    className={cn(
-                      'rounded-full border px-2.5 py-0.5 text-[11px] transition-colors',
-                      store === s
-                        ? 'border-sage bg-sage text-onsage'
-                        : 'border-rule/80 bg-black/[0.02] text-muted hover:bg-black/[0.05]',
-                    )}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Сумма */}
-            <div>
-              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-                Сумма чека, ₽
-              </label>
-              <Input
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-                placeholder="1 250"
-                inputMode="numeric"
-                required
-              />
-            </div>
-
-            {/* Категория */}
-            <div>
-              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-                Категория
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setCategory(cat.id)}
-                    className={cn(
-                      'rounded-xl border px-2.5 py-1 text-[11.5px] font-medium transition-all',
-                      category === cat.id
-                        ? 'border-sage bg-sage text-onsage shadow-sm'
-                        : 'border-rule/80 bg-paper text-muted hover:text-ink',
-                    )}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Заметка */}
-            <div>
-              <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-                Заметка (необязательно)
-              </label>
-              <Input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Например: кофе на прогулке, подарок"
-              />
-            </div>
-
-            {/* Назначение чека: личный или в кассу */}
-            {boot.houses && boot.houses.length > 0 ? (
-              <div>
-                <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-                  Куда записать чек
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setFormHouseId(null)}
-                    className={cn(
-                      'rounded-[10px] px-2.5 py-1 text-[12px] font-medium transition',
-                      formHouseId === null ? 'bg-sage text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
-                    )}
-                  >
-                    Личный
-                  </button>
-                  {boot.houses.map((h) => (
-                    <button
-                      key={h.id}
-                      type="button"
-                      onClick={() => setFormHouseId(h.id)}
-                      className={cn(
-                        'flex items-center gap-1 rounded-[10px] px-2.5 py-1 text-[12px] font-medium transition',
-                        formHouseId === h.id ? 'bg-amber-800 text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
-                      )}
-                    >
-                      <Users size={12} />
-                      <span>{h.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <Button
-              type="submit"
-              variant="sage"
-              size="md"
-              className="w-full"
-              disabled={busy}
-            >
-              {busy ? 'Сохранение…' : 'Положить чек в ящик'}
-            </Button>
-          </div>
-        </form>
-      ) : null}
-
-      {/* Поиск и фильтр по категориям */}
-      <div className="space-y-2">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск по магазину или заметке…"
-          startIcon={<Search size={16} />}
-          endIcon={
-            search ? (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="text-muted hover:text-ink"
-              >
-                <X size={15} />
-              </button>
-            ) : undefined
-          }
-        />
+          )}
+        </div>
 
         {/* Чипы категорий */}
         <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5">
           <button
             type="button"
-            onClick={() => setSelectedCategory('all')}
+            onClick={() => {
+              haptic(6)
+              setSelectedCategory('all')
+            }}
             className={cn(
-              'relative shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors',
+              'relative shrink-0 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
               selectedCategory === 'all'
                 ? 'border-sage text-onsage'
-                : 'border-rule/80 bg-paper text-muted hover:text-ink',
+                : 'border-rule/70 bg-paper text-muted hover:text-ink',
             )}
           >
             {selectedCategory === 'all' ? (
               <motion.div
                 layoutId="receiptCatPill"
-                className="absolute inset-0 -z-10 rounded-full bg-sage shadow-sm"
-                transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+                className="absolute inset-0 -z-10 rounded-full bg-sage shadow-xs"
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               />
             ) : null}
             Все ({items.length})
           </button>
+
           {CATEGORIES.map((cat) => {
             const count = items.filter((r) => r.category === cat.id).length
             if (count === 0 && selectedCategory !== cat.id) return null
@@ -433,19 +278,22 @@ function Receipts() {
               <button
                 key={cat.id}
                 type="button"
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => {
+                  haptic(6)
+                  setSelectedCategory(cat.id)
+                }}
                 className={cn(
-                  'relative shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors',
+                  'relative shrink-0 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors',
                   active
                     ? 'border-sage text-onsage'
-                    : 'border-rule/80 bg-paper text-muted hover:text-ink',
+                    : 'border-rule/70 bg-paper text-muted hover:text-ink',
                 )}
               >
                 {active ? (
                   <motion.div
                     layoutId="receiptCatPill"
-                    className="absolute inset-0 -z-10 rounded-full bg-sage shadow-sm"
-                    transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+                    className="absolute inset-0 -z-10 rounded-full bg-sage shadow-xs"
+                    transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                   />
                 ) : null}
                 {cat.label} {count > 0 ? `(${count})` : ''}
@@ -455,56 +303,60 @@ function Receipts() {
         </div>
       </div>
 
-      {/* Список чеков */}
+      {/* 4. Список сгруппированных чеков */}
       {grouped.length === 0 ? (
-        <div className="rounded-[20px] border border-rule/80 bg-paper p-8 text-center shadow-paper">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage">
-            <ReceiptIcon size={24} />
+        <div className="rounded-[22px] border border-rule/70 bg-paper p-8 text-center shadow-paper">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-sage/10 text-sage">
+            <ReceiptIcon size={22} />
           </div>
-          <p className="t-display mt-3 text-[17px] font-medium text-ink">
-            {search || selectedCategory !== 'all' ? 'Ничего не найдено' : 'В ящике пока нет чеков'}
+          <p className="t-display mt-3 text-[17px] font-semibold text-ink">
+            {search || selectedCategory !== 'all' ? 'Ничего не найдено' : 'В архиве пока нет чеков'}
           </p>
-          <p className="mx-auto mt-1.5 max-w-[280px] text-[13px] leading-snug text-muted">
+          <p className="mx-auto mt-1 max-w-[260px] text-[12.5px] leading-relaxed text-muted">
             {search || selectedCategory !== 'all'
-              ? 'Попробуйте изменить поисковый запрос или сбросить фильтр.'
-              : 'Отсканируйте бумажный чек, загрузите фото или впишите сумму вручную.'}
+              ? 'Попробуйте изменить поисковый запрос или сбросить категорию.'
+              : 'Отсканируйте чек камерой или запишите расход вручную.'}
           </p>
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <Link to="/scan">
-              <Button size="sm" variant="sage">
-                <ScanLine size={16} /> Сканировать
+          <div className="mt-4 flex items-center justify-center gap-2.5">
+            <Link to="/scan" onClick={() => haptic(8)}>
+              <Button size="sm" variant="sage" className="rounded-full gap-1.5">
+                <ScanLine size={15} />
+                <span>Сканировать</span>
               </Button>
             </Link>
-            <Button size="sm" variant="paper" onClick={() => setOpen(true)}>
-              <Plus size={16} /> Вписать вручную
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => {
+                haptic(8)
+                setOpenAddSheet(true)
+              }}
+              className="rounded-full gap-1.5"
+            >
+              <Plus size={15} />
+              <span>Вписать</span>
             </Button>
           </div>
         </div>
       ) : (
-        <motion.div
-          key={selectedCategory}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-4"
-        >
+        <div className="space-y-4">
           {grouped.map(([day, list]) => {
             const daySum = list.reduce((s, r) => s + r.total, 0)
             return (
-              <section key={day} className="space-y-2">
+              <section key={day} className="space-y-1.5">
                 {/* Дата и дневной итог */}
-                <div className="flex items-center justify-between px-1">
-                  <span className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-muted">
-                    <Calendar size={13} className="text-sage" />
+                <div className="flex items-center justify-between px-1 text-[11.5px] text-muted">
+                  <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider">
+                    <Calendar size={12} className="text-sage" />
                     <span>{dateRu(day)}</span>
                   </span>
-                  <span className="t-num text-[12.5px] font-semibold text-ink/80">
-                    {money(daySum)}
+                  <span className="t-num font-medium text-ink/80">
+                    {list.length} {plural(list.length, 'чек', 'чека', 'чеков')} • {money(daySum)}
                   </span>
                 </div>
 
                 {/* Карточки чеков дня */}
-                <div className="divide-y divide-rule-soft overflow-hidden rounded-[18px] border border-rule/80 bg-paper shadow-paper">
+                <div className="divide-y divide-rule-soft overflow-hidden rounded-[20px] border border-rule/70 bg-paper shadow-paper">
                   {list.map((r) => {
                     const isOpen = openId === r.id
                     const verdictInfo = r.verdict ? VERDICT[r.verdict] : null
@@ -513,11 +365,11 @@ function Receipts() {
                       <div key={r.id} className="transition-colors hover:bg-black/[0.015]">
                         <button
                           type="button"
-                          className="flex w-full items-center justify-between p-3.5 text-left active:bg-black/[0.03] transition-colors"
+                          className="flex w-full items-center justify-between px-4 py-3.5 text-left active:bg-black/[0.03] transition-colors"
                           onClick={() => toggle(r.id)}
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sage/12 text-sage font-semibold text-[13.5px]">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 text-sage font-bold text-[13.5px]">
                               {(r.store || 'Ч')[0].toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -526,15 +378,15 @@ function Receipts() {
                                   {r.store || 'Без названия'}
                                 </span>
                                 {r.house_name ? (
-                                  <span className="flex items-center gap-1 rounded-full bg-sage/15 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
-                                    <Users size={11} />
+                                  <span className="flex items-center gap-1 rounded-full bg-sage/15 px-2 py-0.2 text-[10px] font-semibold text-sage">
+                                    <Users size={10} />
                                     {r.house_name}
                                   </span>
                                 ) : null}
                                 {verdictInfo ? (
                                   <span
                                     className={cn(
-                                      'rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none',
+                                      'rounded-full border px-1.5 py-0.2 text-[10px] font-semibold leading-none',
                                       verdictInfo.color,
                                     )}
                                   >
@@ -543,7 +395,7 @@ function Receipts() {
                                 ) : null}
                               </div>
 
-                              <div className="mt-1 flex items-center gap-2 text-[12px] text-muted">
+                              <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
                                 <span>{categoryLabel(r.category)}</span>
                                 {r.note ? (
                                   <>
@@ -556,98 +408,108 @@ function Receipts() {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="t-num text-[15.5px] font-semibold text-ink">
+                            <span className="t-num text-[15.5px] font-bold text-ink">
                               {money(r.total)}
                             </span>
-                            <div className="text-muted/70">
+                            <div className="text-muted/60">
                               {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </div>
                           </div>
                         </button>
 
-                        {/* Раскрытый список позиций */}
-                        {isOpen ? (
-                          <div className="border-t border-rule/60 bg-black/[0.015] px-4 py-3">
-                            {loadingDetail ? (
-                              <p className="py-2 text-[12.5px] text-muted">Загрузка позиций…</p>
-                            ) : detail.length > 0 ? (
-                              <div className="space-y-1.5">
-                                <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
-                                  Позиции из чека ({detail.length}):
+                        {/* Раскрытые детали чека: Перфорация и список позиций */}
+                        <AnimatePresence>
+                          {isOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="border-t border-dashed border-rule/70 bg-cream/30 px-4 py-3.5 space-y-3"
+                            >
+                              {loadingDetail ? (
+                                <p className="py-2 text-[12.5px] text-muted">Загрузка позиций…</p>
+                              ) : detail.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                                    Товары из чека ({detail.length}):
+                                  </p>
+                                  <ul className="divide-y divide-rule/40 rounded-[14px] border border-rule/60 bg-paper p-2.5">
+                                    {detail.map((it) => (
+                                      <li
+                                        key={it.id}
+                                        className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px]"
+                                      >
+                                        <span className="min-w-0 truncate text-ink">
+                                          {it.name}
+                                          {it.qty && it.qty > 1 ? (
+                                            <span className="text-muted"> ×{it.qty}</span>
+                                          ) : null}
+                                        </span>
+                                        <span className="t-num shrink-0 font-medium text-ink">
+                                          {moneyShort(it.price)}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : (
+                                <p className="py-1 text-[12px] text-muted">
+                                  Отдельные позиции не были зафиксированы при сканировании.
                                 </p>
-                                <ul className="divide-y divide-rule/40 rounded-xl border border-rule/60 bg-paper p-2">
-                                  {detail.map((it) => (
-                                    <li
-                                      key={it.id}
-                                      className="flex items-baseline justify-between gap-3 py-1.5 text-[13px]"
-                                    >
-                                      <span className="min-w-0 truncate text-ink">
-                                        {it.name}
-                                        {it.qty ? (
-                                          <span className="text-muted"> ×{it.qty}</span>
-                                        ) : null}
-                                      </span>
-                                      <span className="t-num shrink-0 font-medium text-ink">
-                                        {moneyShort(it.price)}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : (
-                              <p className="py-1 text-[12px] text-muted">
-                                Отдельные позиции не были распознаны или записаны.
-                              </p>
-                            )}
+                              )}
 
-                            {/* Назначение чека: личный или в кассу */}
-                            {boot.houses && boot.houses.length > 0 ? (
-                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-rule/50 pt-2.5">
-                                <span className="flex items-center gap-1 text-[12px] font-medium text-muted">
-                                  <Users size={13} className="text-amber-800" />
-                                  Куда отнесён:
-                                </span>
-                                <div className="flex flex-wrap gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateReceiptHouse(r.id, null)}
-                                    className={cn(
-                                      'rounded-[8px] px-2 py-1 text-[11px] font-medium transition',
-                                      !r.house_id ? 'bg-sage text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
-                                    )}
-                                  >
-                                    Личные
-                                  </button>
-                                  {boot.houses.map((h) => (
+                              {/* Переключение назначения: Личный расход или во «Вместе» */}
+                              {boot.houses && boot.houses.length > 0 ? (
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-rule/50 pt-2.5">
+                                  <span className="flex items-center gap-1 text-[12px] font-medium text-muted">
+                                    <Users size={13} className="text-sage" />
+                                    Бюджет:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
                                     <button
-                                      key={h.id}
                                       type="button"
-                                      onClick={() => updateReceiptHouse(r.id, h.id)}
+                                      onClick={() => updateReceiptHouse(r.id, null)}
                                       className={cn(
-                                        'flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] font-medium transition',
-                                        r.house_id === h.id ? 'bg-amber-800 text-onsage shadow-xs' : 'bg-cream text-muted hover:text-ink',
+                                        'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition active:scale-95',
+                                        !r.house_id ? 'bg-sage text-onsage shadow-xs' : 'bg-paper border border-rule/70 text-muted hover:text-ink',
                                       )}
                                     >
-                                      <Users size={10} />
-                                      <span>{h.name}</span>
+                                      Личные
                                     </button>
-                                  ))}
+                                    {boot.houses.map((h) => (
+                                      <button
+                                        key={h.id}
+                                        type="button"
+                                        onClick={() => updateReceiptHouse(r.id, h.id)}
+                                        className={cn(
+                                          'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition active:scale-95',
+                                          r.house_id === h.id ? 'bg-sage text-onsage shadow-xs font-semibold' : 'bg-paper border border-rule/70 text-muted hover:text-ink',
+                                        )}
+                                      >
+                                        <Users size={10} />
+                                        <span>«{h.name}»</span>
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
+                              ) : null}
+
+                              {/* Кнопка удаления */}
+                              <div className="flex items-center justify-end pt-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => drop(r.id)}
+                                  className="gap-1.5 text-stamp hover:bg-stamp/10 hover:text-stamp text-[12px] h-8"
+                                >
+                                  <Trash2 size={14} />
+                                  <span>Удалить чек</span>
+                                </Button>
                               </div>
-                            ) : null}
-                            <div className="mt-3 flex items-center justify-end">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => drop(r.id)}
-                                className="gap-1.5 text-stamp hover:bg-stamp/10 hover:text-stamp"
-                              >
-                                <Trash2 size={14} />
-                                <span>Удалить чек</span>
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     )
                   })}
@@ -655,9 +517,164 @@ function Receipts() {
               </section>
             )
           })}
-        </motion.div>
+        </div>
       )}
+
+      {/* 5. Шторка ручной записи чека (BottomSheet вместо смещения страницы) */}
+      <BottomSheet
+        open={openAddSheet}
+        onClose={() => setOpenAddSheet(false)}
+        title="Вписать покупку вручную"
+      >
+        <form onSubmit={save} className="space-y-4 pt-1">
+          {/* Магазин / Сервис */}
+          <div>
+            <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+              Магазин или сервис
+            </label>
+            <Input
+              value={store}
+              onChange={(e) => setStore(e.target.value)}
+              placeholder="Пятёрочка, ВкусВилл, Аптека…"
+              className="h-11 rounded-[14px]"
+              required
+            />
+            {/* Быстрые подсказки магазинов */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {QUICK_STORES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setStore(s)
+                  }}
+                  className={cn(
+                    'rounded-full border px-2.5 py-0.5 text-[11.5px] transition-colors',
+                    store === s
+                      ? 'border-sage bg-sage text-onsage font-medium'
+                      : 'border-rule/70 bg-cream/50 text-muted hover:bg-cream',
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Сумма */}
+          <div>
+            <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+              Сумма покупки, ₽
+            </label>
+            <Input
+              value={total}
+              onChange={(e) => setTotal(e.target.value)}
+              placeholder="1 250"
+              inputMode="numeric"
+              className="h-12 text-[18px] font-bold rounded-[14px]"
+              required
+            />
+          </div>
+
+          {/* Категория */}
+          <div>
+            <label className="mb-1.5 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+              Категория
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setCategory(cat.id)
+                  }}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-[12px] font-medium transition-all active:scale-95',
+                    category === cat.id
+                      ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                      : 'border-rule/70 bg-paper text-muted hover:text-ink',
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Заметка */}
+          <div>
+            <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+              Заметка (необязательно)
+            </label>
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Кофе с круассаном, подарок маме…"
+              className="h-11 rounded-[14px]"
+            />
+          </div>
+
+          {/* Назначение: Личный или во «Вместе» */}
+          {boot.houses && boot.houses.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+                Куда записать
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setFormHouseId(null)
+                  }}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-[12px] font-medium transition active:scale-95',
+                    formHouseId === null
+                      ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                      : 'border-rule/70 bg-paper text-muted hover:text-ink',
+                  )}
+                >
+                  Личные расходы
+                </button>
+                {boot.houses.map((h) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      setFormHouseId(h.id)
+                    }}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-[12px] font-medium transition active:scale-95',
+                      formHouseId === h.id
+                        ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                        : 'border-rule/70 bg-paper text-muted hover:text-ink',
+                    )}
+                  >
+                    «{h.name}»
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Кнопка сохранения */}
+          <div className="pt-2">
+            <Button
+              type="submit"
+              variant="sage"
+              size="lg"
+              className="w-full h-12 rounded-[16px] text-[15px] font-semibold"
+              disabled={busy}
+            >
+              {busy ? 'Сохранение…' : 'Записать покупку'}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
     </div>
   )
 }
-
