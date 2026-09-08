@@ -538,6 +538,47 @@ export const depositGoal = createServerFn({ method: 'POST' })
     }),
   )
 
+export const addHouseGoal = createServerFn({ method: 'POST' })
+  .validator((d: { houseId: string; title: string; amount: number; target_date?: string }) => ({
+    houseId: String(d.houseId),
+    title: String(d.title || '').trim(),
+    amount: Math.round(Math.max(1, Number(d.amount || 0))),
+    target_date: d.target_date ? String(d.target_date).slice(0, 10) : null,
+  }))
+  .handler(async ({ data }) =>
+    guarded(async (user) => {
+      if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не состоите в этом бюджете' } as const
+      if (!data.title) return { error: 'Укажите название цели' } as const
+      const id = newId('hw')
+      await q(
+        `INSERT INTO house_wishes (id, house_id, title, amount, collected, target_date, by_user)
+         VALUES ($1, $2, $3, $4, 0, $5, $6)`,
+        [id, data.houseId, data.title, data.amount, data.target_date, user.id],
+      )
+      const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+      const uName = user.displayName || user.name || 'Участник'
+      await notifyHouseExcept(data.houseId, user.id, {
+        title: house?.name || 'Вместе',
+        body: `${uName} создал новую цель: «${data.title}» (${data.amount.toLocaleString('ru-RU')} ₽)`,
+        data: { url: `/groups/${data.houseId}`, type: 'house-goal-add' },
+      }).catch(() => {})
+      return { ok: true as const, id }
+    }),
+  )
+
+export const deleteHouseGoal = createServerFn({ method: 'POST' })
+  .validator((d: { houseId: string; wishId: string }) => ({
+    houseId: String(d.houseId),
+    wishId: String(d.wishId),
+  }))
+  .handler(async ({ data }) =>
+    guarded(async (user) => {
+      if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не состоите в этом бюджете' } as const
+      await q(`DELETE FROM house_wishes WHERE id = $1 AND house_id = $2`, [data.wishId, data.houseId])
+      return { ok: true as const }
+    }),
+  )
+
 export const askHouseAgent = createServerFn({ method: 'POST' })
   .validator((d: { houseId: string; prompt?: string }) => ({
     houseId: String(d.houseId),

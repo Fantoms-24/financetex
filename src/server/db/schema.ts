@@ -240,5 +240,7 @@ export const HEAL_STATEMENTS: Array<[string, string]> = [
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS seen_welcome boolean NOT NULL DEFAULT false`],
   ["recurring_bills", `ALTER TABLE recurring_bills ADD COLUMN IF NOT EXISTS last_alert_key text`],
   ["push_subs", `ALTER TABLE push_subs ADD COLUMN IF NOT EXISTS vapid_pub text`],
-  ["push_subs", `ALTER TABLE push_subs ALTER COLUMN id SET DEFAULT gen_random_uuid()::text`]
+  ["push_subs", `ALTER TABLE push_subs ALTER COLUMN id SET DEFAULT gen_random_uuid()::text`],
+  ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS evening_checkin boolean NOT NULL DEFAULT true`],
+  ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_checkin_date text`]
 ]

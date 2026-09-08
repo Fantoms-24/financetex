@@ -36,6 +36,17 @@ const VERDICT: Record<string, { label: string; color: string }> = {
   impulse: { label: 'импульс', color: 'bg-stamp/10 text-stamp border-stamp/25' },
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  food: 'bg-sage',
+  prepared: 'bg-[#d97736]',
+  household: 'bg-[#4f6d7a]',
+  hygiene: 'bg-[#5b8266]',
+  health: 'bg-[#c06c84]',
+  drinks: 'bg-[#b38647]',
+  snacks: 'bg-[#e09f3e]',
+  other: 'bg-[#7d7461]',
+}
+
 const QUICK_STORES = ['Пятёрочка', 'ВкусВилл', 'Магнит', 'Самокат', 'Озон', 'Аптека']
 
 function Receipts() {
@@ -166,6 +177,33 @@ function Receipts() {
   const monthTotal = boot.month.spent
   const avgCheck = items.length > 0 ? Math.round(monthTotal / items.length) : 0
 
+  // Аналитика распределения трат по категориям (Category Insights)
+  const categoryStats = React.useMemo(() => {
+    const totals: Record<string, number> = {}
+    let grandTotal = 0
+    for (const it of items) {
+      const cat = it.category || 'other'
+      const val = Number(it.total) || 0
+      totals[cat] = (totals[cat] || 0) + val
+      grandTotal += val
+    }
+    if (grandTotal === 0) return []
+
+    return CATEGORIES.map((cat) => {
+      const amount = totals[cat.id] || 0
+      const percent = Math.round((amount / grandTotal) * 100)
+      return {
+        id: cat.id,
+        label: cat.label,
+        amount,
+        percent,
+        color: CATEGORY_COLORS[cat.id] || 'bg-sage',
+      }
+    })
+      .filter((c) => c.amount > 0)
+      .sort((a, b) => b.amount - a.amount)
+  }, [items])
+
   return (
     <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
       {/* 1. Шапка раздела с кнопками действий */}
@@ -204,7 +242,7 @@ function Receipts() {
         </div>
       </header>
 
-      {/* 2. Легкая карточка сводки за месяц (без жесткой сетки) */}
+      {/* 2. Легкая карточка сводки за месяц с аналитикой долей категорий */}
       <section className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-5 shadow-paper">
         <div className="flex items-center justify-between text-[11.5px] font-semibold uppercase tracking-wider text-muted">
           <span>Сумма всех покупок</span>
@@ -221,6 +259,89 @@ function Receipts() {
             · средний {money(avgCheck)}
           </span>
         </div>
+
+        {/* Категорийный срез (Category Insights) */}
+        {categoryStats.length > 0 && (
+          <div className="mt-4 border-t border-rule/50 pt-3.5">
+            <div className="mb-2 flex items-center justify-between text-[11.5px] font-medium text-muted">
+              <span>Куда уходят деньги</span>
+              <span className="t-num">
+                {selectedCategory !== 'all' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      setSelectedCategory('all')
+                    }}
+                    className="text-sage hover:underline"
+                  >
+                    Сбросить фильтр
+                  </button>
+                ) : (
+                  `${categoryStats.length} ${plural(categoryStats.length, 'категория', 'категории', 'категорий')}`
+                )}
+              </span>
+            </div>
+
+            {/* Сегментированная тактильная полоса */}
+            <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-paper-deep/70 p-0.5">
+              {categoryStats.map((cat) => {
+                const isSelected = selectedCategory === cat.id
+                const isFaded = selectedCategory !== 'all' && !isSelected
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      setSelectedCategory(isSelected ? 'all' : cat.id)
+                    }}
+                    style={{ width: `${Math.max(cat.percent, 4)}%` }}
+                    className={cn(
+                      'h-full rounded-full transition-all duration-300 hover:opacity-100',
+                      cat.color,
+                      isFaded && 'opacity-30',
+                      isSelected && 'ring-2 ring-sage ring-offset-1',
+                    )}
+                    title={`${cat.label}: ${cat.percent}% (${money(cat.amount)})`}
+                  />
+                )
+              })}
+            </div>
+
+            {/* Быстрые чипы категорий для фильтрации */}
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {categoryStats.map((cat) => {
+                const isSelected = selectedCategory === cat.id
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      setSelectedCategory(isSelected ? 'all' : cat.id)
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition active:scale-95',
+                      isSelected
+                        ? 'bg-sage text-onsage shadow-xs'
+                        : 'border border-rule/60 bg-paper-deep/50 text-muted hover:border-sage/40 hover:text-ink',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 rounded-full',
+                        isSelected ? 'bg-onsage' : cat.color,
+                      )}
+                    />
+                    <span>{cat.label}</span>
+                    <span className="t-num opacity-75">{cat.percent}%</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 3. Поиск и фильтрация по категориям */}

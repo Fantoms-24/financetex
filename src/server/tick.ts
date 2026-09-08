@@ -110,5 +110,51 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     }
   }
 
+  // Вечерний микро-чекин (если запуск происходит с 20:30 до 22:30)
+  const hour = now.getHours()
+  if (hour >= 20 && hour <= 22) {
+    await runEveningCheckin(now).catch(() => {})
+  }
+
   return result
 }
+
+export async function runEveningCheckin(
+  now: Date = new Date(),
+  forceUserId?: string,
+): Promise<{ sent: number; failed: number }> {
+  const todayKey = now.toISOString().slice(0, 10)
+  const result = { sent: 0, failed: 0 }
+
+  const users = forceUserId
+    ? await q<{ user_id: string }>(`SELECT DISTINCT user_id FROM push_subs WHERE user_id = $1`, [forceUserId])
+    : await q<{ user_id: string }>(
+        `SELECT DISTINCT s.user_id
+           FROM push_subs s
+           LEFT JOIN user_settings us ON us.user_id = s.user_id
+          WHERE s.user_id IS NOT NULL
+            AND (us.evening_checkin IS NULL OR us.evening_checkin = true)
+            AND (us.last_checkin_date IS NULL OR us.last_checkin_date != $1)`,
+        [todayKey],
+      )
+
+  for (const u of users ?? []) {
+    if (!u.user_id) continue
+    const res = await sendToUser(u.user_id, {
+      title: '🌿 Листок · Итоги дня',
+      body: 'День подходит к концу. Все траты дня учтены? Нажмите, чтобы закрыть день.',
+      data: { url: '/', type: 'evening-checkin' },
+    })
+    result.sent += res.sent
+    result.failed += res.failed
+    if (res.sent > 0 && !forceUserId) {
+      await q(
+        `UPDATE user_settings SET last_checkin_date = $1 WHERE user_id = $2`,
+        [todayKey, u.user_id],
+      )
+    }
+  }
+
+  return result
+}
+

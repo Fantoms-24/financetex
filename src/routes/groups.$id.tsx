@@ -1247,11 +1247,11 @@ function HousePage() {
         {/* --- ВКЛАДКА 4: АНАЛИТИКА И БЮДЖЕТ (ANALYTICS) --- */}
         {tab === 'analytics' ? (
           <div className="space-y-4">
-            {/* 1. Карточка общего бюджета кассы */}
+            {/* 1. Карточка общего бюджета */}
             <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
               <div className="flex items-center justify-between">
                 <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-                  Бюджет кассы
+                  Общий бюджет
                 </span>
                 <EditBudgetModal
                   currentBudget={snap.analytics.budget}
@@ -1304,9 +1304,9 @@ function HousePage() {
                 </>
               ) : (
                 <div className="mt-2 py-3 text-center">
-                  <p className="text-[13.5px] text-ink font-medium">Семейный лимит не установлен</p>
+                  <p className="text-[13.5px] text-ink font-medium">Общий лимит не установлен</p>
                   <p className="mt-1 text-[12px] text-muted">
-                    Задайте общий бюджет кассы на месяц, чтобы контролировать перерасход.
+                    Задайте общий бюджет на месяц для комфортного контроля трат.
                   </p>
                 </div>
               )}
@@ -1314,7 +1314,7 @@ function HousePage() {
               {/* Метрики расходов */}
               <div className="mt-4 grid grid-cols-2 gap-2 border-t border-rule/60 pt-3">
                 <div className="rounded-[10px] bg-cream/70 p-2.5">
-                  <span className="text-[11px] text-muted">Потрачено в кассе</span>
+                  <span className="text-[11px] text-muted">Потрачено вместе</span>
                   <p className="t-num mt-0.5 text-[15px] font-bold text-ink">
                     {money(snap.analytics.totalSpent)}
                   </p>
@@ -1334,7 +1334,7 @@ function HousePage() {
               <h3 className="t-display text-[15.5px] font-semibold text-ink leading-tight mb-1">
                 Расходы по категориям
               </h3>
-              <p className="text-[11.5px] text-muted mb-3">структура трат кассы за месяц</p>
+              <p className="text-[11.5px] text-muted mb-3">структура общих трат за месяц</p>
 
               {snap.analytics.byCategory.length === 0 ? (
                 <p className="py-2 text-center text-[12.5px] text-muted">Данных по категориям пока нет.</p>
@@ -1709,10 +1709,10 @@ function AttachReceiptModal({
       <BottomSheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Прикрепить чек к кассе"
+        title="Прикрепить чек к общему бюджету"
       >
         <p className="text-[12px] text-muted -mt-2 mb-3">
-          Выберите чек из личного ящика для добавления в семейную кассу
+          Выберите чек из личного ящика для добавления во «Вместе»
         </p>
 
         <div className="max-h-[50dvh] overflow-y-auto space-y-2 no-scrollbar py-1">
@@ -1748,7 +1748,7 @@ function AttachReceiptModal({
                       await onAttached()
                     }}
                   >
-                    + В кассу
+                    + Во «Вместе»
                   </Button>
                 </div>
               </div>
@@ -2030,6 +2030,32 @@ function AddGoalModal({
           className="space-y-3 pt-1"
         >
           <div>
+            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+              Быстрый выбор идеи
+            </label>
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              {[
+                { title: 'Поездка в горы 🏔️', amt: '60000' },
+                { title: 'Отпуск на море 🏖️', amt: '100000' },
+                { title: 'Подушка безопасности 🛡️', amt: '150000' },
+                { title: 'Ремонт и декор 🛋️', amt: '40000' },
+                { title: 'Новый диван ✨', amt: '35000' },
+              ].map((tpl) => (
+                <button
+                  key={tpl.title}
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setTitle(tpl.title)
+                    setAmount(tpl.amt)
+                  }}
+                  className="rounded-full border border-rule/70 bg-cream/40 px-2.5 py-1 text-[11.5px] text-muted transition hover:border-sage hover:text-ink active:scale-95 leading-none"
+                >
+                  {tpl.title}
+                </button>
+              ))}
+            </div>
+
             <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
               Название цели
             </label>

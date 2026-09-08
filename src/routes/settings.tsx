@@ -28,7 +28,7 @@ import {
   pushSupported,
 } from '~/lib/push-client'
 import { getAdminState } from '~/server/functions/admin'
-import { pushSubscribe, pushTest, vapidPublic } from '~/server/functions/push'
+import { pushSubscribe, pushTest, triggerEveningCheckin, vapidPublic } from '~/server/functions/push'
 import { saveProfile, saveSettings } from '~/server/functions/settings'
 
 export const Route = createFileRoute('/settings')({
@@ -161,6 +161,30 @@ function Settings() {
     setBusy(false)
   }
 
+  async function onTestCheckin() {
+    setBusy(true)
+    setTestResult(null)
+    setTestError(null)
+    try {
+      const res: any = await triggerEveningCheckin().catch((e: any) => ({ ok: false, error: e?.message }))
+      if (res && res.ok) {
+        setTestResult('✓ Вечерний чекин отправлен! Сверните приложение, чтобы увидеть уведомление в 21:00.')
+        showInAppNotification({
+          title: '🌿 Листок · Итоги дня',
+          body: 'День подходит к концу. Все траты дня учтены? Нажмите, чтобы закрыть день.',
+          icon: 'sparkles',
+          url: '/',
+        })
+      } else {
+        setTestError(res?.error || 'Не удалось отправить вечерний чекин. Включите уведомления.')
+      }
+    } catch {
+      setTestError('Ошибка отправки чекина')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4 px-4 pb-36 pt-2 sm:px-5">
       {/* 1. Верхняя навигационная панель с кнопкой возврата */}
@@ -282,7 +306,7 @@ function Settings() {
               placeholder="Т-Банк, Сбер, Альфа"
             />
             <p className="mt-1 text-[11.5px] text-muted">
-              Участники семейной кассы увидят эти данные, чтобы быстро перевести вам свою долю за общий чек.
+              Участники общего бюджета увидят эти данные, чтобы быстро перевести вам свою долю за совместный чек.
             </p>
           </div>
 
@@ -326,8 +350,40 @@ function Settings() {
               : isIos()
               ? 'Разрешение выдано. Для работы при закрытом окне добавьте Листок на экран «Домой».'
               : 'Уведомления активны. Напоминания о чеках и счетах придут вовремя.'
-            : 'Включите напоминания, чтобы не пропустить срок оплаты счетов и новые чеки в кассе.'}
+            : 'Включите напоминания, чтобы не пропустить срок оплаты счетов и вечерний чекин.'}
         </p>
+
+        {perm.granted && (
+          <div className="rounded-[16px] border border-rule/70 bg-cream/40 p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-sage" />
+                <span className="text-[13px] font-semibold text-ink">Вечерний микро-чекин (21:00)</span>
+              </div>
+              <span className="rounded-full bg-sage/12 px-2 py-0.2 text-[10.5px] font-semibold text-sage">
+                Активен
+              </span>
+            </div>
+            <p className="text-[12px] text-muted leading-relaxed">
+              Мягкое напоминание подвести итоги дня и закрыть Листок перед сном без стресса.
+            </p>
+            <div className="pt-0.5">
+              <Button
+                type="button"
+                variant="paper"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  haptic(8)
+                  onTestCheckin()
+                }}
+                className="text-[11.5px] h-8 rounded-[10px]"
+              >
+                Проверить чекин сейчас
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2.5">
           {perm.granted ? (

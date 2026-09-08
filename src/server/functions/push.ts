@@ -7,7 +7,7 @@ import {
   removeSubscription,
   sendToUser,
 } from '../push'
-import { runTick } from '../tick'
+import { runTick, runEveningCheckin } from '../tick'
 
 export const vapidPublic = createServerFn({ method: 'GET' })
   .handler(async () => {
@@ -88,5 +88,17 @@ export const tickBills = createServerFn({ method: 'POST' })
         ok: true,
         ...res,
       }
+    })
+  )
+
+export const triggerEveningCheckin = createServerFn({ method: 'POST' })
+  .handler(async () =>
+    guarded(async (user) => {
+      const devices = await countSubscriptions(user.id)
+      if (!devices) {
+        return { ok: false, error: 'Уведомления выключены. Включите пуши выше.' }
+      }
+      const res = await runEveningCheckin(new Date(), user.id)
+      return { ok: res.sent > 0, sent: res.sent, failed: res.failed }
     })
   )

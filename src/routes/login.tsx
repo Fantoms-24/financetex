@@ -102,7 +102,7 @@ function Login() {
           </h1>
           <p className="mt-2 text-[14px] leading-relaxed text-muted">
             {mode === 'in'
-              ? 'Войдите, чтобы открыть свои чеки, бюджет и кассы'
+              ? 'Войдите, чтобы открыть свои чеки, бюджет и совместные накопления'
               : 'Создайте аккаунт за 10 секунд — без почты и смс'}
           </p>
         </header>
@@ -277,16 +277,16 @@ function Login() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sage/10 text-sage">
               <Wallet size={16} />
             </div>
-            <span className="mt-1.5 text-[11px] font-medium text-ink">Учёт бюджета</span>
-            <span className="text-[10px] text-muted">Дневные лимиты</span>
+            <span className="mt-1.5 text-[11px] font-medium text-ink">Дневной бюджет</span>
+            <span className="text-[10px] text-muted">Safe-to-Spend</span>
           </div>
 
           <div className="flex flex-col items-center rounded-xl border border-rule/50 bg-paper/60 p-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sage/10 text-sage">
               <Users size={16} />
             </div>
-            <span className="mt-1.5 text-[11px] font-medium text-ink">Общие кассы</span>
-            <span className="text-[10px] text-muted">Семья и друзья</span>
+            <span className="mt-1.5 text-[11px] font-medium text-ink">«Вместе»</span>
+            <span className="text-[10px] text-muted">Семья и копилки</span>
           </div>
         </div>
 
