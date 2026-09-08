@@ -491,48 +491,53 @@ function Receipts() {
                       <div key={r.id} className="transition-colors hover:bg-black/[0.015]">
                         <button
                           type="button"
-                          className="flex w-full items-center justify-between p-3.5 text-left"
+                          className="flex w-full items-center justify-between p-3.5 text-left active:bg-black/[0.03] transition-colors"
                           onClick={() => toggle(r.id)}
                         >
-                          <div className="min-w-0 flex-1 pr-3">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-[15px] font-semibold text-ink">
-                                {r.store || 'Без названия'}
-                              </span>
-                              {r.house_name ? (
-                                <span className="flex items-center gap-1 rounded-full bg-amber-800/10 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
-                                  <Users size={11} />
-                                  {r.house_name}
-                                </span>
-                              ) : null}
-                              {verdictInfo ? (
-                                <span
-                                  className={cn(
-                                    'rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none',
-                                    verdictInfo.color,
-                                  )}
-                                >
-                                  {verdictInfo.label}
-                                </span>
-                              ) : null}
+                          <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sage/12 text-sage font-semibold text-[13.5px]">
+                              {(r.store || 'Ч')[0].toUpperCase()}
                             </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-[15px] font-semibold text-ink">
+                                  {r.store || 'Без названия'}
+                                </span>
+                                {r.house_name ? (
+                                  <span className="flex items-center gap-1 rounded-full bg-sage/15 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
+                                    <Users size={11} />
+                                    {r.house_name}
+                                  </span>
+                                ) : null}
+                                {verdictInfo ? (
+                                  <span
+                                    className={cn(
+                                      'rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none',
+                                      verdictInfo.color,
+                                    )}
+                                  >
+                                    {verdictInfo.label}
+                                  </span>
+                                ) : null}
+                              </div>
 
-                            <div className="mt-1 flex items-center gap-2 text-[12px] text-muted">
-                              <span>{categoryLabel(r.category)}</span>
-                              {r.note ? (
-                                <>
-                                  <span>•</span>
-                                  <span className="truncate text-ink/70">{r.note}</span>
-                                </>
-                              ) : null}
+                              <div className="mt-1 flex items-center gap-2 text-[12px] text-muted">
+                                <span>{categoryLabel(r.category)}</span>
+                                {r.note ? (
+                                  <>
+                                    <span>•</span>
+                                    <span className="truncate text-ink/70">{r.note}</span>
+                                  </>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <span className="t-num text-[16px] font-semibold text-ink">
-                              {moneyShort(r.total)}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="t-num text-[15.5px] font-semibold text-ink">
+                              {money(r.total)}
                             </span>
-                            <div className="text-muted">
+                            <div className="text-muted/70">
                               {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </div>
                           </div>

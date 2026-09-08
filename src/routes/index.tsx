@@ -177,123 +177,133 @@ function Menu() {
       </section>
 
       {/* Главный призыв к действию: Сканировать чек */}
-      <Link
-        to="/scan"
-        className="group relative flex min-h-[58px] items-center justify-between overflow-hidden rounded-[18px] bg-sage px-4 py-3 text-onsage shadow-md transition-all hover:brightness-105 active:scale-[0.99]"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-onsage/15 text-onsage">
-            <ScanLine size={22} strokeWidth={2.2} />
-          </div>
-          <div>
-            <div className="text-[15.5px] font-semibold leading-tight">
-              Сканировать чек
+      <motion.div whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 500, damping: 28 }}>
+        <Link
+          to="/scan"
+          className="group relative flex min-h-[58px] items-center justify-between overflow-hidden rounded-[18px] bg-sage px-4 py-3 text-onsage shadow-md transition-all hover:brightness-105"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-onsage/15 text-onsage">
+              <ScanLine size={22} strokeWidth={2.2} />
             </div>
-            <div className="text-[12px] text-onsage/75">
-              Моментальный разбор по фото или QR-коду
+            <div>
+              <div className="text-[15.5px] font-semibold leading-tight">
+                Сканировать чек
+              </div>
+              <div className="text-[12px] text-onsage/75">
+                Моментальный разбор по фото или QR-коду
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-onsage/15 transition-transform group-hover:translate-x-0.5">
-          <ArrowRight size={17} />
-        </div>
-      </Link>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-onsage/15 transition-transform group-hover:translate-x-0.5">
+            <ArrowRight size={17} />
+          </div>
+        </Link>
+      </motion.div>
 
       {/* Единая сетка разделов */}
       <div className="grid grid-cols-2 gap-3">
         {/* Чеки */}
-        <Link
-          to="/receipts"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
-              <Files size={19} strokeWidth={2} />
+        <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+          <Link
+            to="/receipts"
+            className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 h-full"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
+                <Files size={19} strokeWidth={2} />
+              </div>
+              <ChevronRight
+                size={16}
+                className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
+              />
             </div>
-            <ChevronRight
-              size={16}
-              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
-            />
-          </div>
-          <div className="mt-4">
-            <p className="t-display text-[17px] font-medium text-ink">Чеки</p>
-            <p className="mt-0.5 text-[12px] text-muted">
-              {boot.month.count > 0
-                ? `${boot.month.count} ${plural(boot.month.count, 'чек', 'чека', 'чеков')}`
-                : 'Пока нет чеков'}
-            </p>
-          </div>
-        </Link>
+            <div className="mt-4">
+              <p className="t-display text-[17px] font-medium text-ink">Чеки</p>
+              <p className="mt-0.5 text-[12px] text-muted">
+                {boot.month.count > 0
+                  ? `${boot.month.count} ${plural(boot.month.count, 'чек', 'чека', 'чеков')}`
+                  : 'Пока нет чеков'}
+              </p>
+            </div>
+          </Link>
+        </motion.div>
 
         {/* Кассы */}
-        <Link
-          to="/groups"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
-              <Users size={19} strokeWidth={2} />
+        <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+          <Link
+            to="/groups"
+            className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 h-full"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
+                <Users size={19} strokeWidth={2} />
+              </div>
+              <ChevronRight
+                size={16}
+                className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
+              />
             </div>
-            <ChevronRight
-              size={16}
-              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
-            />
-          </div>
-          <div className="mt-4">
-            <p className="t-display text-[17px] font-medium text-ink">Кассы</p>
-            <p className="mt-0.5 truncate text-[12px] text-muted">
-              {boot.houses.length > 0
-                ? `${boot.houses[0].name}`
-                : 'Семья и общие траты'}
-            </p>
-          </div>
-        </Link>
+            <div className="mt-4">
+              <p className="t-display text-[17px] font-medium text-ink">Кассы</p>
+              <p className="mt-0.5 truncate text-[12px] text-muted">
+                {boot.houses.length > 0
+                  ? `${boot.houses[0].name}`
+                  : 'Семья и общие траты'}
+              </p>
+            </div>
+          </Link>
+        </motion.div>
 
         {/* Регулярные платежи */}
-        <Link
-          to="/bills"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
-              <CreditCard size={19} strokeWidth={2} />
+        <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+          <Link
+            to="/bills"
+            className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 h-full"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
+                <CreditCard size={19} strokeWidth={2} />
+              </div>
+              <ChevronRight
+                size={16}
+                className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
+              />
             </div>
-            <ChevronRight
-              size={16}
-              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
-            />
-          </div>
-          <div className="mt-4">
-            <p className="t-display text-[17px] font-medium text-ink">Платежи</p>
-            <p className="mt-0.5 text-[12px] text-muted">
-              {boot.bills.length > 0
-                ? `${boot.bills.length} ${plural(boot.bills.length, 'счет', 'счета', 'счетов')}`
-                : 'ЖКХ, подписки'}
-            </p>
-          </div>
-        </Link>
+            <div className="mt-4">
+              <p className="t-display text-[17px] font-medium text-ink">Платежи</p>
+              <p className="mt-0.5 text-[12px] text-muted">
+                {boot.bills.length > 0
+                  ? `${boot.bills.length} ${plural(boot.bills.length, 'счет', 'счета', 'счетов')}`
+                  : 'ЖКХ, подписки'}
+              </p>
+            </div>
+          </Link>
+        </motion.div>
 
         {/* AI Агент */}
-        <Link
-          to="/agent"
-          className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 active:scale-[0.98]"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
-              <Sparkles size={19} strokeWidth={2} />
+        <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+          <Link
+            to="/agent"
+            className="group flex flex-col justify-between rounded-[18px] border border-rule/70 bg-paper p-4 shadow-paper transition-all hover:border-sage/40 h-full"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sage/12 text-sage">
+                <Sparkles size={19} strokeWidth={2} />
+              </div>
+              <ChevronRight
+                size={16}
+                className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
+              />
             </div>
-            <ChevronRight
-              size={16}
-              className="text-muted/60 transition-transform group-hover:translate-x-0.5 group-hover:text-sage"
-            />
-          </div>
-          <div className="mt-4">
-            <p className="t-display text-[17px] font-medium text-ink">Агент</p>
-            <p className="mt-0.5 text-[12px] text-muted">
-              Финансовый советник
-            </p>
-          </div>
-        </Link>
+            <div className="mt-4">
+              <p className="t-display text-[17px] font-medium text-ink">Агент</p>
+              <p className="mt-0.5 text-[12px] text-muted">
+                Финансовый советник
+              </p>
+            </div>
+          </Link>
+        </motion.div>
       </div>
 
       {/* Блок последних чеков (если есть) */}
@@ -313,26 +323,32 @@ function Menu() {
 
           <div className="divide-y divide-rule-soft overflow-hidden rounded-[18px] border border-rule/80 bg-paper shadow-paper">
             {recentReceipts.map((rc) => (
-              <Link
-                key={rc.id}
-                to="/receipts"
-                className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-black/[0.02]"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[14.5px] font-medium text-ink">
-                    {rc.store || 'Чек без магазина'}
+              <motion.div key={rc.id} whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+                <Link
+                  to="/receipts"
+                  className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-black/[0.02]"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sage/10 text-sage font-semibold text-[13px]">
+                      {(rc.store || 'Ч')[0].toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[14.5px] font-medium text-ink">
+                        {rc.store || 'Чек без магазина'}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11.5px] text-muted">
+                        <span>{dateRu(rc.purchased_at || rc.created_at)}</span>
+                        <span>•</span>
+                        <span className="truncate">{rc.category || 'Покупки'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-[11.5px] text-muted">
-                    <span>{dateRu(rc.purchased_at || rc.created_at)}</span>
-                    <span>•</span>
-                    <span className="truncate">{rc.category || 'Покупки'}</span>
-                  </div>
-                </div>
 
-                <div className="t-num ml-3 text-[15px] font-semibold text-ink">
-                  {money(rc.total)}
-                </div>
-              </Link>
+                  <div className="t-num ml-3 text-[15px] font-semibold text-ink">
+                    {money(rc.total)}
+                  </div>
+                </Link>
+              </motion.div>
             ))}
           </div>
         </section>
@@ -345,7 +361,7 @@ function Menu() {
       <div className="divide-y divide-rule-soft overflow-hidden rounded-[18px] border border-rule/80 bg-paper shadow-paper">
         <Link
           to="/agent"
-          className="flex min-h-[50px] items-center justify-between px-4 text-[14.5px] transition-colors hover:bg-black/[0.02]"
+          className="flex min-h-[50px] items-center justify-between px-4 text-[14.5px] transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
         >
           <div className="flex items-center gap-2.5">
             <MessageSquareQuote size={17} className="text-sage" />
@@ -356,7 +372,7 @@ function Menu() {
 
         <Link
           to="/settings"
-          className="flex min-h-[50px] items-center justify-between px-4 text-[14.5px] transition-colors hover:bg-black/[0.02]"
+          className="flex min-h-[50px] items-center justify-between px-4 text-[14.5px] transition-colors hover:bg-black/[0.02] active:bg-black/[0.04]"
         >
           <div className="flex items-center gap-2.5">
             <Settings size={17} className="text-muted" />

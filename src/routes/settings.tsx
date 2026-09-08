@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ChevronRight, LogOut } from 'lucide-react'
+import { Bell, ChevronRight, LogOut, Settings as SettingsIcon, ShieldCheck } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
@@ -121,15 +121,31 @@ function Settings() {
   }
 
   return (
-    <div className="px-4 pb-32 pt-3">
-      <header className="mb-4">
-        <h1 className="t-display text-[26px] leading-none">Настроить</h1>
-        <p className="mt-1.5 text-[13px] text-muted">{user?.email}</p>
+    <div className="space-y-4 px-4 pb-32 pt-2 sm:px-5">
+      <header className="mb-2">
+        <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
+          <SettingsIcon size={14} className="text-sage" />
+          <span>Личный кабинет</span>
+        </div>
+        <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
+          Настройки
+        </h1>
+        <p className="mt-1 text-[13px] text-muted">{user?.email}</p>
       </header>
 
-      <section className="receipt-card rise mb-4 p-4">
-        <h2 className="t-display mb-2 text-[17px]">Уведомления</h2>
-        <p className="mb-3 text-[13px] leading-snug text-muted">
+      {/* Блок уведомлений */}
+      <section className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sage/12 text-sage">
+            <Bell size={16} />
+          </div>
+          <div>
+            <h2 className="t-display text-[16px] font-semibold text-ink">Уведомления</h2>
+            <p className="text-[12px] text-muted">Напоминания о чеках и счетах</p>
+          </div>
+        </div>
+
+        <p className="text-[13px] leading-snug text-muted">
           {!pushSupported()
             ? 'Браузер не умеет пуши'
             : perm.granted
@@ -140,7 +156,8 @@ function Settings() {
               : 'Разрешение есть'
             : 'Выключены — напоминания не придут'}
         </p>
-        <div className="grid grid-cols-2 gap-2.5">
+
+        <div className="grid grid-cols-2 gap-2.5 pt-1">
           {perm.granted ? (
             <Button variant="paper" size="md" disabled={busy} onClick={onTest}>
               Прислать тест
@@ -168,40 +185,45 @@ function Settings() {
             </Button>
           )}
         </div>
-        {testResult ? <p className="mt-2.5 text-[13px] text-sage">{testResult}</p> : null}
-        {testError ? <p className="mt-2.5 text-[13px] text-stamp">{testError}</p> : null}
+        {testResult ? <p className="text-[12.5px] text-sage">{testResult}</p> : null}
+        {testError ? <p className="text-[12.5px] text-stamp">{testError}</p> : null}
         {isIos() && !standalone ? (
-          <p className="mt-2.5 text-[12.5px] leading-snug text-muted">
-            На iPhone сначала на Домой: Поделиться → На экран Домой.
+          <p className="text-[12px] leading-snug text-muted">
+            На iPhone сначала добавьте приложение на домашний экран: Поделиться → На экран Домой.
           </p>
         ) : null}
       </section>
 
-      <form onSubmit={save} className="receipt-card rise mb-4 p-4">
-        <h2 className="t-display mb-3 text-[17px]">Профиль и лимит</h2>
-        <div className="mb-3">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
+      {/* Профиль и лимиты */}
+      <form onSubmit={save} className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3">
+        <h2 className="t-display text-[16px] font-semibold text-ink">Профиль и лимиты трат</h2>
+
+        <div>
+          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
             Имя
           </label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Как обращаться"
+            placeholder="Как к вам обращаться"
           />
         </div>
-        <div className="mb-3">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
-            Лимит месяца, ₽
+
+        <div>
+          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+            Месячный лимит трат, ₽
           </label>
           <Input
             value={budget}
             onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="45000"
             inputMode="numeric"
           />
         </div>
-        <div className="mb-3">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
-            Телефон для СБП
+
+        <div>
+          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+            Телефон для СБП (взаиморасчёты)
           </label>
           <Input
             value={phone}
@@ -210,43 +232,57 @@ function Settings() {
             inputMode="tel"
           />
         </div>
-        <div className="mb-4">
-          <label className="mb-1.5 block text-[12px] uppercase tracking-[0.09em] text-muted">
-            Банк
+
+        <div>
+          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+            Банк для переводов
           </label>
           <Input
             value={bank}
             onChange={(e) => setBank(e.target.value)}
-            placeholder="Тинькофф"
+            placeholder="Тинькофф, Сбер, Альфа"
           />
         </div>
+
         <Button
           type="submit"
           variant="sage"
           size="md"
-          className="w-full"
+          className="w-full mt-2"
           disabled={busy}
         >
-          {saved ? 'Сохранили' : 'Сохранить'}
+          {saved ? 'Сохранено ✓' : 'Сохранить изменения'}
         </Button>
       </form>
 
-      <div className="mb-4 divide-y divide-rule-soft overflow-hidden rounded-[14px] border border-rule bg-paper shadow-paper">
+      {/* Быстрые действия профиля */}
+      <div className="overflow-hidden rounded-[18px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
         {isAdmin ? (
-          <Link to="/admin" className="flex min-h-[52px] items-center justify-between px-4">
-            <span className="text-[15px]">Ключ для сканирования</span>
+          <Link
+            to="/admin"
+            className="flex min-h-[52px] items-center justify-between px-4 transition-colors hover:bg-black/[0.015] active:bg-black/[0.03]"
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck size={18} className="text-sage" />
+              <span className="text-[14.5px] font-medium text-ink">Панель администратора</span>
+            </div>
             <ChevronRight size={17} className="text-muted" />
           </Link>
         ) : null}
+
         <button
+          type="button"
           onClick={async () => {
             await logout()
             window.location.href = '/login'
           }}
-          className="flex min-h-[52px] w-full items-center justify-between px-4 text-left"
+          className="flex min-h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-black/[0.015] active:bg-black/[0.03]"
         >
-          <span className="text-[15px]">Выйти</span>
-          <LogOut size={17} className="text-muted" />
+          <div className="flex items-center gap-2.5 text-stamp">
+            <LogOut size={18} />
+            <span className="text-[14.5px] font-medium">Выйти из аккаунта</span>
+          </div>
+          <ChevronRight size={17} className="text-muted/60" />
         </button>
       </div>
     </div>

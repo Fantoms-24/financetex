@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Camera, ImagePlus, LoaderCircle, RotateCcw, Users } from 'lucide-react'
+import { Camera, ImagePlus, LoaderCircle, Receipt, RotateCcw, ScanLine, Sparkles, Users } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { useApp } from '~/lib/app-state'
-import { categoryLabel, moneyShort } from '~/lib/format'
+import { categoryLabel, money, moneyShort } from '~/lib/format'
 import { scanReceipt } from '~/server/functions/scan'
 import { cn } from '~/lib/utils'
 
@@ -112,25 +112,31 @@ function Scan() {
   }
 
   return (
-    <div className="px-4 pb-32 pt-3">
-      <header className="mb-3">
-        <h1 className="t-display text-[26px] leading-none">Скан</h1>
-        <p className="mt-1.5 text-[13px] text-muted">
-          {result ? 'чек разобран' : 'положите чек на ровное место'}
+    <div className="space-y-4 px-4 pb-32 pt-2 sm:px-5">
+      <header className="mb-2">
+        <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
+          <ScanLine size={14} className="text-sage" />
+          <span>Быстрый разбор</span>
+        </div>
+        <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
+          Скан чека
+        </h1>
+        <p className="mt-1 text-[13px] text-muted">
+          {result ? 'Чек успешно разобран нейросетью' : 'Положите чек на ровную поверхность'}
         </p>
       </header>
 
       {/* Селектор назначения: Личный чек или в Общую кассу */}
       {boot.houses && boot.houses.length > 0 ? (
-        <div className="mb-4 rounded-[16px] border border-rule/80 bg-paper p-3 shadow-xs">
+        <div className="rounded-[18px] border border-rule/80 bg-paper p-3.5 shadow-paper">
           <div className="flex items-center justify-between">
             <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">Куда записать чек</span>
             {selectedHouseId ? (
-              <span className="rounded-full bg-amber-800/10 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
+              <span className="rounded-full bg-sage/15 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
                 В общие расходы
               </span>
             ) : (
-              <span className="rounded-full bg-sage/10 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
+              <span className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[10.5px] font-medium text-muted">
                 Личный чек
               </span>
             )}
@@ -140,10 +146,10 @@ function Scan() {
               type="button"
               onClick={() => setSelectedHouseId(null)}
               className={cn(
-                'flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium transition active:scale-95',
+                'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition active:scale-95',
                 selectedHouseId === null
                   ? 'bg-sage text-onsage shadow-xs font-semibold'
-                  : 'bg-cream/90 text-muted hover:text-ink hover:bg-white',
+                  : 'bg-white/80 border border-rule/70 text-muted hover:text-ink',
               )}
             >
               Личные расходы
@@ -154,10 +160,10 @@ function Scan() {
                 type="button"
                 onClick={() => setSelectedHouseId(h.id)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12.5px] font-medium transition active:scale-95',
+                  'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium transition active:scale-95',
                   selectedHouseId === h.id
-                    ? 'bg-amber-800 text-onsage shadow-xs font-semibold'
-                    : 'bg-cream/90 text-muted hover:text-ink hover:bg-white',
+                    ? 'bg-sage text-onsage shadow-xs font-semibold'
+                    : 'bg-white/80 border border-rule/70 text-muted hover:text-ink',
                 )}
               >
                 <Users size={13} />
@@ -185,34 +191,36 @@ function Scan() {
       />
 
       {!preview ? (
-        <div className="receipt-card rise flex min-h-[300px] flex-col items-center justify-center px-6 py-10 text-center">
+        <div className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-6 text-center shadow-paper space-y-4">
           <div
-            className="mb-5 flex h-full w-full min-h-[190px] items-center justify-center rounded-[10px] border-2 border-dashed border-rule"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(to bottom, transparent 0 28px, rgba(28,25,21,0.05) 28px 29px)',
-            }}
+            className="flex min-h-[200px] flex-col items-center justify-center rounded-[16px] border-2 border-dashed border-rule/80 bg-cream/30 p-6"
           >
-            <p className="t-display text-[15px] text-muted">бумажный планшет</p>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage mb-3">
+              <ScanLine size={24} />
+            </div>
+            <p className="t-display text-[16px] font-medium text-ink">Видоискатель чека</p>
+            <p className="mt-1 text-[12px] text-muted max-w-[220px]">
+              Нейросеть мгновенно считает магазин, дату, все позиции и итоговую сумму
+            </p>
           </div>
 
-          <div className="grid w-full grid-cols-2 gap-3">
-            <Button variant="sage" size="md" onClick={() => cameraRef.current?.click()}>
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <Button variant="sage" size="md" onClick={() => cameraRef.current?.click()} className="gap-2">
               <Camera size={18} /> Камера
             </Button>
-            <Button variant="paper" size="md" onClick={() => galleryRef.current?.click()}>
-              <ImagePlus size={18} /> Галерея
+            <Button variant="paper" size="md" onClick={() => galleryRef.current?.click()} className="gap-2">
+              <ImagePlus size={18} /> Из галереи
             </Button>
           </div>
 
-          <p className="mt-4 text-[12.5px] leading-snug text-muted">
-            Не читается? Впишите чек руками в ящике.
+          <p className="text-[12px] text-muted">
+            Также вы можете вписать чек вручную в разделе «Чеки»
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="slip rise overflow-hidden p-2">
-            <img src={preview} alt="чек" className="w-full rounded-[6px]" />
+          <div className="overflow-hidden rounded-[18px] border border-rule/80 bg-paper p-2.5 shadow-paper">
+            <img src={preview} alt="чек" className="w-full rounded-[12px]" />
           </div>
 
           {result ? (
