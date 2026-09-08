@@ -45,25 +45,12 @@ function Settings() {
     setStandalone(isStandalone())
     setPerm(pushState())
 
-    currentEndpoint()
-      .then(async (ep) => {
-        if (!ep) return
-        try {
-          const reg = await navigator.serviceWorker.getRegistration('/')
-          const sub = await reg?.pushManager.getSubscription()
-          const keys = (sub?.toJSON() as any)?.keys || {}
-          if (sub) {
-            await pushSubscribe({
-              data: {
-                endpoint: sub.endpoint,
-                p256dh: keys.p256dh || '',
-                auth: keys.auth || '',
-              },
-            })
-          }
-        } catch {}
-      })
-      .catch(() => {})
+    // Если разрешение уже есть, фоново обновляем подписку и регистрируем в базе
+    if (pushSupported() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      enablePush()
+        .then(() => setPerm(pushState()))
+        .catch(() => {})
+    }
 
     getAdminState()
       .then((r: any) => setIsAdmin(!!r?.isAdmin))
@@ -105,21 +92,35 @@ function Settings() {
     setBusy(true)
     setTestResult(null)
     setTestError(null)
-    showInAppNotification({
-      title: '🌿 Листок · На связи',
-      body: 'Уведомления настроены! Напоминания о чеках и счетах придут вовремя.',
-      icon: 'sparkles',
-      url: '/settings',
-    })
+
+    // При выданном разрешении гарантируем актуальность подписки на сервере
+    if (perm.granted) {
+      const syncRes = await enablePush().catch(() => null)
+      if (syncRes && !syncRes.ok && syncRes.error) {
+        setTestError(syncRes.error)
+        setBusy(false)
+        return
+      }
+    }
+
     const key = await vapidPublic().catch(() => ({ publicKey: '' }))
     if (!key?.publicKey) {
       setTestError('Ключ пушей не задан на сервере')
       setBusy(false)
       return
     }
-    const r = (await pushTest().catch(() => null)) as any
+
+    const r = (await pushTest().catch((e: any) => ({ ok: false, error: e?.message || 'Ошибка сети' }))) as any
     if (!r) {
       setTestError('Не получилось отправить системный пуш')
+    } else if (r.ok || (r.sent && r.sent > 0)) {
+      setTestResult(`✓ Баннер отправлен на устройство (${r.devices ?? 1})! Сверните приложение, чтобы увидеть системное уведомление.`)
+      showInAppNotification({
+        title: '🌿 Листок · На связи',
+        body: 'Системное уведомление отправлено! На экране блокировки появится баннер.',
+        icon: 'sparkles',
+        url: '/settings',
+      })
     } else {
       setTestResult(`устройств в канале: ${r.devices ?? 0}, ушло: ${r.sent ?? 0}`)
       if (r.error) setTestError(String(r.error))

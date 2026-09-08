@@ -74,17 +74,28 @@ async function deliver(
   await Promise.all(
     subs.map(async (s) => {
       try {
+        const options: webpush.RequestOptions = {
+          TTL: 60 * 60 * 12,
+          urgency: 'high',
+        }
+        const rawTopic = payload.data?.type
+        if (rawTopic && typeof rawTopic === 'string' && /^[A-Za-z0-9\-_]{1,32}$/.test(rawTopic)) {
+          options.topic = rawTopic
+        }
+
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
           JSON.stringify(payload),
-          { TTL: 60 * 60 * 12, urgency: 'high', topic: payload.data?.type || 'chekagent' }
+          options
         )
         sent++
       } catch (e: any) {
         failed++
         const code = e?.statusCode ?? e?.status
         lastError = `${code ?? 'ERR'}: ${e?.body || e?.message || 'unknown'}`
-        if (code === 404 || code === 410 || code === 403) {
+        console.error(`[push] deliver failed for endpoint ${s.endpoint?.slice(0, 45)}...:`, lastError)
+        // 404 и 410 означают, что подписка окончательно отозвана клиентом
+        if (code === 404 || code === 410) {
           if (s.id) {
             await q(`DELETE FROM push_subs WHERE id = $1`, [s.id]).catch(() => {})
           }

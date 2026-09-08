@@ -31,6 +31,8 @@ export async function registerSW(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    // Немедленно запрашиваем обновление sw.js, чтобы применились свежие фиксы
+    await reg.update().catch(() => {})
     await navigator.serviceWorker.ready
     return reg
   } catch {
@@ -64,8 +66,9 @@ export async function enablePush(): Promise<PushResult> {
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return { ok: false, error: 'Разрешение не дано' }
 
-    const reg = (await registerSW()) || (await navigator.serviceWorker.getRegistration('/'))
+    const reg = (await registerSW()) || (await navigator.serviceWorker.ready)
     if (!reg) return { ok: false, error: 'Не удалось включить фон' }
+    await reg.update().catch(() => {})
 
     const { publicKey } = await vapidPublic()
     if (!publicKey) return { ok: false, error: 'Ключ пушей не настроен' }
@@ -108,7 +111,7 @@ function matchesKey(sub: PushSubscription, publicKey: string): boolean {
 
 export async function disablePush(): Promise<void> {
   try {
-    const reg = await navigator.serviceWorker.getRegistration('/')
+    const reg = (await navigator.serviceWorker.getRegistration('/')) || (await navigator.serviceWorker.ready)
     const sub = await reg?.pushManager.getSubscription()
     if (sub) {
       await pushUnsubscribe({ data: { endpoint: sub.endpoint } })
@@ -121,7 +124,8 @@ export async function disablePush(): Promise<void> {
 
 export async function currentEndpoint(): Promise<string | null> {
   try {
-    const reg = await navigator.serviceWorker.getRegistration('/')
+    if (!pushSupported()) return null
+    const reg = (await navigator.serviceWorker.getRegistration('/')) || (await navigator.serviceWorker.ready)
     const sub = await reg?.pushManager.getSubscription()
     return sub?.endpoint ?? null
   } catch {

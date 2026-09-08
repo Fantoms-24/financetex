@@ -1,5 +1,5 @@
-/* ЧекАгент · service worker
-   Пуш показываем сразу из SW — баннер дойдёт и с выключенным экраном iPhone. */
+/* Листок · service worker v1.0.4
+   Пуш показываем сразу из SW — баннер дойдёт и с выключенным экраном iPhone/Android. */
 
 self.addEventListener('install', () => {
   self.skipWaiting()
@@ -25,53 +25,62 @@ function normalize(payload) {
 }
 
 self.addEventListener('push', (event) => {
-  let payload = null
-  if (event.data) {
-    try {
-      payload = event.data.json()
-    } catch {
-      try {
-        payload = { title: 'Листок', body: event.data.text() || '' }
-      } catch {
-        payload = null
-      }
-    }
-  }
-
-  const { title, body, url, type } = normalize(payload)
-
-  const collapsing =
-    type === 'default' ||
-    type === 'bill-reminder' ||
-    type === 'house-bill-reminder' ||
-    type === 'test'
-
-  const options = {
-    body,
-    tag: collapsing ? `listok-${type}` : undefined,
-    renotify: true,
-    lang: 'ru',
-    dir: 'ltr',
-    badge: '/icon-192.png',
-    icon: '/icon-192.png',
-    vibrate: [100, 50, 100],
-    timestamp: Date.now(),
-    data: { url: url, type: type, dateOfArrival: Date.now() },
-    actions: [
-      { action: 'open', title: 'Открыть в Листке 🌿' }
-    ],
-  }
-
   event.waitUntil(
-    self.registration.showNotification(title, options).catch(() => {
-      // без actions — часть браузеров их не любит
-      return self.registration.showNotification(title, {
-        body,
-        icon: '/icon-192.png',
+    (async () => {
+      let payload = null
+      if (event.data) {
+        try {
+          payload = event.data.json()
+        } catch {
+          try {
+            payload = { title: 'Листок', body: event.data.text() || '' }
+          } catch {
+            payload = null
+          }
+        }
+      }
+
+      const { title, body, url, type } = normalize(payload)
+
+      const collapsing =
+        type === 'default' ||
+        type === 'bill-reminder' ||
+        type === 'house-bill-reminder' ||
+        type === 'test'
+
+      const tag = collapsing ? `listok-${type}` : undefined
+
+      // Минимальный набор опций, 100% совместимый со всеми браузерами (iOS Safari PWA, macOS, Android Chrome, Windows)
+      const options = {
+        body: body || '',
+        lang: 'ru',
+        dir: 'ltr',
         badge: '/icon-192.png',
-        data: { url, type },
-      })
-    }),
+        icon: '/icon-192.png',
+        data: { url: url || '/', type: type || 'default', dateOfArrival: Date.now() },
+      }
+
+      // Добавляем tag только если он определён, и НЕ передаем renotify: true во избежание TypeError в Safari WebKit
+      if (tag) {
+        options.tag = tag
+        options.renotify = false
+      }
+
+      try {
+        await self.registration.showNotification(title || 'Листок', options)
+      } catch (err) {
+        // Ультра-защитный фолбэк при любых капризах браузера
+        try {
+          await self.registration.showNotification(title || 'Листок', {
+            body: body || '',
+            icon: '/icon-192.png',
+            data: { url: url || '/', type: type || 'default' },
+          })
+        } catch (innerErr) {
+          console.error('[SW] push notification failed:', innerErr)
+        }
+      }
+    })(),
   )
 })
 
