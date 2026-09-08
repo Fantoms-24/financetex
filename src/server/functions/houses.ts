@@ -165,9 +165,22 @@ function computeShares(
 
 export const listHouses = createServerFn({ method: 'GET' }).handler(async () =>
   guarded(async (user) => {
-    const rows = await q<{ id: string; name: string; code: string; owner_id: string; members: number }>(
-      `SELECT h.id, h.name, h.code, h.owner_id,
-              (SELECT count(*)::int FROM house_members m WHERE m.house_id = h.id) AS members
+    const rows = await q<{
+      id: string
+      name: string
+      code: string
+      owner_id: string
+      monthly_budget: number
+      members: number
+      total_spent: number
+      receipts_count: number
+      bills_count: number
+    }>(
+      `SELECT h.id, h.name, h.code, h.owner_id, coalesce(h.monthly_budget, 0)::int AS monthly_budget,
+              (SELECT count(*)::int FROM house_members m WHERE m.house_id = h.id) AS members,
+              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id) AS total_spent,
+              (SELECT count(*)::int FROM receipts r WHERE r.house_id = h.id) AS receipts_count,
+              (SELECT count(*)::int FROM house_bills b WHERE b.house_id = h.id) AS bills_count
          FROM houses h
          JOIN house_members me ON me.house_id = h.id AND me.user_id = $1
         ORDER BY h.created_at DESC`,
