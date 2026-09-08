@@ -71,6 +71,7 @@ function Menu() {
   const [quickCategory, setQuickCategory] = React.useState<string | null>(null)
   const [quickHouseId, setQuickHouseId] = React.useState<string | null>(null)
   const [quickBusy, setQuickBusy] = React.useState(false)
+  const [selectedDayKey, setSelectedDayKey] = React.useState<string | null>(null)
 
   const parsedMagic = React.useMemo(() => {
     return parseMagicExpense(quickInput)
@@ -250,11 +251,23 @@ function Menu() {
       const isFuture = d > today && !isToday
 
       let daySpent = 0
+      let receiptsCount = 0
       for (const r of boot.receipts || []) {
         const rk = dayKey(r.purchased_at || r.created_at)
         if (rk === k) {
           daySpent += Number(r.total) || 0
+          receiptsCount += 1
         }
+      }
+
+      let dayFullName = ''
+      try {
+        const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' }).format(d)
+        const capWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1)
+        const dayMonth = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+        dayFullName = `${capWeekday}, ${dayMonth}`
+      } catch {
+        dayFullName = `${name}, ${d.getDate()}`
       }
 
       return {
@@ -264,9 +277,23 @@ function Menu() {
         isToday,
         isFuture,
         daySpent,
+        receiptsCount,
+        dayFullName,
       }
     })
   }, [boot.receipts])
+
+  const calmDaysCount = React.useMemo(() => {
+    return weekDays.filter((w) => !w.isFuture && w.daySpent === 0).length
+  }, [weekDays])
+
+  const activeDay = React.useMemo(() => {
+    if (selectedDayKey) {
+      const found = weekDays.find((w) => w.key === selectedDayKey)
+      if (found) return found
+    }
+    return weekDays.find((w) => w.isToday) || weekDays[0]
+  }, [weekDays, selectedDayKey])
 
   return (
     <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
@@ -358,59 +385,104 @@ function Menu() {
       </section>
 
       {/* 2.1 Радар текущей недели: ритм трат и спокойные дни */}
-      <section className="rounded-[22px] border border-rule/70 bg-paper p-3.5 shadow-xs">
-        <div className="mb-2 flex items-center justify-between px-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <section className="rounded-[22px] border border-rule/70 bg-paper p-3.5 shadow-xs space-y-2.5">
+        <div className="flex items-center justify-between px-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
           <span>Ритм недели</span>
           <span className="flex items-center gap-1 font-medium normal-case text-sage">
             <span>🌿</span>
-            <span>{weekDays.filter((w) => !w.isFuture && w.daySpent === 0).length} спокойных дней</span>
+            <span>
+              {calmDaysCount} {plural(calmDaysCount, 'спокойный день', 'спокойных дня', 'спокойных дней')}
+            </span>
           </span>
         </div>
 
         <div className="grid grid-cols-7 gap-1.5 text-center">
-          {weekDays.map((w) => (
-            <div
-              key={w.key}
-              className={cn(
-                'flex flex-col items-center justify-between rounded-[14px] px-1 py-2 transition-all',
-                w.isToday
-                  ? 'border border-sage/60 bg-sage/10 shadow-xs font-semibold'
-                  : 'border border-transparent bg-canvas/40',
-                w.isFuture && 'opacity-35',
-              )}
-            >
-              <span
+          {weekDays.map((w) => {
+            const isSelected = w.key === activeDay.key
+            return (
+              <button
+                type="button"
+                key={w.key}
+                onClick={() => {
+                  haptic(6)
+                  setSelectedDayKey(w.key)
+                }}
                 className={cn(
-                  'text-[10.5px] tracking-tight',
-                  w.isToday ? 'font-bold text-sage' : 'text-muted',
+                  'flex flex-col items-center justify-between rounded-[14px] px-1 py-2 transition-all cursor-pointer select-none text-center',
+                  isSelected
+                    ? 'border border-sage/70 bg-sage/12 shadow-xs'
+                    : w.isToday
+                      ? 'border border-sage/40 bg-sage/5 font-semibold'
+                      : 'border border-transparent bg-canvas/40 hover:bg-canvas/70',
+                  w.isFuture && 'opacity-40',
                 )}
               >
-                {w.name}
+                <span
+                  className={cn(
+                    'text-[10.5px] tracking-tight',
+                    w.isToday || isSelected ? 'font-bold text-sage' : 'text-muted',
+                  )}
+                >
+                  {w.name}
+                </span>
+                <span
+                  className={cn(
+                    't-num mt-0.5 text-[13px] font-medium',
+                    w.isToday || isSelected ? 'font-bold text-ink' : 'text-ink/80',
+                  )}
+                >
+                  {w.dateNumber}
+                </span>
+                <div className="mt-1 flex h-4.5 w-full items-center justify-center">
+                  {w.isFuture ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-rule/70" />
+                  ) : w.daySpent > 0 ? (
+                    <span
+                      className="t-num truncate text-[10px] font-bold text-ink leading-none px-0.5"
+                      title={`${money(w.daySpent)}`}
+                    >
+                      {w.daySpent >= 10000 ? `${Math.round(w.daySpent / 1000)}k` : `${w.daySpent} ₽`}
+                    </span>
+                  ) : (
+                    <span className="text-[12px]" title="День спокойствия без трат">
+                      🌿
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Отображение выбранного дня внизу значков */}
+        <div className="flex items-center justify-between border-t border-rule/50 pt-2 px-1 text-[11.5px]">
+          <div className="flex items-center gap-1.5 text-muted min-w-0">
+            <Calendar size={13} className="text-sage shrink-0" />
+            <span className="font-semibold text-ink truncate">{activeDay.dayFullName}</span>
+            {activeDay.isToday && (
+              <span className="shrink-0 rounded-full bg-sage/12 px-1.5 py-0.2 text-[10px] font-bold text-sage">
+                Сегодня
               </span>
-              <span
-                className={cn(
-                  't-num mt-0.5 text-[13px] font-medium',
-                  w.isToday ? 'font-bold text-ink' : 'text-ink/80',
-                )}
-              >
-                {w.dateNumber}
+            )}
+          </div>
+
+          <div className="text-right shrink-0 ml-2">
+            {activeDay.isFuture ? (
+              <span className="text-muted">Предстоящий день</span>
+            ) : activeDay.daySpent > 0 ? (
+              <span className="font-semibold text-ink">
+                {money(activeDay.daySpent)}{' '}
+                <span className="text-muted font-normal text-[10.5px]">
+                  ({activeDay.receiptsCount} {plural(activeDay.receiptsCount, 'чек', 'чека', 'чеков')})
+                </span>
               </span>
-              <div className="mt-1.5 flex h-4 items-center justify-center">
-                {w.isFuture ? (
-                  <span className="h-1.5 w-1.5 rounded-full bg-rule/70" />
-                ) : w.daySpent > 0 ? (
-                  <span
-                    className="flex h-2 w-2 rounded-full bg-sage shadow-xs"
-                    title={`${money(w.daySpent)}`}
-                  />
-                ) : (
-                  <span className="text-[11px]" title="День спокойствия без трат">
-                    🌿
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+            ) : (
+              <span className="font-medium text-sage flex items-center gap-1">
+                <span>🌿</span>
+                <span>День спокойствия (0 ₽)</span>
+              </span>
+            )}
+          </div>
         </div>
       </section>
 
