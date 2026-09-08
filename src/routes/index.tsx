@@ -2,25 +2,44 @@ import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   Calendar,
-  CheckCircle2,
   ChevronRight,
   CreditCard,
   Receipt,
   ScanLine,
   Sparkles,
-  TrendingDown,
   Users,
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { PushNudge } from '~/components/PushNudge'
 import { useApp } from '~/lib/app-state'
-import { billDueLabel, categoryLabel, dateRu, greeting, money, plural } from '~/lib/format'
+import { billDueLabel, categoryLabel, dateRu, dayKey, greeting, money, plural } from '~/lib/format'
 import { tickBills } from '~/server/functions/push'
 import { cn, haptic } from '~/lib/utils'
 
 export const Route = createFileRoute('/')({
   component: Menu,
 })
+
+interface DayGroup {
+  key: string
+  title: string
+  isToday: boolean
+  isYesterday: boolean
+  total: number
+  items: Array<{
+    id: string
+    store: string | null
+    purchased_at: string | null
+    total: number
+    category: string
+    verdict: string | null
+    note: string | null
+    image: string | null
+    house_id?: string | null
+    house_name?: string | null
+    created_at: string
+  }>
+}
 
 function Menu() {
   const { user, boot } = useApp()
@@ -43,7 +62,7 @@ function Menu() {
   const daysLeft = Math.max(1, lastDayOfMonth - now.getDate())
   const dailyLeft = Math.max(0, Math.round(left / daysLeft))
 
-  // Текущая дата на русском языке с корректной капитализацией: "Вт, 8 сентября"
+  // Текущая дата на русском языке: "Вторник, 8 сентября"
   const todayStr = React.useMemo(() => {
     try {
       const d = new Date()
@@ -61,12 +80,12 @@ function Menu() {
     .slice(0, 2)
     .toUpperCase()
 
-  // Активная семейная касса
+  // Активная группа «Вместе»
   const primaryHouse = React.useMemo(() => {
     return boot.houses && boot.houses.length > 0 ? boot.houses[0] : null
   }, [boot.houses])
 
-  // Ближайший неоплаченный регулярный платёж
+  // Ближайший неоплаченный счёт (показываем только если он требует внимания)
   const nextBill = React.useMemo(() => {
     if (!boot.bills || boot.bills.length === 0) return null
     const unpaid = boot.bills.filter((b) => !b.paid_cycle)
@@ -79,95 +98,137 @@ function Menu() {
     })[0]
   }, [boot.bills])
 
-  const recentReceipts = React.useMemo(() => {
-    return (boot.receipts || []).slice(0, 4)
+  // Группировка трат по календарным дням с микро-итогами
+  const groupedReceipts = React.useMemo(() => {
+    if (!boot.receipts || boot.receipts.length === 0) return []
+
+    const nowDate = new Date()
+    const todayKey = dayKey(nowDate)
+    const yesterdayKey = dayKey(new Date(nowDate.getTime() - 86400000))
+
+    const groupsMap = new Map<string, typeof boot.receipts>()
+    // Берём последние 10 чеков для легкой домашней ленты
+    const list = boot.receipts.slice(0, 10)
+
+    for (const rc of list) {
+      const dateVal = rc.purchased_at || rc.created_at
+      const k = dayKey(dateVal)
+      const arr = groupsMap.get(k) || []
+      arr.push(rc)
+      groupsMap.set(k, arr)
+    }
+
+    const groups: DayGroup[] = []
+    groupsMap.forEach((items, k) => {
+      const isToday = k === todayKey
+      const isYesterday = k === yesterdayKey
+      const dt = new Date(items[0].purchased_at || items[0].created_at)
+
+      let title = 'Сегодня'
+      if (isYesterday) {
+        title = 'Вчера'
+      } else if (!isToday) {
+        try {
+          const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' }).format(dt)
+          const capWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1)
+          const dayMonth = dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+          title = `${capWeekday}, ${dayMonth}`
+        } catch {
+          title = dateRu(dt)
+        }
+      }
+
+      const total = items.reduce((acc, it) => acc + (Number(it.total) || 0), 0)
+      groups.push({
+        key: k,
+        title,
+        isToday,
+        isYesterday,
+        total,
+        items,
+      })
+    })
+
+    // Показываем максимум 2-3 последних дня, чтобы не превращать экран в бесконечную простыню
+    return groups.slice(0, 3)
   }, [boot.receipts])
 
+  const hasTodayExpenses = React.useMemo(() => {
+    return groupedReceipts.some((g) => g.isToday)
+  }, [groupedReceipts])
+
   return (
-    <div className="space-y-4 px-4 pb-36 pt-2 sm:px-5">
-      {/* 1. Верхняя панель: Дата, приветствие и аватар */}
-      <header className="flex items-center justify-between pt-1">
+    <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
+      {/* 1. Спокойная шапка: дата, приветствие и аватар */}
+      <header className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
             <Calendar size={13} className="text-sage" />
             <span>{todayStr}</span>
           </div>
-          <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
-            {greeting()}, {user?.displayName || user?.name || 'друг'}!
+          <h1 className="t-display mt-0.5 text-[24px] font-semibold leading-tight text-ink">
+            {greeting()}, {user?.displayName || user?.name || 'друг'}
           </h1>
         </div>
 
         <Link
           to="/settings"
           onClick={() => haptic(8)}
-          className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-rule/80 bg-paper shadow-paper transition-all hover:scale-105 active:scale-95"
+          className="group relative flex h-10 w-10 items-center justify-center rounded-full border border-rule/60 bg-paper shadow-paper transition-all hover:scale-105 active:scale-95"
           aria-label="Настройки профиля"
         >
-          <span className="text-[13.5px] font-bold text-sage transition-colors group-hover:text-ink">
+          <span className="text-[13px] font-bold text-sage transition-colors group-hover:text-ink">
             {initials}
           </span>
           <span
-            className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-canvas bg-emerald-500"
-            title="Активен"
+            className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-canvas bg-emerald-500"
+            title="В сети"
           />
         </Link>
       </header>
 
-      {/* 2. Главная Hero-карточка бюджета месяца */}
-      <section className="relative overflow-hidden rounded-[24px] border border-rule/80 bg-paper p-5 shadow-paper-lg">
-        {/* Декоративное мягкое свечение шалфея */}
+      {/* 2. Главная карточка: Единый фокус — «Свободно на сегодня» */}
+      <section className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-5 shadow-paper-lg">
+        {/* Деликатное фоновое свечение шалфея */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-sage/10 blur-2xl"
+          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-sage/8 blur-2xl"
         />
 
-        {/* Заголовок карточки и дни */}
+        {/* Заголовок фокуса дня */}
         <div className="flex items-center justify-between">
-          <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-            Остаток бюджета
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-sage">
+            <Sparkles size={13} className="shrink-0 text-sage" />
+            <span>Свободно на сегодня</span>
           </span>
-          <span
-            className={cn(
-              'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
-              daysLeft > 3 ? 'bg-sage/12 text-sage' : 'bg-stamp/10 text-stamp',
-            )}
-          >
-            {daysLeft > 1
-              ? `ещё ${daysLeft} ${plural(daysLeft, 'день', 'дня', 'дней')}`
-              : 'последний день'}
+          <span className="rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-semibold text-sage">
+            ещё {daysLeft} {plural(daysLeft, 'день', 'дня', 'дней')}
           </span>
         </div>
 
-        {/* Чистая и крупная сумма баланса без слипания */}
-        <div className="mt-2.5">
+        {/* Единственная доминирующая главная цифра */}
+        <div className="mt-2">
           <p
             className={cn(
-              't-display t-num text-[38px] font-semibold leading-none tracking-tight',
-              left >= 0 ? 'text-ink' : 'text-stamp',
+              't-display t-num text-[40px] font-bold leading-none tracking-tight',
+              dailyLeft > 0 ? 'text-ink' : 'text-stamp',
             )}
           >
-            {money(left)}
+            {money(dailyLeft)}
           </p>
         </div>
 
-        {/* Главный финансовый инсайт дня: Свободно на сегодня */}
-        <div className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-sage/10 px-3 py-1 text-[12.5px] font-medium text-sage">
-          <Sparkles size={13} className="shrink-0 text-sage" />
-          <span>
-            Свободно на день: <strong className="t-num font-semibold">{money(dailyLeft)}</strong>
-          </span>
-        </div>
+        {/* Мягкая ненавязчивая строка контекста месяца */}
+        <p className="mt-2 text-[13px] text-muted">
+          Остаток на месяц: <strong className="t-num font-semibold text-ink/80">{money(left)}</strong>
+        </p>
 
-        {/* Прогресс-бар расхода бюджета */}
+        {/* Тонкий минималистичный прогресс-бар */}
         <div className="mt-4">
-          <div className="flex items-center justify-between text-[11.5px] text-muted">
-            <span className="font-medium">Расход {used}%</span>
-            <span className="t-num font-medium text-muted">Лимит: {money(budget)}</span>
-          </div>
-          <div className="mt-1.5 h-[7px] w-full overflow-hidden rounded-full bg-rule-soft">
+          <div className="h-[5px] w-full overflow-hidden rounded-full bg-rule-soft">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${Math.max(used > 0 ? 3 : 0, used)}%` }}
+              animate={{ width: `${Math.max(used > 0 ? 2 : 0, used)}%` }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className={cn(
                 'h-full rounded-full transition-all',
@@ -175,228 +236,190 @@ function Menu() {
               )}
             />
           </div>
-        </div>
-
-        {/* 3 мини-метрики с табличными цифрами */}
-        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-rule/60 pt-3.5">
-          <div className="flex flex-col">
-            <span className="flex items-center gap-1 text-[11px] text-muted">
-              <TrendingDown size={12} className="text-sage" /> Потрачено
-            </span>
-            <span className="t-num mt-0.5 text-[14.5px] font-semibold text-ink">
-              {money(spent)}
-            </span>
-          </div>
-
-          <div className="flex flex-col">
-            <span className="flex items-center gap-1 text-[11px] text-muted">
-              <Calendar size={12} className="text-sage" /> До конца
-            </span>
-            <span className="t-num mt-0.5 text-[14.5px] font-semibold text-ink">
-              {daysLeft} дн.
-            </span>
-          </div>
-
-          <div className="flex flex-col">
-            <span className="flex items-center gap-1 text-[11px] text-muted">
-              <Receipt size={12} className="text-sage" /> Чеков
-            </span>
-            <span className="t-num mt-0.5 text-[14.5px] font-semibold text-ink">
-              {boot.month.count} шт.
-            </span>
+          <div className="mt-1.5 flex items-center justify-between text-[11.5px] text-muted">
+            <span>Расход {used}% ({money(spent)})</span>
+            <span className="t-num">Лимит: {money(budget)}</span>
           </div>
         </div>
       </section>
 
-      {/* 3. Компактный ряд быстрых действий (Quick Actions) */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-          <Link
-            to="/scan"
-            onClick={() => haptic(8)}
-            className="flex min-h-[50px] items-center justify-center gap-2 rounded-[16px] bg-sage px-3.5 py-2.5 text-onsage shadow-sm transition hover:brightness-105"
-          >
-            <ScanLine size={18} strokeWidth={2.2} />
-            <span className="text-[13.5px] font-semibold">Сканировать чек</span>
-          </Link>
-        </motion.div>
+      {/* 3. Единая главная кнопка действия: Скан чека */}
+      <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+        <Link
+          to="/scan"
+          onClick={() => haptic(8)}
+          className="group flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[18px] bg-sage px-5 text-onsage shadow-paper transition-all hover:bg-sage/95 hover:shadow-paper-lg"
+        >
+          <ScanLine size={19} strokeWidth={2.2} className="transition-transform group-hover:scale-105" />
+          <span className="text-[15px] font-semibold tracking-wide">Сканировать чек</span>
+        </Link>
+      </motion.div>
 
-        <motion.div whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-          <Link
-            to="/bills"
-            onClick={() => haptic(8)}
-            className="flex min-h-[50px] items-center justify-center gap-2 rounded-[16px] border border-rule/80 bg-paper px-3.5 py-2.5 text-ink shadow-sm transition hover:bg-white"
-          >
-            <CreditCard size={17} className="text-sage" />
-            <span className="text-[13.5px] font-medium">Платежи ({boot.bills.length})</span>
-          </Link>
-        </motion.div>
-      </div>
-
-      {/* 4. Живые виджеты Inset Grouped: Совместный бюджет и Ближайший счёт */}
-      <div className="space-y-2.5">
-        {/* Виджет: Совместный бюджет */}
-        {primaryHouse ? (
-          <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-            <Link
-              to="/groups/$id"
-              params={{ id: primaryHouse.id }}
-              onClick={() => haptic(8)}
-              className="group flex items-center justify-between rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper transition hover:border-sage/40"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-sage/12 text-sage">
-                  <Users size={20} strokeWidth={2.2} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+      {/* 4. Контекстные виджеты: показываются только при наличии актуальной информации */}
+      {(primaryHouse || nextBill) && (
+        <div className="space-y-2.5">
+          {/* Совместный бюджет «Вместе» (только если активен) */}
+          {primaryHouse && (
+            <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+              <Link
+                to="/groups/$id"
+                params={{ id: primaryHouse.id }}
+                onClick={() => haptic(8)}
+                className="group flex items-center justify-between rounded-[18px] border border-rule/70 bg-paper p-3.5 shadow-xs transition hover:border-sage/40"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 text-sage">
+                    <Users size={18} strokeWidth={2.2} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                       Совместный бюджет
-                    </span>
-                    <span className="rounded-full bg-sage/15 px-2 py-0.2 text-[10.5px] font-semibold text-sage">
-                      {primaryHouse.members} {plural(primaryHouse.members, 'участник', 'участника', 'участников')}
-                    </span>
-                  </div>
-                  <div className="t-display truncate text-[16px] font-semibold text-ink leading-snug">
-                    «{primaryHouse.name}»
+                    </div>
+                    <div className="t-display truncate text-[14.5px] font-semibold text-ink leading-tight">
+                      «{primaryHouse.name}»
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1 text-muted group-hover:text-sage transition">
-                <span className="text-[12.5px] font-medium hidden xs:inline">Бюджет</span>
-                <ChevronRight size={17} />
-              </div>
-            </Link>
-          </motion.div>
-        ) : (
-          <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-            <Link
-              to="/groups"
-              onClick={() => haptic(8)}
-              className="group flex items-center justify-between rounded-[20px] border border-dashed border-rule bg-paper/60 p-4 shadow-sm transition hover:bg-paper hover:border-sage/50"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-sage/10 text-sage">
-                  <Users size={19} />
+                <div className="flex items-center gap-1 text-muted group-hover:text-sage transition">
+                  <span className="rounded-full bg-sage/12 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
+                    {primaryHouse.members} {plural(primaryHouse.members, 'участник', 'участника', 'участников')}
+                  </span>
+                  <ChevronRight size={16} />
                 </div>
-                <div>
-                  <div className="text-[14.5px] font-semibold text-ink">Создать общий бюджет</div>
-                  <div className="text-[12px] text-muted">Общие траты, чеки и совместные цели</div>
-                </div>
-              </div>
-              <ChevronRight size={17} className="text-muted group-hover:text-sage transition" />
-            </Link>
-          </motion.div>
-        )}
+              </Link>
+            </motion.div>
+          )}
 
-        {/* Виджет: Ближайший счёт */}
-        {nextBill ? (
-          <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-            <Link
-              to="/bills"
-              onClick={() => haptic(8)}
-              className="group flex items-center justify-between rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper transition hover:border-sage/40"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-sage/12 text-sage">
-                  <CreditCard size={20} strokeWidth={2.2} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-                      Ближайший счёт
-                    </span>
-                    <span className="rounded-full bg-stamp/10 px-2 py-0.2 text-[10.5px] font-semibold text-stamp">
-                      {billDueLabel(nextBill.day_of_month).label}
-                    </span>
+          {/* Ближайший счёт (только если он неоплачен) */}
+          {nextBill && (
+            <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+              <Link
+                to="/bills"
+                onClick={() => haptic(8)}
+                className="group flex items-center justify-between rounded-[18px] border border-rule/70 bg-paper p-3.5 shadow-xs transition hover:border-sage/40"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 text-sage">
+                    <CreditCard size={18} strokeWidth={2.2} />
                   </div>
-                  <div className="t-display truncate text-[16px] font-semibold text-ink leading-snug">
-                    {nextBill.title}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        Счёт
+                      </span>
+                      <span className="rounded-full bg-stamp/10 px-1.5 py-0.2 text-[10px] font-semibold text-stamp">
+                        {billDueLabel(nextBill.day_of_month).label}
+                      </span>
+                    </div>
+                    <div className="t-display truncate text-[14.5px] font-semibold text-ink leading-tight">
+                      {nextBill.title}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="t-num text-[16px] font-bold text-ink">{money(nextBill.amount)}</div>
-                <div className="text-[11px] text-muted">{nextBill.day_of_month}-го числа</div>
-              </div>
-            </Link>
-          </motion.div>
-        ) : boot.bills.length > 0 ? (
-          <div className="flex items-center justify-between rounded-[18px] border border-rule/70 bg-paper/70 px-4 py-3 text-[13px] text-muted">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-sage" />
-              <span>Все регулярные счета оплачены</span>
-            </div>
-            <Link to="/bills" onClick={() => haptic(8)} className="text-[12px] font-semibold text-sage hover:underline">
-              Счета →
-            </Link>
-          </div>
-        ) : null}
-      </div>
+                <div className="text-right">
+                  <div className="t-num text-[15px] font-bold text-ink">{money(nextBill.amount)}</div>
+                  <div className="text-[11px] text-muted">{nextBill.day_of_month}-го числа</div>
+                </div>
+              </Link>
+            </motion.div>
+          )}
+        </div>
+      )}
 
-      {/* 5. Лента недавних покупок (Recent Transactions / Feed) */}
-      <section className="space-y-2.5 pt-1">
+      {/* 5. Лента трат, сгруппированная по дням с микро-итогами */}
+      <section className="space-y-3.5">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-[12px] font-semibold uppercase tracking-wider text-muted">
-            Недавние покупки
+            История покупок
           </h2>
-          <Link
-            to="/receipts"
-            onClick={() => haptic(8)}
-            className="text-[12px] font-semibold text-sage hover:underline"
-          >
-            Все чеки ({boot.month.count}) →
-          </Link>
+          {boot.receipts.length > 0 && (
+            <Link
+              to="/receipts"
+              onClick={() => haptic(8)}
+              className="text-[12px] font-semibold text-sage hover:underline"
+            >
+              Все чеки ({boot.month.count}) →
+            </Link>
+          )}
         </div>
 
-        {recentReceipts.length > 0 ? (
-          <div className="divide-y divide-rule-soft overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper">
-            {recentReceipts.map((rc) => (
-              <motion.div key={rc.id} whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-                <Link
-                  to="/receipts"
-                  onClick={() => haptic(8)}
-                  className="flex items-center justify-between px-4 py-3.5 transition-colors hover:bg-black/[0.02]"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 text-sage font-bold text-[14px]">
-                      {(rc.store || 'Ч')[0].toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[15px] font-semibold text-ink">
-                        {rc.store || 'Покупка'}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[12px] text-muted">
-                        <span>{dateRu(rc.purchased_at || rc.created_at)}</span>
-                        <span>•</span>
-                        <span className="truncate">{categoryLabel(rc.category)}</span>
-                        {rc.house_name ? (
-                          <>
-                            <span>•</span>
-                            <span className="rounded bg-sage/10 px-1.5 py-0.2 text-[10px] font-medium text-sage">
-                              {rc.house_name}
-                            </span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
+        {groupedReceipts.length > 0 ? (
+          <div className="space-y-4">
+            {/* Если сегодня ещё не было трат — показываем мягкую карточку спокойствия */}
+            {!hasTodayExpenses && (
+              <div className="flex items-center gap-2.5 rounded-[16px] border border-rule/50 bg-paper/60 px-3.5 py-2.5 text-[12.5px] text-muted">
+                <span className="text-[14px]">🌿</span>
+                <span>Сегодня пока без трат — бюджет под контролем</span>
+              </div>
+            )}
 
-                  <div className="t-num ml-3 shrink-0 text-[16px] font-bold text-ink">
-                    {money(rc.total)}
-                  </div>
-                </Link>
-              </motion.div>
+            {/* Группы по дням */}
+            {groupedReceipts.map((group) => (
+              <div key={group.key} className="space-y-1.5">
+                {/* Аккуратный микро-итог дня */}
+                <div className="flex items-center justify-between px-1 text-[11.5px] text-muted">
+                  <span className="font-semibold uppercase tracking-wider">
+                    {group.title}
+                  </span>
+                  <span className="t-num font-medium text-ink/75">
+                    {group.items.length} {plural(group.items.length, 'покупка', 'покупки', 'покупок')} • {money(group.total)}
+                  </span>
+                </div>
+
+                {/* Список покупок дня в чистом блоке */}
+                <div className="divide-y divide-rule-soft overflow-hidden rounded-[20px] border border-rule/70 bg-paper shadow-paper">
+                  {group.items.map((rc) => (
+                    <motion.div
+                      key={rc.id}
+                      whileTap={{ scale: 0.985 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    >
+                      <Link
+                        to="/receipts"
+                        onClick={() => haptic(8)}
+                        className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-black/[0.02]"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 font-bold text-[13.5px] text-sage">
+                            {(rc.store || 'Ч')[0].toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[14.5px] font-semibold text-ink">
+                              {rc.store || 'Покупка'}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11.5px] text-muted">
+                              <span className="truncate">{categoryLabel(rc.category)}</span>
+                              {rc.house_name && (
+                                <>
+                                  <span>•</span>
+                                  <span className="rounded bg-sage/10 px-1.5 py-0.2 text-[10px] font-medium text-sage">
+                                    {rc.house_name}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="t-num ml-3 shrink-0 text-[15.5px] font-bold text-ink">
+                          {money(rc.total)}
+                        </div>
+                      </Link>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         ) : (
-          <div className="rounded-[22px] border border-rule/80 bg-paper p-6 text-center shadow-paper">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage">
-              <Receipt size={22} />
+          /* Чистое пустое состояние без перегруза */
+          <div className="rounded-[22px] border border-rule/70 bg-paper p-6 text-center shadow-paper">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-sage/10 text-sage">
+              <Receipt size={20} />
             </div>
-            <p className="t-display mt-2.5 text-[16.5px] font-semibold text-ink">Пока нет расходов в этом месяце</p>
-            <p className="mx-auto mt-1 max-w-[270px] text-[12.5px] leading-relaxed text-muted">
-              Отсканируйте чек или внесите покупку — здесь сразу появится дневная сводка трат.
+            <p className="t-display mt-2.5 text-[16px] font-semibold text-ink">В этом месяце пока нет чеков</p>
+            <p className="mx-auto mt-1 max-w-[260px] text-[12.5px] leading-relaxed text-muted">
+              Отсканируйте первый чек — здесь сразу появится спокойная сводка трат по дням.
             </p>
             <div className="mt-4 flex justify-center">
               <Link
@@ -412,10 +435,8 @@ function Menu() {
         )}
       </section>
 
-      {/* Напоминание о включении push-уведомлений */}
+      {/* 6. Напоминание о push-уведомлениях */}
       <PushNudge />
     </div>
-
   )
 }
-
