@@ -9,6 +9,7 @@ import {
   Receipt as ReceiptIcon,
   ScanLine,
   Search,
+  Share2,
   Store,
   Trash2,
   Users,
@@ -19,8 +20,9 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { BottomSheet } from '~/components/BottomSheet'
+import { ShareMonthModal } from '~/components/ShareMonthModal'
 import { useApp } from '~/lib/app-state'
-import { CATEGORIES, categoryLabel, dateRu, money, moneyShort, plural } from '~/lib/format'
+import { CATEGORIES, categoryLabel, dateRu, money, moneyShort, monthKey, monthLabelRu, plural, prevMonthKey } from '~/lib/format'
 import { addReceipt, deleteReceipt, getReceipt, listReceipts, setReceiptHouse } from '~/server/functions/receipts'
 import type { Receipt, ReceiptItem } from '~/server/functions/bootstrap'
 import { cn, haptic } from '~/lib/utils'
@@ -52,6 +54,8 @@ const QUICK_STORES = ['Пятёрочка', 'ВкусВилл', 'Магнит', 
 function Receipts() {
   const { user, boot, refresh } = useApp()
   const [items, setItems] = React.useState<Array<Receipt>>(boot.receipts || [])
+  const [period, setPeriod] = React.useState<'current' | 'prev' | 'all'>('current')
+  const [openShareModal, setOpenShareModal] = React.useState(false)
   const [openAddSheet, setOpenAddSheet] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all')
@@ -151,9 +155,22 @@ function Receipts() {
     setItems((r as any)?.receipts ?? [])
   }
 
-  // Фильтрация по поиску и категории
-  const filtered = React.useMemo(() => {
+  const currentMonthKey = React.useMemo(() => monthKey(new Date()), [])
+  const previousMonthKey = React.useMemo(() => prevMonthKey(new Date()), [])
+
+  // Фильтрация чеков по выбранному периоду
+  const periodItems = React.useMemo(() => {
+    if (period === 'all') return items
+    const targetKey = period === 'current' ? currentMonthKey : previousMonthKey
     return items.filter((r) => {
+      const d = r.purchased_at || r.created_at || ''
+      return d.startsWith(targetKey)
+    })
+  }, [items, period, currentMonthKey, previousMonthKey])
+
+  // Фильтрация по поиску и категории внутри выбранного периода
+  const filtered = React.useMemo(() => {
+    return periodItems.filter((r) => {
       const matchSearch =
         !search.trim() ||
         (r.store || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -161,7 +178,7 @@ function Receipts() {
       const matchCategory = selectedCategory === 'all' || r.category === selectedCategory
       return matchSearch && matchCategory
     })
-  }, [items, search, selectedCategory])
+  }, [periodItems, search, selectedCategory])
 
   // Группировка по дням
   const grouped = React.useMemo(() => {
@@ -174,14 +191,17 @@ function Receipts() {
     return Array.from(map.entries())
   }, [filtered])
 
-  const monthTotal = boot.month.spent
-  const avgCheck = items.length > 0 ? Math.round(monthTotal / items.length) : 0
+  const periodTotal = React.useMemo(() => {
+    return periodItems.reduce((acc, it) => acc + (Number(it.total) || 0), 0)
+  }, [periodItems])
+
+  const periodAvgCheck = periodItems.length > 0 ? Math.round(periodTotal / periodItems.length) : 0
 
   // Аналитика распределения трат по категориям (Category Insights)
   const categoryStats = React.useMemo(() => {
     const totals: Record<string, number> = {}
     let grandTotal = 0
-    for (const it of items) {
+    for (const it of periodItems) {
       const cat = it.category || 'other'
       const val = Number(it.total) || 0
       totals[cat] = (totals[cat] || 0) + val
@@ -202,7 +222,7 @@ function Receipts() {
     })
       .filter((c) => c.amount > 0)
       .sort((a, b) => b.amount - a.amount)
-  }, [items])
+  }, [periodItems])
 
   return (
     <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
@@ -242,21 +262,78 @@ function Receipts() {
         </div>
       </header>
 
-      {/* 2. Легкая карточка сводки за месяц с аналитикой долей категорий */}
+      {/* Переключатель периода (Этот месяц / Прошлый / Всё время) и кнопка отчета */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-full border border-rule/70 bg-paper/80 p-0.5 shadow-xs">
+          {(
+            [
+              { id: 'current', label: 'Этот месяц' },
+              { id: 'prev', label: 'Прошлый' },
+              { id: 'all', label: 'Всё время' },
+            ] as const
+          ).map((tab) => {
+            const active = period === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  haptic(6)
+                  setPeriod(tab.id)
+                }}
+                className={cn(
+                  'relative rounded-full px-3 py-1 text-[12px] font-medium transition',
+                  active ? 'text-onsage font-semibold' : 'text-muted hover:text-ink',
+                )}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="receiptPeriodPill"
+                    className="absolute inset-0 rounded-full bg-sage shadow-xs"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            haptic(8)
+            setOpenShareModal(true)
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full border border-rule/70 bg-paper px-3 py-1 text-[12px] font-medium text-muted shadow-xs transition hover:border-sage/40 hover:text-ink active:scale-95"
+          title="Поделиться отчетом и скачать CSV"
+        >
+          <Share2 size={13} className="text-sage" />
+          <span>Отчёт</span>
+        </button>
+      </div>
+
+      {/* 2. Легкая карточка сводки за выбранный период с аналитикой долей категорий */}
       <section className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-5 shadow-paper">
         <div className="flex items-center justify-between text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-          <span>Сумма всех покупок</span>
+          <span>
+            {period === 'current'
+              ? monthLabelRu(currentMonthKey)
+              : period === 'prev'
+              ? monthLabelRu(previousMonthKey)
+              : 'Все покупки'}
+          </span>
           <span className="t-num font-medium text-sage">
-            {items.length} {plural(items.length, 'чек', 'чека', 'чеков')}
+            {periodItems.length} {plural(periodItems.length, 'чек', 'чека', 'чеков')}
           </span>
         </div>
 
         <div className="mt-1.5 flex items-baseline gap-3">
           <p className="t-display t-num text-[34px] font-bold text-ink leading-tight">
-            {money(monthTotal)}
+            {money(periodTotal)}
           </p>
           <span className="text-[12.5px] text-muted">
-            · средний {money(avgCheck)}
+            · средний {money(periodAvgCheck)}
           </span>
         </div>
 
@@ -796,6 +873,22 @@ function Receipts() {
           </div>
         </form>
       </BottomSheet>
+
+      {/* Модальное окно красивого шеринга итогов и экспорта в CSV */}
+      <ShareMonthModal
+        open={openShareModal}
+        onClose={() => setOpenShareModal(false)}
+        receipts={periodItems}
+        monthLabel={
+          period === 'current'
+            ? monthLabelRu(currentMonthKey)
+            : period === 'prev'
+            ? monthLabelRu(previousMonthKey)
+            : 'Всё время'
+        }
+        budget={boot.settings.monthly_budget || 45000}
+        spent={periodTotal}
+      />
     </div>
   )
 }

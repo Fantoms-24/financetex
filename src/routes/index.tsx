@@ -2,17 +2,37 @@ import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   Calendar,
+  Check,
   ChevronRight,
   CreditCard,
+  Plus,
   Receipt,
   ScanLine,
   Sparkles,
+  Store,
   Users,
+  X,
 } from 'lucide-react'
 import { motion } from 'motion/react'
+import { BottomSheet } from '~/components/BottomSheet'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
 import { PushNudge } from '~/components/PushNudge'
+import { PwaInstallPrompt } from '~/components/PwaInstallPrompt'
+import { showInAppNotification } from '~/components/NotificationBanner'
 import { useApp } from '~/lib/app-state'
-import { billDueLabel, categoryLabel, dateRu, dayKey, greeting, money, plural } from '~/lib/format'
+import {
+  CATEGORIES,
+  billDueLabel,
+  categoryLabel,
+  dateRu,
+  dayKey,
+  greeting,
+  money,
+  parseMagicExpense,
+  plural,
+} from '~/lib/format'
+import { addReceipt } from '~/server/functions/receipts'
 import { tickBills } from '~/server/functions/push'
 import { cn, haptic } from '~/lib/utils'
 
@@ -42,13 +62,57 @@ interface DayGroup {
 }
 
 function Menu() {
-  const { user, boot } = useApp()
+  const { user, boot, refresh } = useApp()
   const ticked = React.useRef(false)
+
+  // Быстрый ввод расхода (Zero-Friction Quick Log)
+  const [openQuickSheet, setOpenQuickSheet] = React.useState(false)
+  const [quickInput, setQuickInput] = React.useState('')
+  const [quickCategory, setQuickCategory] = React.useState<string | null>(null)
+  const [quickHouseId, setQuickHouseId] = React.useState<string | null>(null)
+  const [quickBusy, setQuickBusy] = React.useState(false)
+
+  const parsedMagic = React.useMemo(() => {
+    return parseMagicExpense(quickInput)
+  }, [quickInput])
+
+  const activeCategory = quickCategory || parsedMagic.category
+
+  async function handleQuickSave(e?: React.FormEvent) {
+    if (e) e.preventDefault()
+    if (quickBusy) return
+    const amount = parsedMagic.amount
+    if (!amount) return
+
+    setQuickBusy(true)
+    try {
+      await addReceipt({
+        data: {
+          store: parsedMagic.title || 'Покупка',
+          total: amount,
+          category: activeCategory,
+          houseId: quickHouseId,
+        },
+      })
+      haptic(12)
+      showInAppNotification({
+        title: 'Расход записан ✓',
+        body: `${parsedMagic.title}: ${money(amount)} (${categoryLabel(activeCategory)})`,
+        icon: 'sparkles',
+      })
+      setQuickInput('')
+      setQuickCategory(null)
+      setQuickHouseId(null)
+      setOpenQuickSheet(false)
+      await refresh()
+    } finally {
+      setQuickBusy(false)
+    }
+  }
 
   React.useEffect(() => {
     if (ticked.current || !user) return
     ticked.current = true
-    // запасной тик — основной идёт кроном
     tickBills().catch(() => {})
   }, [user])
 
@@ -157,8 +221,49 @@ function Menu() {
     return groupedReceipts.some((g) => g.isToday)
   }, [groupedReceipts])
 
+  // Радар текущей недели (Пн - Вс)
+  const weekDays = React.useMemo(() => {
+    const today = new Date()
+    const currentDayOfWeek = today.getDay()
+    const distanceToMonday = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek
+    const monday = new Date(today)
+    monday.setDate(today.getDate() + distanceToMonday)
+    monday.setHours(0, 0, 0, 0)
+
+    const shortNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+    const todayKeyStr = dayKey(today)
+
+    return shortNames.map((name, i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      const k = dayKey(d)
+      const isToday = k === todayKeyStr
+      const isFuture = d > today && !isToday
+
+      let daySpent = 0
+      for (const r of boot.receipts || []) {
+        const rk = dayKey(r.purchased_at || r.created_at)
+        if (rk === k) {
+          daySpent += Number(r.total) || 0
+        }
+      }
+
+      return {
+        name,
+        dateNumber: d.getDate(),
+        key: k,
+        isToday,
+        isFuture,
+        daySpent,
+      }
+    })
+  }, [boot.receipts])
+
   return (
     <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
+      {/* 0. Подсказка по установке PWA на экран смартфона */}
+      <PwaInstallPrompt />
+
       {/* 1. Спокойная шапка: дата, приветствие и аватар */}
       <header className="flex items-center justify-between">
         <div>
@@ -243,17 +348,98 @@ function Menu() {
         </div>
       </section>
 
-      {/* 3. Единая главная кнопка действия: Скан чека */}
-      <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-        <Link
-          to="/scan"
-          onClick={() => haptic(8)}
-          className="group flex h-[52px] w-full items-center justify-center gap-2.5 rounded-[18px] bg-sage px-5 text-onsage shadow-paper transition-all hover:bg-sage/95 hover:shadow-paper-lg"
+      {/* 2.1 Радар текущей недели: ритм трат и спокойные дни */}
+      <section className="rounded-[22px] border border-rule/70 bg-paper p-3.5 shadow-xs">
+        <div className="mb-2 flex items-center justify-between px-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <span>Ритм недели</span>
+          <span className="flex items-center gap-1 font-medium normal-case text-sage">
+            <span>🌿</span>
+            <span>{weekDays.filter((w) => !w.isFuture && w.daySpent === 0).length} спокойных дней</span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1.5 text-center">
+          {weekDays.map((w) => (
+            <div
+              key={w.key}
+              className={cn(
+                'flex flex-col items-center justify-between rounded-[14px] px-1 py-2 transition-all',
+                w.isToday
+                  ? 'border border-sage/60 bg-sage/10 shadow-xs font-semibold'
+                  : 'border border-transparent bg-canvas/40',
+                w.isFuture && 'opacity-35',
+              )}
+            >
+              <span
+                className={cn(
+                  'text-[10.5px] tracking-tight',
+                  w.isToday ? 'font-bold text-sage' : 'text-muted',
+                )}
+              >
+                {w.name}
+              </span>
+              <span
+                className={cn(
+                  't-num mt-0.5 text-[13px] font-medium',
+                  w.isToday ? 'font-bold text-ink' : 'text-ink/80',
+                )}
+              >
+                {w.dateNumber}
+              </span>
+              <div className="mt-1.5 flex h-4 items-center justify-center">
+                {w.isFuture ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-rule/70" />
+                ) : w.daySpent > 0 ? (
+                  <span
+                    className="flex h-2 w-2 rounded-full bg-sage shadow-xs"
+                    title={`${money(w.daySpent)}`}
+                  />
+                ) : (
+                  <span className="text-[11px]" title="День спокойствия без трат">
+                    🌿
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 3. Кнопки быстрых действий: Скан чека + Вписать расход за 3 сек */}
+      <div className="flex items-center gap-2">
+        <motion.div
+          whileTap={{ scale: 0.985 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          className="flex-[1.4]"
         >
-          <ScanLine size={19} strokeWidth={2.2} className="transition-transform group-hover:scale-105" />
-          <span className="text-[15px] font-semibold tracking-wide">Сканировать чек</span>
-        </Link>
-      </motion.div>
+          <Link
+            to="/scan"
+            onClick={() => haptic(8)}
+            className="group flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-sage px-4 text-onsage shadow-paper transition-all hover:bg-sage/95 hover:shadow-paper-lg"
+          >
+            <ScanLine size={19} strokeWidth={2.2} className="transition-transform group-hover:scale-105" />
+            <span className="text-[14.5px] font-semibold tracking-wide">Скан чека</span>
+          </Link>
+        </motion.div>
+
+        <motion.div
+          whileTap={{ scale: 0.985 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          className="flex-1"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              haptic(8)
+              setOpenQuickSheet(true)
+            }}
+            className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-[18px] border border-rule/80 bg-paper px-3 text-ink shadow-paper transition-all hover:border-sage/40 hover:shadow-md"
+          >
+            <Plus size={18} className="text-sage" />
+            <span className="text-[14px] font-semibold">Вписать</span>
+          </button>
+        </motion.div>
+      </div>
 
       {/* 4. Контекстные виджеты: показываются только при наличии актуальной информации */}
       {(primaryHouse || nextBill) && (
@@ -437,6 +623,153 @@ function Menu() {
 
       {/* 6. Напоминание о push-уведомлениях */}
       <PushNudge />
+
+      {/* 7. Шторка мгновенного ввода расхода за 3 секунды */}
+      <BottomSheet
+        open={openQuickSheet}
+        onClose={() => setOpenQuickSheet(false)}
+        title="Записать расход"
+      >
+        <form onSubmit={handleQuickSave} className="space-y-4 pt-2">
+          {/* Поле умного ввода одной строкой */}
+          <div>
+            <label className="text-[12px] font-semibold uppercase tracking-wider text-muted">
+              Умный ввод (название и сумма)
+            </label>
+            <div className="relative mt-1.5">
+              <Input
+                autoFocus
+                value={quickInput}
+                onChange={(e) => setQuickInput(e.target.value)}
+                placeholder="Например: Кофе 350 или Такси 600"
+                className="h-12 rounded-[16px] px-3.5 text-[15.5px] font-medium border-rule/80 bg-paper shadow-xs focus:border-sage"
+              />
+              {quickInput && (
+                <button
+                  type="button"
+                  onClick={() => setQuickInput('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-ink"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            <p className="mt-1 text-[11.5px] text-muted">
+              Напишите одной строкой — сумма и категория определятся сами.
+            </p>
+          </div>
+
+          {/* Превью распознанных параметров */}
+          {quickInput.trim() && (
+            <div className="rounded-[16px] border border-rule/70 bg-canvas/60 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-muted">Сумма к списанию:</span>
+                <span className="t-display t-num text-[18px] font-bold text-ink">
+                  {parsedMagic.amount ? money(parsedMagic.amount) : 'Введите сумму в строке'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-muted">Магазин / Название:</span>
+                <span className="font-semibold text-ink">{parsedMagic.title}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-muted">Категория:</span>
+                <span className="rounded-full bg-sage/12 px-2.5 py-0.5 font-medium text-sage">
+                  {categoryLabel(activeCategory)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Быстрые шаблоны частых покупок */}
+          <div>
+            <span className="text-[11.5px] font-medium text-muted">Частые покупки:</span>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {[
+                { label: 'Кофе 250', val: 'Кофе 250' },
+                { label: 'ВкусВилл 800', val: 'ВкусВилл 800' },
+                { label: 'Такси 450', val: 'Такси 450' },
+                { label: 'Обед 600', val: 'Обед 600' },
+                { label: 'Аптека 1200', val: 'Аптека 1200' },
+                { label: 'Самокат 900', val: 'Самокат 900' },
+              ].map((chip) => (
+                <button
+                  key={chip.val}
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setQuickInput(chip.val)
+                  }}
+                  className="rounded-full border border-rule/70 bg-paper px-3 py-1 text-[11.5px] font-medium text-muted transition hover:border-sage/40 hover:text-ink active:scale-95"
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Выбор совместного бюджета, если состоит в группах */}
+          {boot.houses && boot.houses.length > 0 && (
+            <div>
+              <span className="text-[11.5px] font-medium text-muted">Куда отнести:</span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setQuickHouseId(null)
+                  }}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-[12px] font-medium transition active:scale-95',
+                    quickHouseId === null
+                      ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                      : 'border-rule/70 bg-paper text-muted hover:text-ink',
+                  )}
+                >
+                  Личные расходы
+                </button>
+                {boot.houses.map((h) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      setQuickHouseId(h.id)
+                    }}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-[12px] font-medium transition active:scale-95',
+                      quickHouseId === h.id
+                        ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                        : 'border-rule/70 bg-paper text-muted hover:text-ink',
+                    )}
+                  >
+                    «{h.name}»
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Кнопка сохранения */}
+          <div className="pt-2">
+            <Button
+              type="submit"
+              variant="sage"
+              size="lg"
+              disabled={quickBusy || !parsedMagic.amount}
+              className="w-full h-12 rounded-[16px] text-[15px] font-semibold"
+            >
+              {quickBusy
+                ? 'Запись…'
+                : parsedMagic.amount
+                ? `Записать ${money(parsedMagic.amount)}`
+                : 'Введите сумму'}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
     </div>
   )
 }

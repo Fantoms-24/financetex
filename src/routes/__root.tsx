@@ -27,7 +27,7 @@ export const Route = createRootRoute({
       { title: 'Листок — карманный финансист' },
       {
         name: 'description',
-        content: 'Карманный финансист. Чеки, бюджет и кассы на одном листке.',
+        content: 'Карманный финансист. Чеки, дневной бюджет и общие накопления на одном листке.',
       },
       { name: 'theme-color', content: '#f3eee4' },
       { name: 'color-scheme', content: 'light' },
