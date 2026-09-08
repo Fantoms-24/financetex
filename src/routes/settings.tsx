@@ -1,10 +1,23 @@
 import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Bell, ChevronRight, LogOut, Settings as SettingsIcon, ShieldCheck, Sparkles } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bell,
+  ChevronRight,
+  LogOut,
+  Phone,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { showInAppNotification } from '~/components/NotificationBanner'
 import { useApp } from '~/lib/app-state'
+import { money } from '~/lib/format'
+import { cn, haptic } from '~/lib/utils'
 import {
   currentEndpoint,
   disablePush,
@@ -36,6 +49,20 @@ function Settings() {
   const [busy, setBusy] = React.useState(false)
   const [isAdmin, setIsAdmin] = React.useState(false)
 
+  const initials = (user?.displayName || user?.name || 'U')
+    .slice(0, 2)
+    .toUpperCase()
+
+  const primaryHouse = React.useMemo(() => {
+    return boot.houses && boot.houses.length > 0 ? boot.houses[0] : null
+  }, [boot.houses])
+
+  const now = new Date()
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const daysLeft = Math.max(1, lastDay - now.getDate())
+  const currentBudgetNum = Math.round(Number(budget.replace(/[^\d]/g, '') || 45000))
+  const dailyNorm = Math.max(0, Math.round(currentBudgetNum / daysLeft))
+
   React.useEffect(() => {
     if (!user) return
     setName(user.displayName || '')
@@ -59,6 +86,7 @@ function Settings() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
+    haptic(10)
     setBusy(true)
     await saveProfile({
       data: {
@@ -74,7 +102,12 @@ function Settings() {
       },
     })
     setSaved(true)
-    setTimeout(() => setSaved(false), 1800)
+    showInAppNotification({
+      title: '✓ Профиль сохранён',
+      body: `Лимит трат: ${money(b)} в месяц`,
+      icon: 'sparkles',
+    })
+    setTimeout(() => setSaved(false), 2000)
     setBusy(false)
     await refresh()
   }
@@ -129,58 +162,207 @@ function Settings() {
   }
 
   return (
-    <div className="space-y-4 px-4 pb-32 pt-2 sm:px-5">
-      <header className="mb-2">
+    <div className="space-y-4 px-4 pb-36 pt-2 sm:px-5">
+      {/* 1. Верхняя навигационная панель с кнопкой возврата */}
+      <header className="flex items-center justify-between">
+        <Link
+          to="/"
+          onClick={() => haptic(8)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-[12px] border border-rule/80 bg-paper px-3 text-[13px] font-medium text-ink shadow-xs transition hover:bg-white active:scale-95"
+        >
+          <ArrowLeft size={15} />
+          <span>Главная</span>
+        </Link>
         <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
           <SettingsIcon size={14} className="text-sage" />
           <span>Личный кабинет</span>
         </div>
-        <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
-          Настройки
-        </h1>
-        <p className="mt-1 text-[13px] text-muted">{user?.email}</p>
       </header>
 
-      {/* Блок уведомлений */}
-      <section className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sage/12 text-sage">
-            <Bell size={16} />
+      {/* 2. Hero-карточка профиля */}
+      <section className="relative overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4.5 shadow-paper">
+        <div className="flex items-center gap-3.5">
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sage/20 to-sage/5 border border-sage/30 text-sage text-[18px] font-bold shadow-xs">
+            {initials}
+            <span
+              className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-paper bg-emerald-500"
+              title="Активный профиль"
+            />
           </div>
-          <div>
-            <h2 className="t-display text-[16px] font-semibold text-ink">Уведомления</h2>
-            <p className="text-[12px] text-muted">Напоминания о чеках и счетах</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="t-display truncate text-[19px] font-semibold text-ink leading-snug">
+              {user?.displayName || user?.name || 'Пользователь'}
+            </h1>
+            <p className="truncate text-[12.5px] text-muted">{user?.email}</p>
+            {primaryHouse ? (
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-sage">
+                <Users size={12} />
+                <span className="truncate">Касса «{primaryHouse.name}»</span>
+              </div>
+            ) : null}
           </div>
         </div>
+      </section>
 
-        <p className="text-[13px] leading-snug text-muted">
+      {/* 3. Форма настроек: Бюджет и реквизиты кассы */}
+      <form onSubmit={save} className="space-y-4">
+        {/* Карточка: Личный бюджет и имя */}
+        <section className="rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
+          <div className="flex items-center gap-2 border-b border-rule/60 pb-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/12 text-sage">
+              <Wallet size={15} />
+            </div>
+            <div>
+              <h2 className="t-display text-[15px] font-semibold text-ink">Личный бюджет и профиль</h2>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted">
+              Имя пользователя
+            </label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Как к вам обращаться"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Месячный лимит трат, ₽
+              </label>
+              <span className="text-[11px] font-semibold text-sage">
+                ~{money(dailyNorm)} в день
+              </span>
+            </div>
+            <Input
+              value={budget}
+              onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="45 000"
+              inputMode="numeric"
+            />
+            <p className="mt-1 text-[11.5px] text-muted">
+              Базовый лимит на месяц. Исходя из него рассчитывается свободный остаток на день на главной.
+            </p>
+          </div>
+        </section>
+
+        {/* Карточка: Реквизиты для взаиморасчётов в кассе (СБП) */}
+        <section className="rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
+          <div className="flex items-center gap-2 border-b border-rule/60 pb-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/12 text-sage">
+              <Phone size={15} />
+            </div>
+            <div>
+              <h2 className="t-display text-[15px] font-semibold text-ink">Реквизиты для кассы (СБП)</h2>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted">
+              Телефон для перевода
+            </label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+7 900 000-00-00"
+              inputMode="tel"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted">
+              Банк для получения
+            </label>
+            <Input
+              value={bank}
+              onChange={(e) => setBank(e.target.value)}
+              placeholder="Т-Банк, Сбер, Альфа"
+            />
+            <p className="mt-1 text-[11.5px] text-muted">
+              Участники семейной кассы увидят эти данные, чтобы быстро перевести вам свою долю за общий чек.
+            </p>
+          </div>
+
+          <Button
+            type="submit"
+            variant="sage"
+            size="md"
+            className="w-full mt-1"
+            disabled={busy}
+          >
+            {saved ? '✓ Настройки сохранены' : 'Сохранить изменения'}
+          </Button>
+        </section>
+      </form>
+
+      {/* 4. Центр уведомлений */}
+      <section className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
+        <div className="flex items-center justify-between border-b border-rule/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/12 text-sage">
+              <Bell size={15} />
+            </div>
+            <h2 className="t-display text-[15px] font-semibold text-ink">Уведомления</h2>
+          </div>
+          <span
+            className={cn(
+              'rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold',
+              perm.granted ? 'bg-sage/12 text-sage' : 'bg-stamp/10 text-stamp',
+            )}
+          >
+            {perm.granted ? 'Включены' : 'Выключены'}
+          </span>
+        </div>
+
+        <p className="text-[12.5px] leading-relaxed text-muted">
           {!pushSupported()
-            ? 'Браузер не умеет пуши'
+            ? 'Ваш браузер не поддерживает Push-уведомления.'
             : perm.granted
             ? standalone
-              ? 'Включены. Приходят даже с выключенным экраном'
+              ? 'Уведомления активны и приходят даже с заблокированным экраном.'
               : isIos()
-              ? 'Разрешение есть. Откройте приложение с иконки Домой'
-              : 'Разрешение есть'
-            : 'Выключены — напоминания не придут'}
+              ? 'Разрешение выдано. Для работы при закрытом окне добавьте Листок на экран «Домой».'
+              : 'Уведомления активны. Напоминания о чеках и счетах придут вовремя.'
+            : 'Включите напоминания, чтобы не пропустить срок оплаты счетов и новые чеки в кассе.'}
         </p>
 
-        <div className="grid grid-cols-2 gap-2.5 pt-1">
+        <div className="grid grid-cols-2 gap-2.5">
           {perm.granted ? (
-            <Button variant="paper" size="md" disabled={busy} onClick={onTest}>
+            <Button
+              variant="paper"
+              size="md"
+              disabled={busy}
+              onClick={() => {
+                haptic(8)
+                onTest()
+              }}
+            >
               Прислать тест
             </Button>
           ) : (
-            <Button variant="sage" size="md" disabled={busy} onClick={onEnablePush}>
-              Включить
+            <Button
+              variant="sage"
+              size="md"
+              disabled={busy}
+              onClick={() => {
+                haptic(8)
+                onEnablePush()
+              }}
+            >
+              Включить пуши
             </Button>
           )}
+
           {perm.granted ? (
             <Button
               variant="ghost"
               size="md"
               disabled={busy}
               onClick={async () => {
+                haptic(8)
                 await disablePush()
                 setPerm(pushState())
               }}
@@ -188,27 +370,35 @@ function Settings() {
               Отключить
             </Button>
           ) : (
-            <Button variant="paper" size="md" disabled={busy} onClick={onTest}>
+            <Button
+              variant="paper"
+              size="md"
+              disabled={busy}
+              onClick={() => {
+                haptic(8)
+                onTest()
+              }}
+            >
               Прислать тест
             </Button>
           )}
         </div>
-        {testResult ? <p className="text-[12.5px] text-sage">{testResult}</p> : null}
-        {testError ? <p className="text-[12.5px] text-stamp">{testError}</p> : null}
 
-        {/* Живое превью шаблона уведомления */}
-        <div className="rounded-[16px] border border-rule/60 bg-cream/50 p-3.5 space-y-2">
+        {testResult ? <p className="text-[12px] text-sage font-medium">{testResult}</p> : null}
+        {testError ? <p className="text-[12px] text-stamp font-medium">{testError}</p> : null}
+
+        {/* Интерактивное превью карточки уведомления */}
+        <div className="rounded-[16px] border border-rule/70 bg-cream/40 p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider text-muted">
               Шаблон уведомления Листка
             </span>
-            <span className="rounded-full bg-sage/12 px-2 py-0.5 text-[10px] font-bold text-sage">
-              iOS & Android
-            </span>
+            <span className="text-[10px] text-muted">Нажмите для теста</span>
           </div>
 
           <div
             onClick={() => {
+              haptic(10)
               showInAppNotification({
                 title: 'Семья',
                 body: 'Новый платёж: Аренда (25 000 ₽)',
@@ -216,7 +406,7 @@ function Settings() {
                 url: '/groups',
               })
             }}
-            className="group flex items-start gap-3 rounded-[16px] border border-rule/80 bg-paper p-3 shadow-xs transition-all hover:border-sage/40 active:scale-[0.99] cursor-pointer"
+            className="group flex items-start gap-3 rounded-[14px] border border-rule/80 bg-paper p-3 shadow-xs transition hover:border-sage/50 active:scale-[0.99] cursor-pointer"
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sage text-onsage shadow-xs">
               <Sparkles size={15} />
@@ -229,94 +419,25 @@ function Settings() {
               <p className="text-[13px] font-semibold text-ink leading-tight mt-0.5">
                 Новый платёж: Аренда (25 000 ₽)
               </p>
-              <p className="text-[11.5px] text-muted leading-snug mt-0.5">
+              <p className="text-[11px] text-muted mt-0.5">
                 Нажмите для перехода к кассе
               </p>
             </div>
           </div>
-          <p className="text-[11px] text-muted text-center">
-            Нажмите на карточку, чтобы протестировать появление баннера
-          </p>
         </div>
-
-        {isIos() && !standalone ? (
-          <p className="text-[12px] leading-snug text-muted">
-            На iPhone сначала добавьте приложение на домашний экран: Поделиться → На экран Домой.
-          </p>
-        ) : null}
       </section>
 
-      {/* Профиль и лимиты */}
-      <form onSubmit={save} className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3">
-        <h2 className="t-display text-[16px] font-semibold text-ink">Профиль и лимиты трат</h2>
-
-        <div>
-          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-            Имя
-          </label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Как к вам обращаться"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-            Месячный лимит трат, ₽
-          </label>
-          <Input
-            value={budget}
-            onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ''))}
-            placeholder="45000"
-            inputMode="numeric"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-            Телефон для СБП (взаиморасчёты)
-          </label>
-          <Input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+7 900 000-00-00"
-            inputMode="tel"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
-            Банк для переводов
-          </label>
-          <Input
-            value={bank}
-            onChange={(e) => setBank(e.target.value)}
-            placeholder="Тинькофф, Сбер, Альфа"
-          />
-        </div>
-
-        <Button
-          type="submit"
-          variant="sage"
-          size="md"
-          className="w-full mt-2"
-          disabled={busy}
-        >
-          {saved ? 'Сохранено ✓' : 'Сохранить изменения'}
-        </Button>
-      </form>
-
-      {/* Быстрые действия профиля */}
-      <div className="overflow-hidden rounded-[18px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
+      {/* 5. Безопасность, админка и выход */}
+      <div className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
         {isAdmin ? (
           <Link
             to="/admin"
+            onClick={() => haptic(8)}
             className="flex min-h-[52px] items-center justify-between px-4 transition-colors hover:bg-black/[0.015] active:bg-black/[0.03]"
           >
             <div className="flex items-center gap-2.5">
               <ShieldCheck size={18} className="text-sage" />
-              <span className="text-[14.5px] font-medium text-ink">Панель администратора</span>
+              <span className="text-[14px] font-medium text-ink">Панель администратора</span>
             </div>
             <ChevronRight size={17} className="text-muted" />
           </Link>
@@ -325,18 +446,25 @@ function Settings() {
         <button
           type="button"
           onClick={async () => {
+            haptic(10)
+            if (!confirm('Вы действительно хотите выйти из аккаунта?')) return
             await logout()
             window.location.href = '/login'
           }}
-          className="flex min-h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-black/[0.015] active:bg-black/[0.03]"
+          className="flex min-h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-stamp/[0.03] active:bg-stamp/[0.06]"
         >
           <div className="flex items-center gap-2.5 text-stamp">
             <LogOut size={18} />
-            <span className="text-[14.5px] font-medium">Выйти из аккаунта</span>
+            <span className="text-[14px] font-semibold">Выйти из аккаунта</span>
           </div>
-          <ChevronRight size={17} className="text-muted/60" />
+          <ChevronRight size={17} className="text-stamp/60" />
         </button>
       </div>
+
+      <div className="text-center pt-1 pb-2">
+        <p className="text-[11px] text-muted">Листок · Версия 7.0 (2026)</p>
+      </div>
     </div>
+
   )
 }
