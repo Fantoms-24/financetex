@@ -1,4 +1,7 @@
 import { APP_TABLES, AUTH_TABLES, HEAL_STATEMENTS } from './schema'
+import { createRequire } from 'node:module'
+
+const req = createRequire(import.meta.url)
 
 export type Row = Record<string, any>
 
@@ -22,17 +25,28 @@ async function create(): Promise<DB> {
 
   if (url) {
     try {
-      const { Pool } = await import('pg')
-      const pool = new Pool({
+      let PoolClass: any
+      try {
+        const pgMod = req('pg')
+        PoolClass = pgMod?.Pool || pgMod?.default?.Pool || pgMod
+      } catch {
+        const mod: any = await import('pg')
+        PoolClass = mod?.Pool || mod?.default?.Pool || mod?.default || mod
+      }
+      if (typeof PoolClass !== 'function' && PoolClass?.Pool) {
+        PoolClass = PoolClass.Pool
+      }
+      const pool = new PoolClass({
         connectionString: url,
         max: 6,
         idleTimeoutMillis: 20_000,
-        connectionTimeoutMillis: 3_000,
+        connectionTimeoutMillis: 5_000,
         ...(url.includes('localhost') || url.includes('127.0.0.1')
           ? {}
           : { ssl: { rejectUnauthorized: false } }),
       })
       await pool.query('SELECT 1')
+      console.log('[db] Connected to remote Postgres successfully')
       db = {
         kind: 'pg',
         async query(sql, params = []) {
@@ -41,7 +55,7 @@ async function create(): Promise<DB> {
         },
       }
     } catch (e) {
-      console.warn('[db] Remote Postgres unavailable, falling back to local PGlite:', (e as Error)?.message)
+      console.error('[db] Remote Postgres connection failed, falling back to local PGlite:', (e as Error)?.message || e)
     }
   }
 
@@ -55,14 +69,14 @@ async function create(): Promise<DB> {
           'На сервере задайте DATABASE_URL — подробности в .env.example.',
       )
     }
-    let pg: any
+    let pgliteInstance: any
     try {
-      pg = new PGlite(process.env.PGLITE_DIR || '.pglite-data')
-      await pg.waitReady
+      pgliteInstance = new PGlite(process.env.PGLITE_DIR || '.pglite-data')
+      await pgliteInstance.waitReady
     } catch (e) {
       try {
-        pg = new PGlite()
-        await pg.waitReady
+        pgliteInstance = new PGlite()
+        await pgliteInstance.waitReady
       } catch (err) {
         throw new Error(
           `Не задана DATABASE_URL, а локальная БД (PGlite) не поднялась: ${(e as Error)?.message}. ` +
@@ -73,7 +87,7 @@ async function create(): Promise<DB> {
     db = {
       kind: 'pglite',
       async query(sql, params = []) {
-        const r = await pg.query(sql, params as Array<any>)
+        const r = await pgliteInstance.query(sql, params as Array<any>)
         return (r.rows || []) as Array<any>
       },
     }

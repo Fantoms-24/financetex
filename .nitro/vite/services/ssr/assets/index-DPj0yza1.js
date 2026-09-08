@@ -4050,11 +4050,11 @@ function Ze(e) {
 async function je(e, t2) {
   let r;
   if (e && t2 === "nodefs") {
-    let { NodeFS: a2 } = await import("./nodefs-CJn5qyEa.js");
+    let { NodeFS: a2 } = await import("./nodefs-BRSDOmys.js");
     r = new a2(e);
   } else if (e && t2 === "idbfs") r = new ve(e);
   else if (e && t2 === "opfs-ahp") {
-    let { OpfsAhpFS: a2 } = await import("./opfs-ahp-DxSR_ZCB.js");
+    let { OpfsAhpFS: a2 } = await import("./opfs-ahp-Dkh4zbn3.js");
     r = new a2(e);
   } else r = new Ee();
   return r;

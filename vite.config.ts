@@ -98,6 +98,9 @@ export default defineConfig(({ command, mode }) => {
               config: {
                 preset,
                 output: { dir: process.env.NITRO_OUTPUT_DIR || defaultDir },
+                externals: {
+                  external: ['pg'],
+                },
                 // SW лежит в корне static, но область действия / разрешаем явно
                 routeRules: {
                   '/sw.js': {
@@ -113,6 +116,9 @@ export default defineConfig(({ command, mode }) => {
         ]
       : []),
     ],
+    ssr: {
+      external: ['pg'],
+    },
     server: {
       host: '0.0.0.0',
       port: 3000,
