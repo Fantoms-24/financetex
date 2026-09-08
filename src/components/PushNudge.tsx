@@ -63,7 +63,7 @@ export function PushNudge() {
                 </span>
               </div>
               <p className="mt-1 text-[12.5px] leading-snug text-muted">
-                Предупредим о счетах за 2 дня и сообщим о тратах в кассе — даже с выключенным экраном.
+                Предупредим о счетах за 2 дня и сообщим о тратах в общем бюджете — даже с выключенным экраном.
               </p>
               <Button variant="sage" size="sm" className="mt-3 gap-1.5" onClick={on} disabled={busy}>
                 <Sparkles size={14} />

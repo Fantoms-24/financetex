@@ -181,7 +181,7 @@ function Groups() {
         <div>
           <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
             <Users size={14} className="text-sage" />
-            <span>Тратим вместе</span>
+            <span>Вместе</span>
           </div>
           <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
             Общий бюджет

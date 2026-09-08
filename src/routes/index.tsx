@@ -162,6 +162,15 @@ function Menu() {
     })[0]
   }, [boot.bills])
 
+  // Сумма и статус обязательных платежей месяца
+  const billsTotal = React.useMemo(() => {
+    return (boot.bills || []).reduce((acc, b) => acc + (Number(b.amount) || 0), 0)
+  }, [boot.bills])
+
+  const unpaidBillsCount = React.useMemo(() => {
+    return (boot.bills || []).filter((b) => !b.paid_cycle).length
+  }, [boot.bills])
+
   // Группировка трат по календарным дням с микро-итогами
   const groupedReceipts = React.useMemo(() => {
     if (!boot.receipts || boot.receipts.length === 0) return []
@@ -441,76 +450,90 @@ function Menu() {
         </motion.div>
       </div>
 
-      {/* 4. Контекстные виджеты: показываются только при наличии актуальной информации */}
-      {(primaryHouse || nextBill) && (
-        <div className="space-y-2.5">
-          {/* Совместный бюджет «Вместе» (только если активен) */}
-          {primaryHouse && (
-            <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-              <Link
-                to="/groups/$id"
-                params={{ id: primaryHouse.id }}
-                onClick={() => haptic(8)}
-                className="group flex items-center justify-between rounded-[18px] border border-rule/70 bg-paper p-3.5 shadow-xs transition hover:border-sage/40"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 text-sage">
-                    <Users size={18} strokeWidth={2.2} />
+      {/* 4. Контекстные виджеты: Совместный бюджет и Обязательные платежи */}
+      <div className="space-y-2.5">
+        {/* Совместный бюджет «Вместе» (только если активен) */}
+        {primaryHouse && (
+          <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+            <Link
+              to="/groups/$id"
+              params={{ id: primaryHouse.id }}
+              onClick={() => haptic(8)}
+              className="group flex items-center justify-between rounded-[18px] border border-rule/70 bg-paper p-3.5 shadow-xs transition hover:border-sage/40"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 text-sage">
+                  <Users size={18} strokeWidth={2.2} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    Совместный бюджет
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                      Совместный бюджет
-                    </div>
-                    <div className="t-display truncate text-[14.5px] font-semibold text-ink leading-tight">
-                      «{primaryHouse.name}»
-                    </div>
+                  <div className="t-display truncate text-[14.5px] font-semibold text-ink leading-tight">
+                    «{primaryHouse.name}»
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-muted group-hover:text-sage transition">
-                  <span className="rounded-full bg-sage/12 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
-                    {primaryHouse.members} {plural(primaryHouse.members, 'участник', 'участника', 'участников')}
-                  </span>
-                  <ChevronRight size={16} />
-                </div>
-              </Link>
-            </motion.div>
-          )}
+              </div>
+              <div className="flex items-center gap-1 text-muted group-hover:text-sage transition">
+                <span className="rounded-full bg-sage/12 px-2 py-0.5 text-[10.5px] font-semibold text-sage">
+                  {primaryHouse.members} {plural(primaryHouse.members, 'участник', 'участника', 'участников')}
+                </span>
+                <ChevronRight size={16} />
+              </div>
+            </Link>
+          </motion.div>
+        )}
 
-          {/* Ближайший счёт (только если он неоплачен) */}
-          {nextBill && (
-            <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
-              <Link
-                to="/bills"
-                onClick={() => haptic(8)}
-                className="group flex items-center justify-between rounded-[18px] border border-rule/70 bg-paper p-3.5 shadow-xs transition hover:border-sage/40"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-sage/12 text-sage">
-                    <CreditCard size={18} strokeWidth={2.2} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                        Счёт
-                      </span>
-                      <span className="rounded-full bg-stamp/10 px-1.5 py-0.2 text-[10px] font-semibold text-stamp">
-                        {billDueLabel(nextBill.day_of_month).label}
-                      </span>
-                    </div>
-                    <div className="t-display truncate text-[14.5px] font-semibold text-ink leading-tight">
-                      {nextBill.title}
-                    </div>
-                  </div>
+        {/* Обязательные платежи (Личные счета, ЖКХ, связь, аренда, подписки) */}
+        <motion.div whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+          <Link
+            to="/bills"
+            onClick={() => haptic(8)}
+            className="group flex items-center justify-between rounded-[18px] border border-rule/70 bg-paper p-3.5 shadow-xs transition hover:border-sage/40"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-amber-600/12 text-amber-800">
+                <CreditCard size={18} strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    Обязательные платежи
+                  </span>
+                  {nextBill && (
+                    <span className="rounded-full bg-stamp/10 px-1.5 py-0.2 text-[10px] font-semibold text-stamp">
+                      {billDueLabel(nextBill.day_of_month).label}
+                    </span>
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="t-num text-[15px] font-bold text-ink">{money(nextBill.amount)}</div>
-                  <div className="text-[11px] text-muted">{nextBill.day_of_month}-го числа</div>
+                <div className="t-display truncate text-[14.5px] font-semibold text-ink leading-tight">
+                  {boot.bills && boot.bills.length > 0
+                    ? unpaidBillsCount > 0
+                      ? nextBill
+                        ? `${nextBill.title}`
+                        : `${unpaidBillsCount} ${plural(unpaidBillsCount, 'платёж к оплате', 'платежа к оплате', 'платежей к оплате')}`
+                      : 'Все счета месяца оплачены ✓'
+                    : 'ЖКХ, связь, аренда и подписки'}
                 </div>
-              </Link>
-            </motion.div>
-          )}
-        </div>
-      )}
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              {boot.bills && boot.bills.length > 0 ? (
+                <>
+                  <div className="t-num text-[15px] font-bold text-ink">{money(billsTotal)}</div>
+                  <div className="text-[11px] text-muted">в месяц</div>
+                </>
+              ) : (
+                <div className="flex items-center gap-1 text-[12px] font-medium text-sage">
+                  <span>Настроить</span>
+                  <ChevronRight size={14} />
+                </div>
+              )}
+            </div>
+          </Link>
+        </motion.div>
+      </div>
 
       {/* 5. Лента трат, сгруппированная по дням с микро-итогами */}
       <section className="space-y-3.5">

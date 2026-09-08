@@ -221,14 +221,14 @@ function Settings() {
             {primaryHouse ? (
               <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-sage">
                 <Users size={12} />
-                <span className="truncate">Касса «{primaryHouse.name}»</span>
+                <span className="truncate">Бюджет «{primaryHouse.name}»</span>
               </div>
             ) : null}
           </div>
         </div>
       </section>
 
-      {/* 3. Форма настроек: Бюджет и реквизиты кассы */}
+      {/* 3. Форма настроек: Бюджет и реквизиты */}
       <form onSubmit={save} className="space-y-4">
         {/* Карточка: Личный бюджет и имя */}
         <section className="rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
@@ -268,19 +268,19 @@ function Settings() {
               inputMode="numeric"
             />
             <p className="mt-1 text-[11.5px] text-muted">
-              Базовый лимит на месяц. Исходя из него рассчитывается свободный остаток на день на главной.
+              Базовый лимит на месяц. Исходя из него рассчитывается свободный остаток на день.
             </p>
           </div>
         </section>
 
-        {/* Карточка: Реквизиты для взаиморасчётов в кассе (СБП) */}
+        {/* Карточка: Реквизиты для переводов */}
         <section className="rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
           <div className="flex items-center gap-2 border-b border-rule/60 pb-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/12 text-sage">
               <Phone size={15} />
             </div>
             <div>
-              <h2 className="t-display text-[15px] font-semibold text-ink">Реквизиты для кассы (СБП)</h2>
+              <h2 className="t-display text-[15px] font-semibold text-ink">Реквизиты для переводов</h2>
             </div>
           </div>
 
@@ -306,7 +306,7 @@ function Settings() {
               placeholder="Т-Банк, Сбер, Альфа"
             />
             <p className="mt-1 text-[11.5px] text-muted">
-              Участники общего бюджета увидят эти данные, чтобы быстро перевести вам свою долю за совместный чек.
+              Участники совместного распределения бюджета увидят эти данные, чтобы перевести вам свою долю за общий чек.
             </p>
           </div>
 
@@ -476,7 +476,7 @@ function Settings() {
                 Новый платёж: Аренда (25 000 ₽)
               </p>
               <p className="text-[11px] text-muted mt-0.5">
-                Нажмите для перехода к кассе
+                Нажмите для перехода к бюджету
               </p>
             </div>
           </div>

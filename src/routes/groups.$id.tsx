@@ -934,7 +934,7 @@ function HousePage() {
             {/* Панель действий с чеками */}
             <div className="flex items-center justify-between gap-2">
               <div>
-                <span className="text-[12px] uppercase tracking-wider text-muted font-semibold">Чеки кассы</span>
+                <span className="text-[12px] uppercase tracking-wider text-muted font-semibold">Общие чеки</span>
                 <p className="t-num text-[17px] font-bold text-ink leading-tight">
                   {money(receiptsSum)}
                 </p>
@@ -963,7 +963,7 @@ function HousePage() {
                   Общих чеков пока нет
                 </h3>
                 <p className="mx-auto mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-muted">
-                  Сканируйте покупки в магазине или привязывайте чеки из личного ящика к этой кассе
+                  Сканируйте покупки в магазине или привязывайте чеки из личного ящика к общему бюджету
                 </p>
                 <div className="mt-4 flex justify-center gap-2">
                   <Link to="/scan">
@@ -1024,7 +1024,7 @@ function HousePage() {
                       {isOpen ? (
                         <div className="border-t border-rule/60 bg-black/[0.015] px-4 py-3">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[12px] text-muted">Чек в общей кассе</span>
+                            <span className="text-[12px] text-muted">Чек в общем бюджете</span>
                             {isMyReceipt ? (
                               <button
                                 onClick={async () => {
@@ -1033,7 +1033,7 @@ function HousePage() {
                                 }}
                                 className="text-[12px] font-medium text-stamp hover:underline"
                               >
-                                Отвязать от кассы
+                                Отвязать от бюджета
                               </button>
                             ) : null}
                           </div>
@@ -1491,7 +1491,7 @@ function EditBudgetModal({
       <BottomSheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Месячный бюджет кассы"
+        title="Месячный общий бюджет"
       >
         <form
           onSubmit={async (e) => {

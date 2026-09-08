@@ -37,8 +37,8 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Ассистент Листок",
-      "short_name": "Ассистент",
+      "name": "Чат AI",
+      "short_name": "Чат AI",
       "url": "/agent",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
