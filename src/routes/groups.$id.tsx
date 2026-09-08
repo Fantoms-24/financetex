@@ -43,7 +43,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -643,7 +643,7 @@ function HousePage() {
                   setTab(item.id)
                 }}
                 className={cn(
-                  'relative z-10 flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-[12px] px-1.5 py-1 text-[11.5px] font-medium transition-colors duration-150 active:scale-95 leading-none whitespace-nowrap',
+                  'relative z-10 flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-[12px] px-1.5 py-1 text-[11.5px] font-medium transition-colors duration-150 leading-none whitespace-nowrap',
                   active ? 'text-onsage font-semibold' : 'text-muted hover:text-ink',
                 )}
               >
@@ -651,7 +651,7 @@ function HousePage() {
                   <motion.div
                     layoutId="cashboxTabActive"
                     className="absolute inset-0 -z-10 rounded-[12px] bg-sage shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    transition={{ type: 'spring', stiffness: 360, damping: 32 }}
                   />
                 ) : null}
                 <Icon size={13} className="shrink-0" />
@@ -672,16 +672,14 @@ function HousePage() {
         </div>
       </div>
 
-      {/* 5. Содержимое вкладок с плавной анимацией смены */}
-      <div className="px-4">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 7 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -7 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-          >
+      {/* 5. Содержимое вкладок с плавной анимацией смены без проседания высоты */}
+      <div className="px-4 min-h-[380px]">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
             {/* --- ВКЛАДКА 1: ПЛАТЕЖИ (BILLS) --- */}
             {tab === 'bills' ? (
           <div className="space-y-3">
@@ -1412,7 +1410,6 @@ function HousePage() {
           </div>
         ) : null}
           </motion.div>
-        </AnimatePresence>
       </div>
     </div>
   )

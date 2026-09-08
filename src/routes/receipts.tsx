@@ -17,6 +17,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
@@ -409,29 +410,44 @@ function Receipts() {
             type="button"
             onClick={() => setSelectedCategory('all')}
             className={cn(
-              'shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-all',
+              'relative shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors',
               selectedCategory === 'all'
-                ? 'border-sage bg-sage text-onsage shadow-sm'
+                ? 'border-sage text-onsage'
                 : 'border-rule/80 bg-paper text-muted hover:text-ink',
             )}
           >
+            {selectedCategory === 'all' ? (
+              <motion.div
+                layoutId="receiptCatPill"
+                className="absolute inset-0 -z-10 rounded-full bg-sage shadow-sm"
+                transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+              />
+            ) : null}
             Все ({items.length})
           </button>
           {CATEGORIES.map((cat) => {
             const count = items.filter((r) => r.category === cat.id).length
             if (count === 0 && selectedCategory !== cat.id) return null
+            const active = selectedCategory === cat.id
             return (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
                 className={cn(
-                  'shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-all',
-                  selectedCategory === cat.id
-                    ? 'border-sage bg-sage text-onsage shadow-sm'
+                  'relative shrink-0 rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors',
+                  active
+                    ? 'border-sage text-onsage'
                     : 'border-rule/80 bg-paper text-muted hover:text-ink',
                 )}
               >
+                {active ? (
+                  <motion.div
+                    layoutId="receiptCatPill"
+                    className="absolute inset-0 -z-10 rounded-full bg-sage shadow-sm"
+                    transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+                  />
+                ) : null}
                 {cat.label} {count > 0 ? `(${count})` : ''}
               </button>
             )
@@ -465,7 +481,13 @@ function Receipts() {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <motion.div
+          key={selectedCategory}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="space-y-4"
+        >
           {grouped.map(([day, list]) => {
             const daySum = list.reduce((s, r) => s + r.total, 0)
             return (
@@ -633,7 +655,7 @@ function Receipts() {
               </section>
             )
           })}
-        </div>
+        </motion.div>
       )}
     </div>
   )

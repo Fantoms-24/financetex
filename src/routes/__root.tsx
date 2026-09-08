@@ -128,7 +128,7 @@ function Shell() {
           key={pathname}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.12, ease: 'easeOut' }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           className="flex-1 flex flex-col min-h-0"
         >
           <Outlet />

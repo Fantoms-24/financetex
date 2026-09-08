@@ -85,7 +85,7 @@ export function Nav() {
                   <motion.div
                     layoutId="navActivePill"
                     className="absolute inset-0 rounded-lg bg-sage/12"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    transition={{ type: 'spring', stiffness: 360, damping: 34 }}
                   />
                 ) : null}
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} className="relative z-10" />
