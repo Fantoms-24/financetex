@@ -283,10 +283,6 @@ function Menu() {
     })
   }, [boot.receipts])
 
-  const calmDaysCount = React.useMemo(() => {
-    return weekDays.filter((w) => !w.isFuture && w.daySpent === 0).length
-  }, [weekDays])
-
   const activeDay = React.useMemo(() => {
     if (selectedDayKey) {
       const found = weekDays.find((w) => w.key === selectedDayKey)
@@ -388,9 +384,8 @@ function Menu() {
       <section className="rounded-[22px] border border-rule/70 bg-paper p-3.5 shadow-xs space-y-2.5">
         <div className="flex items-center justify-between px-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
           <span>Ритм недели</span>
-          <span className="flex items-center gap-1 font-medium normal-case text-sage">
-            <span>🌿</span>
-            <span>Хорошая экономия</span>
+          <span className="text-[10.5px] font-normal normal-case text-muted">
+            {weekDays[0]?.dateNumber}–{weekDays[6]?.dateNumber} {new Intl.DateTimeFormat('ru-RU', { month: 'short' }).format(new Date())}
           </span>
         </div>
 
@@ -442,7 +437,7 @@ function Menu() {
                       {w.daySpent >= 10000 ? `${Math.round(w.daySpent / 1000)}k` : `${w.daySpent} ₽`}
                     </span>
                   ) : (
-                    <span className="text-[12px]" title="День спокойствия без трат">
+                    <span className="text-[12px]" title="Хорошая экономия (день без трат)">
                       🌿
                     </span>
                   )}
@@ -452,7 +447,7 @@ function Menu() {
           })}
         </div>
 
-        {/* Отображение выбранного дня внизу значков */}
+        {/* Отображение выбранного дня внизу значков (обозначение значков) */}
         <div className="flex items-center justify-between border-t border-rule/50 pt-2 px-1 text-[11.5px]">
           <div className="flex items-center gap-1.5 text-muted min-w-0">
             <Calendar size={13} className="text-sage shrink-0" />
@@ -466,7 +461,10 @@ function Menu() {
 
           <div className="text-right shrink-0 ml-2">
             {activeDay.isFuture ? (
-              <span className="text-muted">Предстоящий день</span>
+              <span className="text-muted flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-rule/70 inline-block" />
+                <span>Предстоящий день</span>
+              </span>
             ) : activeDay.daySpent > 0 ? (
               <span className="font-semibold text-ink">
                 {money(activeDay.daySpent)}{' '}
@@ -477,7 +475,7 @@ function Menu() {
             ) : (
               <span className="font-medium text-sage flex items-center gap-1">
                 <span>🌿</span>
-                <span>День спокойствия (0 ₽)</span>
+                <span>Хорошая экономия (0 ₽)</span>
               </span>
             )}
           </div>
