@@ -331,14 +331,18 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
         [userId]
       )
 
+      const organizerName = userInfo?.name || fromUser.first_name || 'Организатор'
+      const organizerPhone = userInfo?.phone || null
+      const organizerBank = userInfo?.bank || null
+
       const session = await createSplitSession({
         receiptId: receipt.id,
         userId,
         title: receipt.store || 'Счёт в кафе',
         total: Number(receipt.total || 0),
-        organizerName: userInfo?.name || fromUser.first_name || 'Организатор',
-        organizerPhone: userInfo?.phone || null,
-        organizerBank: userInfo?.bank || null,
+        organizerName,
+        organizerPhone,
+        organizerBank,
         items: (items || []).map((it: any) => ({
           name: it.name,
           qty: Number(it.qty || 1),
@@ -348,15 +352,36 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
 
       const appUrl = (process.env.BETTER_AUTH_URL || 'https://financetex.relaxdev.ru').replace(/\/+$/, '')
       const splitUrl = `${appUrl}/split/${session.code}`
-      const shareText = `Ребята, разделите чек за ${receipt.store} (${money(receipt.total)}) 🍕`
-      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(splitUrl)}&text=${encodeURIComponent(shareText)}`
+
+      const sbpBlock = organizerPhone
+        ? `📱 <b>Телефон (СБП):</b> <code>${escapeHtml(organizerPhone)}</code>\n` +
+          `🏦 <b>Банк:</b> <b>${escapeHtml(organizerBank || 'Любой банк')}</b>\n`
+        : `📱 <b>Телефон (СБП):</b> <i>Не указан (настройте: <code>/sbp +7... Банк</code>)</i>\n`
 
       const replyText =
-        `🍕 <b>Чек готов к разделу с друзьями!</b>\n\n` +
-        `🏪 <b>${escapeHtml(receipt.store)}</b>: <b>${money(receipt.total)}</b>\n` +
-        (items && items.length > 0 ? `📋 Позиций: ${items.length}\n` : '') +
-        `\nДрузья открывают ссылку на смартфонах без регистрации, выбирают свои блюда и видят, сколько перевести вам по СБП:\n` +
+        `🍕 <b>Сбор счёта открыт: ${escapeHtml(receipt.store || 'Чек')}</b>\n\n` +
+        `💰 <b>Сумма счёта:</b> <b>${money(receipt.total)}</b>\n` +
+        `👑 <b>Организатор:</b> <b>${escapeHtml(organizerName)}</b>\n` +
+        sbpBlock +
+        (items && items.length > 0 ? `📋 <b>Позиций в чеке:</b> ${items.length}\n` : '') +
+        `\nДрузья открывают ссылку на смартфоне, отмечают свои блюда и видят сумму для перевода вам по СБП:\n` +
         `👉 <b>${splitUrl}</b>`
+
+      const shareLines = [
+        `🍕 Счёт за ${receipt.store || 'заведение'} на ${money(receipt.total)}`,
+        `👑 Организатор: ${organizerName}`,
+        `💰 Сумма сбора: ${money(receipt.total)}`,
+      ]
+      if (organizerPhone) {
+        shareLines.push(`📱 СБП: ${organizerPhone}`)
+      }
+      if (organizerBank) {
+        shareLines.push(`🏦 Банк: ${organizerBank}`)
+      }
+      shareLines.push(`👉 Разделите свои блюда по ссылке: ${splitUrl}`)
+
+      const shareText = shareLines.join('\n')
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(splitUrl)}&text=${encodeURIComponent(shareText)}`
 
       const replyMarkup = {
         inline_keyboard: [
@@ -803,12 +828,27 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
   if (text.startsWith('/split')) {
     const rest = text.slice(6).trim()
     if (!rest) {
+      const userInfo = await q1<any>(
+        `SELECT coalesce(p.display_name, u.name) AS name, p.phone, p.bank
+           FROM "user" u
+           LEFT JOIN profiles p ON p.user_id = u.id
+          WHERE u.id = $1`,
+        [userId]
+      )
+      const organizerName = userInfo?.name || fromUser.first_name || 'Организатор'
+      const sbpStatus = userInfo?.phone
+        ? `📱 <b>Телефон (СБП):</b> <code>${escapeHtml(userInfo.phone)}</code> (${escapeHtml(userInfo.bank || 'Любой банк')})`
+        : `📱 <b>Телефон (СБП):</b> <i>Не указан (настройте: <code>/sbp +7... Банк</code>)</i>`
+
       const replyText =
         `🍕 <b>Разделение счёта с друзьями</b>\n\n` +
+        `👑 <b>Организатор:</b> <b>${escapeHtml(organizerName)}</b>\n` +
+        `${sbpStatus}\n\n` +
         `Чтобы мгновенно создать ссылку для сбора денег:\n` +
         `• Отправьте команду с суммой, например:\n` +
         `  <code>/split 3500 Пицца в Додо</code>\n` +
-        `• Или просто пришлите <b>фото чека</b> — Листок считает позиции и выдаст кнопку <b>«Разделить счёт»</b>.`
+        `• Или просто пришлите <b>фото чека</b> — Листок считает позиции и выдаст кнопку <b>«Разделить счёт»</b>.\n` +
+        `• Настроить номер телефона и банк: <code>/sbp +79991234567 Т-Банк</code>`
 
       return { ok: true, reply: makeReply(chatId, replyText) }
     }
@@ -832,25 +872,51 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
       [userId]
     )
 
+    const organizerName = userInfo?.name || fromUser.first_name || 'Организатор'
+    const organizerPhone = userInfo?.phone || null
+    const organizerBank = userInfo?.bank || null
+
     const session = await createSplitSession({
       userId,
       title,
       total: totalAmount,
-      organizerName: userInfo?.name || fromUser.first_name || 'Организатор',
-      organizerPhone: userInfo?.phone || null,
-      organizerBank: userInfo?.bank || null,
+      organizerName,
+      organizerPhone,
+      organizerBank,
     })
 
     const appUrl = (process.env.BETTER_AUTH_URL || 'https://financetex.relaxdev.ru').replace(/\/+$/, '')
     const splitUrl = `${appUrl}/split/${session.code}`
-    const shareText = `Ребята, разделите счёт за ${title} (${money(totalAmount)}) 🍕`
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(splitUrl)}&text=${encodeURIComponent(shareText)}`
+
+    const sbpBlock = organizerPhone
+      ? `📱 <b>Телефон (СБП):</b> <code>${escapeHtml(organizerPhone)}</code>\n` +
+        `🏦 <b>Банк:</b> <b>${escapeHtml(organizerBank || 'Любой банк')}</b>\n`
+      : `📱 <b>Телефон (СБП):</b> <i>Не указан (настройте: <code>/sbp +7... Банк</code>)</i>\n`
 
     const replyText =
-      `🍕 <b>Сбор на ${money(totalAmount)} открыт!</b>\n\n` +
-      `Цель: <b>${escapeHtml(title)}</b>\n\n` +
-      `Отправьте ссылку друзьям в чат, чтобы они скинулись:\n` +
+      `🍕 <b>Сбор счёта открыт!</b>\n\n` +
+      `🎯 <b>Цель:</b> <b>${escapeHtml(title)}</b>\n` +
+      `💰 <b>Сумма сбора:</b> <b>${money(totalAmount)}</b>\n` +
+      `👑 <b>Организатор:</b> <b>${escapeHtml(organizerName)}</b>\n` +
+      sbpBlock +
+      `\nОтправьте ссылку друзьям в чат — они выберут свои доли и переведут вам по СБП:\n` +
       `👉 <b>${splitUrl}</b>`
+
+    const shareLines = [
+      `🍕 Сбор: ${title}`,
+      `💰 Сумма сбора: ${money(totalAmount)}`,
+      `👑 Организатор: ${organizerName}`,
+    ]
+    if (organizerPhone) {
+      shareLines.push(`📱 СБП: ${organizerPhone}`)
+    }
+    if (organizerBank) {
+      shareLines.push(`🏦 Банк: ${organizerBank}`)
+    }
+    shareLines.push(`👉 Ссылка для сбора: ${splitUrl}`)
+
+    const shareText = shareLines.join('\n')
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(splitUrl)}&text=${encodeURIComponent(shareText)}`
 
     const replyMarkup = {
       inline_keyboard: [
@@ -862,6 +928,69 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     }
 
     return { ok: true, status: 'split_created', reply: makeReply(chatId, replyText, replyMarkup) }
+  }
+
+  // =========================================================================
+  // 6.1. 📱 Настройка реквизитов СБП (/sbp, /phone, /bank)
+  // =========================================================================
+  if (text.startsWith('/sbp') || text.startsWith('/phone') || text.startsWith('/bank')) {
+    const rest = text.replace(/^\/(sbp|phone|bank)/, '').trim()
+    const userInfo = await q1<any>(
+      `SELECT coalesce(p.display_name, u.name) AS name, p.phone, p.bank
+         FROM "user" u
+         LEFT JOIN profiles p ON p.user_id = u.id
+        WHERE u.id = $1`,
+      [userId]
+    )
+
+    if (!rest) {
+      const replyText =
+        `📱 <b>Ваши реквизиты СБП для сбора денег:</b>\n\n` +
+        `👑 <b>Организатор:</b> <b>${escapeHtml(userInfo?.name || fromUser.first_name || 'Организатор')}</b>\n` +
+        `📱 <b>Телефон:</b> ${userInfo?.phone ? `<code>${escapeHtml(userInfo.phone)}</code>` : '<i>Не указан</i>'}\n` +
+        `🏦 <b>Банк:</b> ${userInfo?.bank ? `<b>${escapeHtml(userInfo.bank)}</b>` : '<i>Не указан</i>'}\n\n` +
+        `Чтобы обновить телефон и банк прямо из Telegram, отправьте:\n` +
+        `<code>/sbp +79991234567 Т-Банк</code>`
+
+      return { ok: true, reply: makeReply(chatId, replyText) }
+    }
+
+    const phoneMatch = rest.match(/(\+?[0-9][0-9\s\-()]{8,16}[0-9])/)
+    const newPhone = phoneMatch ? phoneMatch[0].trim() : ''
+    const newBank = rest.replace(newPhone, '').trim()
+
+    if (!newPhone && !newBank) {
+      return {
+        ok: true,
+        reply: makeReply(chatId, '🌿 Укажите номер телефона и банк, например: <code>/sbp +79991234567 Т-Банк</code>')
+      }
+    }
+
+    await q(
+      `INSERT INTO profiles (user_id, phone, bank)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) DO UPDATE
+       SET phone = COALESCE(NULLIF(EXCLUDED.phone, ''), profiles.phone),
+           bank = COALESCE(NULLIF(EXCLUDED.bank, ''), profiles.bank)`,
+      [userId, newPhone || null, newBank || null]
+    )
+
+    const updated = await q1<any>(
+      `SELECT coalesce(p.display_name, u.name) AS name, p.phone, p.bank
+         FROM "user" u
+         LEFT JOIN profiles p ON p.user_id = u.id
+        WHERE u.id = $1`,
+      [userId]
+    )
+
+    const replyText =
+      `✓ <b>Реквизиты СБП успешно сохранены!</b>\n\n` +
+      `👑 <b>Организатор:</b> <b>${escapeHtml(updated?.name || fromUser.first_name || 'Организатор')}</b>\n` +
+      `📱 <b>Телефон (СБП):</b> <code>${escapeHtml(updated?.phone || newPhone)}</code>\n` +
+      `🏦 <b>Банк:</b> <b>${escapeHtml(updated?.bank || newBank || 'Любой банк')}</b>\n\n` +
+      `Теперь эти реквизиты будут автоматически отображаться при разделении счёта с друзьями!`
+
+    return { ok: true, reply: makeReply(chatId, replyText) }
   }
 
   // =========================================================================
@@ -923,6 +1052,7 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     `• 📸 <b>Фотографией:</b> сфотографируйте чек или скриншот из банка\n` +
     `• 🎙️ <b>Голосом:</b> надиктуйте траты аудиосообщением\n` +
     `• 🍕 <b>Сплит счёта:</b> <code>/split 3000 Ужин</code>\n` +
+    `• 📱 <b>Реквизиты СБП:</b> <code>/sbp +79991234567 Т-Банк</code>\n` +
     `• ☀️ <b>Баланс:</b> <code>/balance</code>`
 
   return { ok: true, reply: makeReply(chatId, replyText) }
