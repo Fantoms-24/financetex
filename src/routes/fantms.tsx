@@ -313,9 +313,22 @@ function FantmsAdminScreen() {
     setTgBusy(true)
     haptic(8)
     try {
-      const res: any = await setFantmsWebhook({ data: { token } })
-      setTgWebhookResult(res.description || 'Вебхук настроен')
-      await handleDiagnoseTelegram()
+      // 1. Попытка на сервере
+      let res: any = await setFantmsWebhook({ data: { token } }).catch(() => null)
+
+      // 2. Если на сервере ETIMEDOUT (блокировка исходящих), устанавливаем напрямую из браузера
+      if ((!res || !res.ok) && tgToken) {
+        try {
+          const directUrl = `https://api.telegram.org/bot${encodeURIComponent(tgToken.trim())}/setWebhook?url=${encodeURIComponent('https://financetex.relaxdev.ru/api/telegram')}&drop_pending_updates=true`
+          const clientRes = await fetch(directUrl).then((r) => r.json())
+          if (clientRes?.ok) {
+            res = { ok: true, description: 'Вебхук успешно привязан напрямую через браузер ✓' }
+          }
+        } catch {}
+      }
+
+      setTgWebhookResult(res?.description || (res?.ok ? 'Вебхук настроен ✓' : 'Сбой установки вебхука'))
+      await handleDiagnoseTelegram().catch(() => {})
       haptic(10)
     } finally {
       setTgBusy(false)
@@ -1069,6 +1082,19 @@ function FantmsAdminScreen() {
                   <Send size={12} className="text-emerald-400" />
                   <span>Установить Webhook в 1 клик</span>
                 </button>
+
+                {tgToken && (
+                  <a
+                    href={`https://api.telegram.org/bot${tgToken.trim()}/setWebhook?url=${encodeURIComponent('https://financetex.relaxdev.ru/api/telegram')}&drop_pending_updates=true`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-3 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg border border-sky-600/40 bg-sky-950/30 hover:bg-sky-900/40 text-sky-300 transition active:scale-95 touch-manipulation"
+                    title="Открыть прямую ссылку в браузере для моментальной привязки напрямую в Telegram"
+                  >
+                    <ExternalLink size={12} />
+                    <span>Прямая ссылка Webhook</span>
+                  </a>
+                )}
               </div>
             </form>
 

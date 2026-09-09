@@ -156,10 +156,22 @@ export async function sendTelegram(chatId: string | number, text: string): Promi
   }
 }
 
+function makeReply(chatId: string | number, text: string) {
+  // Фоновая попытка (если доступен прокси или прямая сеть)
+  sendTelegram(chatId, text).catch(() => {})
+  // Прямой ответ Telegram в тело HTTP-ответа вебхука (работает даже при блокировке исходящих соединений!)
+  return {
+    method: 'sendMessage',
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+  }
+}
+
 /**
  * Обработка входящего обновления от Telegram Webhook
  */
-export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; status?: string }> {
+export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; status?: string; reply?: any }> {
   if (!body || !body.message) return { ok: true, status: 'no_message' }
 
   const msg = body.message
@@ -191,55 +203,52 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
         )
         await q(`DELETE FROM telegram_link_tokens WHERE code = $1`, [rawCode])
 
-        await sendTelegram(
-          chatId,
+        const replyText =
           `🌿 <b>Листок успешно подключен!</b>\n\n` +
-            `Привет, ${escapeHtml(fromUser.first_name || 'друг')}! Теперь вы можете прямо сюда отправлять любые траты.\n\n` +
-            `Например:\n` +
-            `• <code>Такси 450</code>\n` +
-            `• <code>Пятёрочка 1820</code>\n` +
-            `• <code>Обед 650</code>\n` +
-            `• <code>250 кофе</code>\n\n` +
-            `Листок моментально запишет расход и покажет ваш актуальный остаток на день.`,
-        )
-        return { ok: true, status: 'linked' }
+          `Привет, ${escapeHtml(fromUser.first_name || 'друг')}! Теперь вы можете прямо сюда отправлять любые траты.\n\n` +
+          `Например:\n` +
+          `• <code>Такси 450</code>\n` +
+          `• <code>Пятёрочка 1820</code>\n` +
+          `• <code>Обед 650</code>\n` +
+          `• <code>250 кофе</code>\n\n` +
+          `Листок моментально запишет расход и покажет ваш актуальный остаток на день.`
+
+        return { ok: true, status: 'linked', reply: makeReply(chatId, replyText) }
       } else {
-        await sendTelegram(
-          chatId,
+        const replyText =
           `🌿 <b>Код привязки не найден или его срок истёк.</b>\n\n` +
-            `Откройте приложение <b>Листок</b> (https://financetex.relaxdev.ru), перейдите в <b>Настройки</b> → <b>Telegram-бот</b> и нажмите «Подключить в 1 клик» снова.`,
-        )
-        return { ok: true, status: 'code_expired' }
+          `Откройте приложение <b>Листок</b> (https://financetex.relaxdev.ru), перейдите в <b>Настройки</b> → <b>Telegram-бот</b> и нажмите «Подключить в 1 клик» снова.`
+
+        return { ok: true, status: 'code_expired', reply: makeReply(chatId, replyText) }
       }
     }
 
     const existing = await q1<any>(`SELECT user_id FROM user_telegram WHERE chat_id = $1`, [chatId])
     if (existing) {
-      await sendTelegram(
-        chatId,
+      const replyText =
         `🌿 <b>Вы подключены к Листку!</b>\n\n` +
-          `Просто напишите сумму и название траты прямо в этот чат (например: <code>Такси 350</code> или <code>Кофе 250</code>), и я внесу её в журнал расходов.\n\n` +
-          `Или отправьте <code>/balance</code> для проверки остатка на сегодня.`,
-      )
+        `Просто напишите сумму и название траты прямо в этот чат (например: <code>Такси 350</code> или <code>Кофе 250</code>), и я внесу её в журнал расходов.\n\n` +
+        `Или отправьте <code>/balance</code> для проверки остатка на сегодня.`
+
+      return { ok: true, reply: makeReply(chatId, replyText) }
     } else {
-      await sendTelegram(
-        chatId,
+      const replyText =
         `🌿 <b>Привет от Листка!</b>\n\n` +
-          `Я помогаю вести учет расходов и экономить без рутины прямо из Telegram.\n\n` +
-          `Чтобы связать бота с вашим аккаунтом:\n` +
-          `1. Откройте приложение <b>Листок</b> (https://financetex.relaxdev.ru)\n` +
-          `2. Перейдите в <b>Настройки</b> → <b>Telegram-бот</b>\n` +
-          `3. Нажмите кнопку <b>«Подключить в 1 клик»</b> или отправьте сюда ваш код привязки (например: <code>LST-1234</code>).`,
-      )
+        `Я помогаю вести учет расходов и экономить без рутины прямо из Telegram.\n\n` +
+        `Чтобы связать бота с вашим аккаунтом:\n` +
+        `1. Откройте приложение <b>Листок</b> (https://financetex.relaxdev.ru)\n` +
+        `2. Перейдите в <b>Настройки</b> → <b>Telegram-бот</b>\n` +
+        `3. Нажмите кнопку <b>«Подключить в 1 клик»</b> или отправьте сюда ваш код привязки (например: <code>LST-1234</code>).`
+
+      return { ok: true, reply: makeReply(chatId, replyText) }
     }
-    return { ok: true }
   }
 
   // 2. Команда /unlink
   if (text === '/unlink' || text === '/disconnect') {
     await q(`DELETE FROM user_telegram WHERE chat_id = $1`, [chatId])
-    await sendTelegram(chatId, `🌿 Telegram отключен от вашего аккаунта в Листке.`)
-    return { ok: true }
+    const replyText = `🌿 Telegram отключен от вашего аккаунта в Листке.`
+    return { ok: true, reply: makeReply(chatId, replyText) }
   }
 
   // 3. Проверяем привязку для обычных сообщений
@@ -261,24 +270,22 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
         )
         await q(`DELETE FROM telegram_link_tokens WHERE code = $1`, [upperCode])
 
-        await sendTelegram(
-          chatId,
+        const replyText =
           `🌿 <b>Листок успешно подключен!</b>\n\n` +
-            `Привет, ${escapeHtml(fromUser.first_name || 'друг')}! Теперь вы можете прямо сюда отправлять любые траты.\n\n` +
-            `Например:\n` +
-            `• <code>Такси 450</code>\n` +
-            `• <code>Пятёрочка 1820</code>\n` +
-            `• <code>250 кофе</code>`,
-        )
-        return { ok: true, status: 'linked' }
+          `Привет, ${escapeHtml(fromUser.first_name || 'друг')}! Теперь вы можете прямо сюда отправлять любые траты.\n\n` +
+          `Например:\n` +
+          `• <code>Такси 450</code>\n` +
+          `• <code>Пятёрочка 1820</code>\n` +
+          `• <code>250 кофе</code>`
+
+        return { ok: true, status: 'linked', reply: makeReply(chatId, replyText) }
       }
     }
 
-    await sendTelegram(
-      chatId,
-      `🌿 Чтобы записывать расходы через Telegram, сначала подключите бота в приложении Листок (раздел <b>Настройки</b> → <b>Telegram-бот</b>).`,
-    )
-    return { ok: true }
+    const replyText =
+      `🌿 Чтобы записывать расходы через Telegram, сначала подключите бота в приложении Листок (раздел <b>Настройки</b> → <b>Telegram-бот</b>).`
+
+    return { ok: true, reply: makeReply(chatId, replyText) }
   }
 
   const userId = userRow.user_id
@@ -306,14 +313,13 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     const daysLeft = Math.max(1, lastDay - now.getDate())
     const dailyLeft = Math.max(0, Math.round(left / daysLeft))
 
-    await sendTelegram(
-      chatId,
+    const replyText =
       `🌿 <b>Ваш баланс в Листке:</b>\n\n` +
-        `☀️ Свободно на сегодня: <b>${money(dailyLeft)}</b>\n` +
-        `💳 Потрачено за месяц: ${money(spent)}\n` +
-        `📦 Остаток на месяц: <b>${money(left)}</b> (из ${money(budget)})`,
-    )
-    return { ok: true }
+      `☀️ Свободно на сегодня: <b>${money(dailyLeft)}</b>\n` +
+      `💳 Потрачено за месяц: ${money(spent)}\n` +
+      `📦 Остаток на месяц: <b>${money(left)}</b> (из ${money(budget)})`
+
+    return { ok: true, reply: makeReply(chatId, replyText) }
   }
 
   // 5. Разбор быстрого расхода
@@ -350,26 +356,23 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     const daysLeft = Math.max(1, lastDay - now.getDate())
     const dailyLeft = Math.max(0, Math.round(left / daysLeft))
 
-    await sendTelegram(
-      chatId,
+    const replyText =
       `🌿 <b>Расход записан в Листок!</b>\n\n` +
-        `💳 <b>${store}</b>: ${money(parsed.amount)}\n` +
-        `📂 Категория: <i>${categoryLabel(category)}</i>\n\n` +
-        `☀️ Свободно на сегодня: <b>${money(dailyLeft)}</b>\n` +
-        `📦 Остаток на месяц: <b>${money(left)}</b>`,
-    )
-    return { ok: true, status: 'recorded' }
+      `💳 <b>${escapeHtml(store)}</b>: ${money(parsed.amount)}\n` +
+      `📂 Категория: <i>${categoryLabel(category)}</i>\n\n` +
+      `☀️ Свободно на сегодня: <b>${money(dailyLeft)}</b>\n` +
+      `📦 Остаток на месяц: <b>${money(left)}</b>`
+
+    return { ok: true, status: 'recorded', reply: makeReply(chatId, replyText) }
   }
 
-  await sendTelegram(
-    chatId,
+  const replyText =
     `🌿 Не удалось определить сумму.\n\n` +
-      `Попробуйте написать проще, например:\n` +
-      `• <code>Такси 450</code>\n` +
-      `• <code>Продукты 1850</code>\n` +
-      `• <code>350 кофе</code>\n\n` +
-      `Или отправьте <code>/balance</code> для проверки остатка.`,
-  )
+    `Попробуйте написать проще, например:\n` +
+    `• <code>Такси 450</code>\n` +
+    `• <code>Продукты 1850</code>\n` +
+    `• <code>350 кофе</code>\n\n` +
+    `Или отправьте <code>/balance</code> для проверки остатка.`
 
-  return { ok: true }
+  return { ok: true, reply: makeReply(chatId, replyText) }
 }

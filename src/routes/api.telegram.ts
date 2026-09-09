@@ -22,7 +22,10 @@ async function handleWebhook(request: Request): Promise<Response> {
     console.log('[api/telegram] Received webhook update:', JSON.stringify(body))
     const res = await processTelegramWebhook(body)
     console.log('[api/telegram] Processed webhook update result:', JSON.stringify(res))
-    return json(res)
+    if (res?.reply) {
+      return json(res.reply, 200)
+    }
+    return json({ ok: true })
   } catch (err: any) {
     console.error('[api/telegram] Webhook error:', err?.message || err, err?.stack)
     return json({ ok: true, note: 'recovered', error: err?.message })
@@ -43,18 +46,17 @@ export const Route = createFileRoute('/api/telegram')({
         const info = await getBotInfo().catch((e) => ({ error: (e as Error)?.message }))
         const deep = await checkTelegramDeepStatus().catch((e) => ({ error: (e as Error)?.message }))
 
-        const dnsInfo = await new Promise((resolve) => {
-          dns.lookup('api.telegram.org', { all: true }, (err, addresses) => {
-            resolve({ err: err?.message, addresses })
-          })
-        }).catch((e: any) => ({ error: e.message }))
+        const webhookUrl = 'https://financetex.relaxdev.ru/api/telegram'
+        const directSetupUrl = token
+          ? `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`
+          : null
 
         return json({
           ok: true,
           service: 'Listok Telegram Bot Webhook',
           hasToken: Boolean(token),
           tokenPrefix: token ? `${token.slice(0, 6)}...${token.slice(-4)}` : null,
-          dnsInfo,
+          directSetupUrl,
           info,
           deep,
           setupResult,
