@@ -239,7 +239,51 @@ export const APP_TABLES = [
      user_id text NOT NULL,
      expires_at timestamptz NOT NULL,
      created_at timestamptz NOT NULL DEFAULT now()
-   )`
+   )`,
+  `CREATE TABLE IF NOT EXISTS receipt_splits (
+     id text PRIMARY KEY,
+     code text NOT NULL UNIQUE,
+     receipt_id text,
+     user_id text NOT NULL,
+     title text NOT NULL,
+     total integer NOT NULL DEFAULT 0,
+     tip_percent integer NOT NULL DEFAULT 0,
+     tip_amount integer NOT NULL DEFAULT 0,
+     organizer_name text NOT NULL DEFAULT 'Организатор',
+     organizer_phone text,
+     organizer_bank text,
+     status text NOT NULL DEFAULT 'active',
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS receipt_splits_code_idx ON receipt_splits (code)`,
+  `CREATE INDEX IF NOT EXISTS receipt_splits_user_idx ON receipt_splits (user_id, created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS receipt_split_items (
+     id text PRIMARY KEY,
+     split_id text NOT NULL,
+     name text NOT NULL,
+     qty numeric NOT NULL DEFAULT 1,
+     price integer NOT NULL DEFAULT 0,
+     is_shared boolean NOT NULL DEFAULT false,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS receipt_split_items_split_idx ON receipt_split_items (split_id)`,
+  `CREATE TABLE IF NOT EXISTS receipt_split_members (
+     id text PRIMARY KEY,
+     split_id text NOT NULL,
+     name text NOT NULL,
+     is_organizer boolean NOT NULL DEFAULT false,
+     paid boolean NOT NULL DEFAULT false,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS receipt_split_members_split_idx ON receipt_split_members (split_id)`,
+  `CREATE TABLE IF NOT EXISTS receipt_split_claims (
+     id text PRIMARY KEY,
+     split_id text NOT NULL,
+     item_id text NOT NULL,
+     member_id text NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS receipt_split_claims_unique ON receipt_split_claims (item_id, member_id)`
 ]
 
 export const HEAL_STATEMENTS: Array<[string, string]> = [
@@ -310,6 +354,45 @@ export const HEAL_STATEMENTS: Array<[string, string]> = [
      code text PRIMARY KEY,
      user_id text NOT NULL,
      expires_at timestamptz NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["receipt_splits", `CREATE TABLE IF NOT EXISTS receipt_splits (
+     id text PRIMARY KEY,
+     code text NOT NULL UNIQUE,
+     receipt_id text,
+     user_id text NOT NULL,
+     title text NOT NULL,
+     total integer NOT NULL DEFAULT 0,
+     tip_percent integer NOT NULL DEFAULT 0,
+     tip_amount integer NOT NULL DEFAULT 0,
+     organizer_name text NOT NULL DEFAULT 'Организатор',
+     organizer_phone text,
+     organizer_bank text,
+     status text NOT NULL DEFAULT 'active',
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["receipt_split_items", `CREATE TABLE IF NOT EXISTS receipt_split_items (
+     id text PRIMARY KEY,
+     split_id text NOT NULL,
+     name text NOT NULL,
+     qty numeric NOT NULL DEFAULT 1,
+     price integer NOT NULL DEFAULT 0,
+     is_shared boolean NOT NULL DEFAULT false,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["receipt_split_members", `CREATE TABLE IF NOT EXISTS receipt_split_members (
+     id text PRIMARY KEY,
+     split_id text NOT NULL,
+     name text NOT NULL,
+     is_organizer boolean NOT NULL DEFAULT false,
+     paid boolean NOT NULL DEFAULT false,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["receipt_split_claims", `CREATE TABLE IF NOT EXISTS receipt_split_claims (
+     id text PRIMARY KEY,
+     split_id text NOT NULL,
+     item_id text NOT NULL,
+     member_id text NOT NULL,
      created_at timestamptz NOT NULL DEFAULT now()
    )`]
 ]

@@ -12,9 +12,11 @@ import {
   ScanLine,
   Sparkles,
   Users,
+  Utensils,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '~/components/ui/button'
+import { SplitCreateModal } from '~/components/SplitCreateModal'
 import { useApp } from '~/lib/app-state'
 import { categoryLabel, money, moneyShort } from '~/lib/format'
 import { scanReceipt } from '~/server/functions/scan'
@@ -79,6 +81,7 @@ function Scan() {
   const [error, setError] = React.useState<string | null>(null)
   const [result, setResult] = React.useState<any>(null)
   const [selectedHouseId, setSelectedHouseId] = React.useState<string | null>(null)
+  const [openSplitModal, setOpenSplitModal] = React.useState(false)
 
   const uniqueHouses = React.useMemo(() => {
     const map = new Map<string, { id: string; name: string }>()
@@ -408,8 +411,24 @@ function Scan() {
                 </div>
               ) : null}
 
+              {/* Кнопка сплита счёта прямо из результатов скана */}
+              <div className="pt-2">
+                <Button
+                  variant="sage"
+                  size="md"
+                  onClick={() => {
+                    haptic(8)
+                    setOpenSplitModal(true)
+                  }}
+                  className="w-full gap-2 rounded-[16px] py-2.5 font-semibold shadow-paper"
+                >
+                  <Utensils size={16} />
+                  <span>Разделить счёт с друзьями 🍕</span>
+                </Button>
+              </div>
+
               {/* Кнопки после сохранения */}
-              <div className="mt-4 grid grid-cols-2 gap-3 pt-2">
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
                 <Button variant="paper" size="md" onClick={reset} className="gap-1.5 rounded-[16px]">
                   <RotateCcw size={15} />
                   <span>Ещё чек</span>
@@ -459,6 +478,16 @@ function Scan() {
           )}
         </div>
       )}
+
+      {/* Модальное окно создания сплита */}
+      <SplitCreateModal
+        open={openSplitModal}
+        onClose={() => setOpenSplitModal(false)}
+        receiptId={result?.receipt?.id}
+        storeName={result?.receipt?.store || result?.store}
+        totalAmount={result?.receipt?.total || result?.total}
+        items={result?.items || []}
+      />
     </div>
   )
 }

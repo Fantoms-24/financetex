@@ -13,6 +13,7 @@ import {
   Store,
   Trash2,
   Users,
+  Utensils,
   Wallet,
   X,
 } from 'lucide-react'
@@ -21,6 +22,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { BottomSheet } from '~/components/BottomSheet'
 import { ShareMonthModal } from '~/components/ShareMonthModal'
+import { SplitCreateModal } from '~/components/SplitCreateModal'
 import { CategoryAnalytics } from '~/components/CategoryAnalytics'
 import { useApp } from '~/lib/app-state'
 import { CATEGORIES, categoryLabel, dateRu, money, moneyShort, monthKey, monthLabelRu, plural, prevMonthKey } from '~/lib/format'
@@ -73,6 +75,14 @@ function Receipts() {
   const [openId, setOpenId] = React.useState<string | null>(null)
   const [detail, setDetail] = React.useState<Array<ReceiptItem>>([])
   const [loadingDetail, setLoadingDetail] = React.useState(false)
+
+  // Сплит счёта по ссылке
+  const [splitTarget, setSplitTarget] = React.useState<{
+    id?: string
+    store: string
+    total: number
+    items: Array<{ name: string; qty?: number; price: number }>
+  } | null>(null)
 
   React.useEffect(() => {
     if (boot.receipts && boot.receipts.length > 0) {
@@ -606,8 +616,30 @@ function Receipts() {
                                 </div>
                               ) : null}
 
-                              {/* Кнопка удаления */}
-                              <div className="flex items-center justify-end pt-1">
+                              {/* Кнопки действий: Разделить счёт и Удалить */}
+                              <div className="flex items-center justify-between pt-1">
+                                <Button
+                                  size="sm"
+                                  variant="paper"
+                                  onClick={() => {
+                                    haptic(8)
+                                    setSplitTarget({
+                                      id: r.id,
+                                      store: r.store || 'Чек',
+                                      total: r.total,
+                                      items: detail.map((it) => ({
+                                        name: it.name,
+                                        qty: it.qty || 1,
+                                        price: it.price,
+                                      })),
+                                    })
+                                  }}
+                                  className="gap-1.5 rounded-full border border-sage/40 bg-sage/8 text-sage hover:bg-sage/15 text-[12px] h-8 px-3.5 font-medium shadow-xs"
+                                >
+                                  <Utensils size={13} />
+                                  <span>Разделить чек 🍕</span>
+                                </Button>
+
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -801,6 +833,16 @@ function Receipts() {
         }
         budget={boot.settings.monthly_budget || 45000}
         spent={periodTotal}
+      />
+
+      {/* Модальное окно разделения чека с друзьями по ссылке */}
+      <SplitCreateModal
+        open={Boolean(splitTarget)}
+        onClose={() => setSplitTarget(null)}
+        receiptId={splitTarget?.id}
+        storeName={splitTarget?.store}
+        totalAmount={splitTarget?.total}
+        items={splitTarget?.items}
       />
     </div>
   )

@@ -106,26 +106,28 @@ function Shell() {
     registerSW()
   }, [])
 
+  const isPublicRoute = pathname === '/login' || pathname.startsWith('/split/')
+
   React.useEffect(() => {
     if (!ready) return
-    if (!user && pathname !== '/login') {
+    if (!user && !isPublicRoute) {
       navigate({ to: '/login', replace: true })
     } else if (user && pathname === '/login') {
       navigate({ to: '/', replace: true })
     }
-  }, [ready, user, pathname, navigate])
+  }, [ready, user, pathname, navigate, isPublicRoute])
 
-  const bare = pathname === '/login'
+  const bare = pathname === '/login' || pathname.startsWith('/split/')
   const isChat = pathname === '/agent' || pathname.startsWith('/agent/')
   const hideNav = bare || isChat
 
   // Пока не знаем, вошли ли — стильный загрузочный экран с тактильной анимацией
-  if (!ready) {
+  if (!ready && !isPublicRoute) {
     return <SplashScreen />
   }
 
   // Неавторизованным пользователям не рендерим <Outlet /> (главную), чтобы исключить мерцание
-  if (!user && pathname !== '/login') {
+  if (!user && !isPublicRoute) {
     return <SplashScreen message="Вход в Листок..." />
   }
 

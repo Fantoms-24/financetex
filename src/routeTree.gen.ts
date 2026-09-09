@@ -20,6 +20,7 @@ import { Route as ScanRouteImport } from './routes/scan'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiTelegramRouteImport } from './routes/api.telegram'
 import { Route as GroupsIdRouteImport } from './routes/groups.$id'
+import { Route as SplitCodeRouteImport } from './routes/split.$code'
 import { Route as ApiPushTickRouteImport } from './routes/api.push.tick'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +78,11 @@ const GroupsIdRoute = GroupsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => GroupsRoute,
 } as any)
+const SplitCodeRoute = SplitCodeRouteImport.update({
+  id: '/split/$code',
+  path: '/split/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPushTickRoute = ApiPushTickRouteImport.update({
   id: '/api/push/tick',
   path: '/api/push/tick',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/api/telegram': typeof ApiTelegramRoute
   '/groups/$id': typeof GroupsIdRoute
+  '/split/$code': typeof SplitCodeRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/api/telegram': typeof ApiTelegramRoute
   '/groups/$id': typeof GroupsIdRoute
+  '/split/$code': typeof SplitCodeRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
 export interface FileRoutesById {
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/api/telegram': typeof ApiTelegramRoute
   '/groups/$id': typeof GroupsIdRoute
+  '/split/$code': typeof SplitCodeRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/telegram'
     | '/groups/$id'
+    | '/split/$code'
     | '/api/push/tick'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/telegram'
     | '/groups/$id'
+    | '/split/$code'
     | '/api/push/tick'
   id:
     | '__root__'
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/telegram'
     | '/groups/$id'
+    | '/split/$code'
     | '/api/push/tick'
   fileRoutesById: FileRoutesById
 }
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   ScanRoute: typeof ScanRoute
   SettingsRoute: typeof SettingsRoute
   ApiTelegramRoute: typeof ApiTelegramRoute
+  SplitCodeRoute: typeof SplitCodeRoute
   ApiPushTickRoute: typeof ApiPushTickRoute
 }
 
@@ -264,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GroupsIdRouteImport
       parentRoute: typeof GroupsRoute
     }
+    '/split/$code': {
+      id: '/split/$code'
+      path: '/split/$code'
+      fullPath: '/split/$code'
+      preLoaderRoute: typeof SplitCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/push/tick': {
       id: '/api/push/tick'
       path: '/api/push/tick'
@@ -296,6 +316,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScanRoute: ScanRoute,
   SettingsRoute: SettingsRoute,
   ApiTelegramRoute: ApiTelegramRoute,
+  SplitCodeRoute: SplitCodeRoute,
   ApiPushTickRoute: ApiPushTickRoute,
 }
 export const routeTree = rootRouteImport
