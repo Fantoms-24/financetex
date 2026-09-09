@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { q, q1 } from './db'
 import { HEAL_STATEMENTS } from './db/schema'
 import { getAllConfig, setConfig, getLlmConfig, saveLlmConfig } from './config'
-import { getBotInfo, getBotToken, saveTelegramConfig } from './telegram'
+import { getBotInfo, getBotToken, getTelegramApiBase, saveTelegramConfig } from './telegram'
 import { runTick, runEveningCheckin } from './tick'
 import { countSubscriptions, getVapidPublic } from './push'
 
@@ -200,6 +200,8 @@ export async function getFantmsOverviewData() {
       llmBaseUrl: llm.baseUrl,
       telegramConfigured: Boolean(tgInfo.username),
       telegramBotName: tgInfo.username,
+      telegramBotTokenConfigured: Boolean(await getBotToken()),
+      telegramApiUrl: await getTelegramApiBase(),
       vapidPublicKey: vapid,
     },
   }
@@ -264,7 +266,7 @@ export async function checkTelegramDeepStatus(): Promise<{
   }
 
   try {
-    const apiBase = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/+$/, '')
+    const apiBase = await getTelegramApiBase()
     const [meRes, hookRes] = await Promise.all([
       fetch(`${apiBase}/bot${token}/getMe`, { signal: AbortSignal.timeout(15000) }).then((r) =>
         r.json(),
@@ -291,20 +293,23 @@ export async function checkTelegramDeepStatus(): Promise<{
 }
 
 /**
- * Принудительная установка Webhook на наш сервер
+ * Принудительная установка Webhook на наш сервер или прокси
  */
-export async function setTelegramWebhookAuto(): Promise<{ ok: boolean; url?: string; description?: string }> {
+export async function setTelegramWebhookAuto(
+  customWebhookUrl?: string,
+): Promise<{ ok: boolean; url?: string; description?: string }> {
   const token = await getBotToken()
   if (!token) return { ok: false, description: 'Токен бота отсутствует' }
 
   const appUrl = (process.env.BETTER_AUTH_URL || 'https://financetex.relaxdev.ru').replace(/\/+$/, '')
-  const webhookUrl = `${appUrl}/api/telegram`
+  const webhookUrl = (customWebhookUrl || `${appUrl}/api/telegram`).trim()
 
   try {
+    const apiBase = await getTelegramApiBase()
     const res = await fetch(
-      `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`,
+      `${apiBase}/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`,
       {
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(12000),
       },
     ).then((r) => r.json())
 

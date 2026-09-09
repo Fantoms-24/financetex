@@ -87,6 +87,8 @@ function FantmsAdminScreen() {
   // Настройки Telegram
   const [tgToken, setTgToken] = React.useState('')
   const [tgName, setTgName] = React.useState('')
+  const [tgApiUrl, setTgApiUrl] = React.useState('')
+  const [tgCustomWebhook, setTgCustomWebhook] = React.useState('')
   const [tgBusy, setTgBusy] = React.useState(false)
   const [tgDiag, setTgDiag] = React.useState<any>(null)
   const [tgWebhookResult, setTgWebhookResult] = React.useState<string | null>(null)
@@ -136,6 +138,7 @@ function FantmsAdminScreen() {
           setLlmModel(res.services.llmModel || '')
           setHasLlmKey(Boolean(res.services.llmConfigured))
           setTgName(res.services.telegramBotName || '')
+          if (res.services.telegramApiUrl) setTgApiUrl(res.services.telegramApiUrl)
         }
       }
     } catch (e: any) {
@@ -279,6 +282,7 @@ function FantmsAdminScreen() {
           token,
           botToken: tgToken ? tgToken : undefined,
           botName: tgName ? tgName : undefined,
+          apiUrl: tgApiUrl ? tgApiUrl : undefined,
         },
       })
       if (res?.ok) {
@@ -312,14 +316,16 @@ function FantmsAdminScreen() {
     if (!token) return
     setTgBusy(true)
     haptic(8)
+    const webhookToUse = (tgCustomWebhook || 'https://financetex.relaxdev.ru/api/telegram').trim()
     try {
       // 1. Попытка на сервере
-      let res: any = await setFantmsWebhook({ data: { token } }).catch(() => null)
+      let res: any = await setFantmsWebhook({ data: { token, webhookUrl: webhookToUse } }).catch(() => null)
 
-      // 2. Если на сервере ETIMEDOUT (блокировка исходящих), устанавливаем напрямую из браузера
+      // 2. Если на сервере сбой или блокировка, пробуем напрямую из браузера
       if ((!res || !res.ok) && tgToken) {
         try {
-          const directUrl = `https://api.telegram.org/bot${encodeURIComponent(tgToken.trim())}/setWebhook?url=${encodeURIComponent('https://financetex.relaxdev.ru/api/telegram')}&drop_pending_updates=true`
+          const apiHost = (tgApiUrl || 'https://api.telegram.org').replace(/\/+$/, '')
+          const directUrl = `${apiHost}/bot${encodeURIComponent(tgToken.trim())}/setWebhook?url=${encodeURIComponent(webhookToUse)}&drop_pending_updates=true`
           const clientRes = await fetch(directUrl).then((r) => r.json())
           if (clientRes?.ok) {
             res = { ok: true, description: 'Вебхук успешно привязан напрямую через браузер ✓' }
@@ -1052,6 +1058,38 @@ function FantmsAdminScreen() {
                   placeholder="my_finance_bot"
                   className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none transition"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    Telegram API / Proxy URL
+                  </label>
+                  <input
+                    value={tgApiUrl}
+                    onChange={(e) => setTgApiUrl(e.target.value)}
+                    placeholder="https://api.telegram.org"
+                    className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none transition"
+                  />
+                  <p className="mt-1 text-[10.5px] text-zinc-500">
+                    Для исходящих запросов. Если сервер в РФ, укажите Worker/прокси.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    Webhook URL (прием сообщений)
+                  </label>
+                  <input
+                    value={tgCustomWebhook}
+                    onChange={(e) => setTgCustomWebhook(e.target.value)}
+                    placeholder="https://financetex.relaxdev.ru/api/telegram"
+                    className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none transition"
+                  />
+                  <p className="mt-1 text-[10.5px] text-zinc-500">
+                    Куда Telegram отправляет апдейты. Можно указать Worker.
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">

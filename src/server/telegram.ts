@@ -8,8 +8,11 @@ export async function getBotToken(): Promise<string> {
   return (row?.value || '').trim()
 }
 
-export function getTelegramApiBase(): string {
-  return (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/+$/, '')
+export async function getTelegramApiBase(): Promise<string> {
+  const envUrl = (process.env.TELEGRAM_API_URL || '').trim()
+  if (envUrl) return envUrl.replace(/\/+$/, '')
+  const row = await q1<any>(`SELECT value FROM app_config WHERE key = 'telegram_api_url'`)
+  return (row?.value || 'https://api.telegram.org').trim().replace(/\/+$/, '')
 }
 
 let cachedBotInfo: { username: string; firstName: string } | null = null
@@ -20,7 +23,7 @@ export async function getBotInfo(): Promise<{ username: string | null; firstName
   const token = await getBotToken()
   if (token) {
     try {
-      const apiBase = getTelegramApiBase()
+      const apiBase = await getTelegramApiBase()
       const res = await fetch(`${apiBase}/bot${token}/getMe`, {
         signal: AbortSignal.timeout(15000),
       }).then((r) => r.json())
@@ -60,6 +63,7 @@ export async function getBotInfo(): Promise<{ username: string | null; firstName
 export async function saveTelegramConfig(
   botToken?: string,
   botName?: string,
+  apiUrl?: string,
 ): Promise<{ ok: boolean; username?: string | null; error?: string }> {
   if (botToken !== undefined) {
     const cleanToken = botToken.trim()
@@ -79,14 +83,23 @@ export async function saveTelegramConfig(
     )
     cachedBotInfo = null
   }
+  if (apiUrl !== undefined) {
+    const cleanUrl = apiUrl.trim()
+    await q(
+      `INSERT INTO app_config (key, value, updated_at) VALUES ('telegram_api_url', $1, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [cleanUrl],
+    )
+  }
 
   const info = await getBotInfo()
   const token = await getBotToken()
   if (token) {
     try {
+      const apiBase = await getTelegramApiBase()
       const appUrl = (process.env.BETTER_AUTH_URL || 'https://financetex.relaxdev.ru').replace(/\/+$/, '')
       const webhookRes = await fetch(
-        `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(`${appUrl}/api/telegram`)}&drop_pending_updates=true`,
+        `${apiBase}/bot${token}/setWebhook?url=${encodeURIComponent(`${appUrl}/api/telegram`)}&drop_pending_updates=true`,
       ).then((r) => r.json())
       console.log('[telegram] saveTelegramConfig setWebhook result:', webhookRes)
     } catch (err) {
@@ -115,7 +128,7 @@ export async function sendTelegram(chatId: string | number, text: string): Promi
   }
 
   try {
-    const apiBase = getTelegramApiBase()
+    const apiBase = await getTelegramApiBase()
     const res = await fetch(`${apiBase}/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

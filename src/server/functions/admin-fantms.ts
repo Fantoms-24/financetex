@@ -143,14 +143,15 @@ export const testFantmsLlm = createServerFn({ method: 'POST' })
  * Сохранение конфигурации Telegram-бота
  */
 export const saveFantmsTelegram = createServerFn({ method: 'POST' })
-  .validator((d: { token: string; botToken?: string; botName?: string }) => ({
+  .validator((d: { token: string; botToken?: string; botName?: string; apiUrl?: string }) => ({
     token: String(d.token || '').trim(),
     botToken: d.botToken !== undefined ? String(d.botToken).trim() : undefined,
     botName: d.botName !== undefined ? String(d.botName).trim() : undefined,
+    apiUrl: d.apiUrl !== undefined ? String(d.apiUrl).trim() : undefined,
   }))
   .handler(async ({ data }) => {
     await assertAdminToken(data.token)
-    const res = await saveTelegramConfig(data.botToken, data.botName)
+    const res = await saveTelegramConfig(data.botToken, data.botName, data.apiUrl)
     return res
   })
 
@@ -171,12 +172,13 @@ export const testFantmsTelegram = createServerFn({ method: 'POST' })
  * Перепривязка Webhook Telegram
  */
 export const setFantmsWebhook = createServerFn({ method: 'POST' })
-  .validator((d: { token: string }) => ({
+  .validator((d: { token: string; webhookUrl?: string }) => ({
     token: String(d.token || '').trim(),
+    webhookUrl: d.webhookUrl !== undefined ? String(d.webhookUrl).trim() : undefined,
   }))
   .handler(async ({ data }) => {
     await assertAdminToken(data.token)
-    const res = await setTelegramWebhookAuto()
+    const res = await setTelegramWebhookAuto(data.webhookUrl)
     return res
   })
 
