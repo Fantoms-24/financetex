@@ -324,9 +324,9 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
       )
 
       const userInfo = await q1<any>(
-        `SELECT u.name, s.phone, s.bank
+        `SELECT coalesce(p.display_name, u.name) AS name, p.phone, p.bank
            FROM "user" u
-           LEFT JOIN user_settings s ON s.user_id = u.id
+           LEFT JOIN profiles p ON p.user_id = u.id
           WHERE u.id = $1`,
         [userId]
       )
@@ -825,9 +825,9 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
 
     const title = parsed.title || 'Счёт в компании'
     const userInfo = await q1<any>(
-      `SELECT u.name, s.phone, s.bank
+      `SELECT coalesce(p.display_name, u.name) AS name, p.phone, p.bank
          FROM "user" u
-         LEFT JOIN user_settings s ON s.user_id = u.id
+         LEFT JOIN profiles p ON p.user_id = u.id
         WHERE u.id = $1`,
       [userId]
     )
