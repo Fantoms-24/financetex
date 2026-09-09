@@ -78,11 +78,23 @@ export async function saveTelegramConfig(
   if (token) {
     try {
       const appUrl = (process.env.BETTER_AUTH_URL || 'https://financetex.relaxdev.ru').replace(/\/+$/, '')
-      await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${appUrl}/api/telegram`)
-    } catch {}
+      const webhookRes = await fetch(
+        `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(`${appUrl}/api/telegram`)}&drop_pending_updates=true`,
+      ).then((r) => r.json())
+      console.log('[telegram] saveTelegramConfig setWebhook result:', webhookRes)
+    } catch (err) {
+      console.error('[telegram] Failed to setWebhook in saveTelegramConfig:', err)
+    }
   }
 
   return { ok: true, username: info.username }
+}
+
+function escapeHtml(s: string): string {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 /**
@@ -91,7 +103,7 @@ export async function saveTelegramConfig(
 export async function sendTelegram(chatId: string | number, text: string): Promise<boolean> {
   const token = await getBotToken()
   if (!token) {
-    console.log(`[telegram:mock] To ${chatId}: ${text}`)
+    console.warn(`[telegram:mock] No bot token configured! To ${chatId}: ${text}`)
     return false
   }
 
@@ -105,7 +117,29 @@ export async function sendTelegram(chatId: string | number, text: string): Promi
         parse_mode: 'HTML',
       }),
     })
-    return res.ok
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      console.error(`[telegram] sendMessage HTML failed (${res.status}): ${errText}`)
+      // Fallback: Telegram rejects message if HTML entities are invalid
+      const plainText = text.replace(/<[^>]+>/g, '')
+      const retryRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: plainText,
+        }),
+      })
+      if (!retryRes.ok) {
+        const retryErr = await retryRes.text().catch(() => '')
+        console.error(`[telegram] sendMessage plain text fallback failed (${retryRes.status}): ${retryErr}`)
+        return false
+      }
+      return true
+    }
+
+    return true
   } catch (err) {
     console.error('[telegram] Failed to send message:', err)
     return false
@@ -138,11 +172,11 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
       )
 
       if (tokenRow && tokenRow.user_id) {
+        // Предотвращаем конфликт уникальности по user_id или chat_id
+        await q(`DELETE FROM user_telegram WHERE user_id = $1 OR chat_id = $2`, [tokenRow.user_id, chatId])
         await q(
           `INSERT INTO user_telegram (user_id, chat_id, username, first_name)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (user_id) DO UPDATE
-             SET chat_id = $2, username = $3, first_name = $4`,
+           VALUES ($1, $2, $3, $4)`,
           [tokenRow.user_id, chatId, username, fromUser.first_name || ''],
         )
         await q(`DELETE FROM telegram_link_tokens WHERE code = $1`, [rawCode])
@@ -150,7 +184,7 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
         await sendTelegram(
           chatId,
           `🌿 <b>Листок успешно подключен!</b>\n\n` +
-            `Привет, ${fromUser.first_name || 'друг'}! Теперь вы можете прямо сюда отправлять любые траты.\n\n` +
+            `Привет, ${escapeHtml(fromUser.first_name || 'друг')}! Теперь вы можете прямо сюда отправлять любые траты.\n\n` +
             `Например:\n` +
             `• <code>Такси 450</code>\n` +
             `• <code>Пятёрочка 1820</code>\n` +
@@ -159,6 +193,13 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
             `Листок моментально запишет расход и покажет ваш актуальный остаток на день.`,
         )
         return { ok: true, status: 'linked' }
+      } else {
+        await sendTelegram(
+          chatId,
+          `🌿 <b>Код привязки не найден или его срок истёк.</b>\n\n` +
+            `Откройте приложение <b>Листок</b> (https://financetex.relaxdev.ru), перейдите в <b>Настройки</b> → <b>Telegram-бот</b> и нажмите «Подключить в 1 клик» снова.`,
+        )
+        return { ok: true, status: 'code_expired' }
       }
     }
 
@@ -166,17 +207,19 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     if (existing) {
       await sendTelegram(
         chatId,
-        `🌿 <b>Вы уже подключены к Листку!</b>\n\n` +
-          `Просто напишите сумму и название траты (например: <code>Такси 350</code>), и я внесу её в журнал.`,
+        `🌿 <b>Вы подключены к Листку!</b>\n\n` +
+          `Просто напишите сумму и название траты прямо в этот чат (например: <code>Такси 350</code> или <code>Кофе 250</code>), и я внесу её в журнал расходов.\n\n` +
+          `Или отправьте <code>/balance</code> для проверки остатка на сегодня.`,
       )
     } else {
       await sendTelegram(
         chatId,
         `🌿 <b>Привет от Листка!</b>\n\n` +
-          `Чтобы подключить аккаунт:\n` +
-          `1. Откройте приложение <b>Листок</b>\n` +
-          `2. Зайдите в <b>Настройки</b> → <b>Telegram-бот</b>\n` +
-          `3. Нажмите кнопку подключения или отправьте мне полученный код.`,
+          `Я помогаю вести учет расходов и экономить без рутины прямо из Telegram.\n\n` +
+          `Чтобы связать бота с вашим аккаунтом:\n` +
+          `1. Откройте приложение <b>Листок</b> (https://financetex.relaxdev.ru)\n` +
+          `2. Перейдите в <b>Настройки</b> → <b>Telegram-бот</b>\n` +
+          `3. Нажмите кнопку <b>«Подключить в 1 клик»</b> или отправьте сюда ваш код привязки (например: <code>LST-1234</code>).`,
       )
     }
     return { ok: true }
@@ -192,9 +235,38 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
   // 3. Проверяем привязку для обычных сообщений
   const userRow = await q1<any>(`SELECT user_id FROM user_telegram WHERE chat_id = $1`, [chatId])
   if (!userRow || !userRow.user_id) {
+    // Пользователь мог отправить код привязки напрямую (например: LST-1234)
+    const upperCode = text.toUpperCase().trim()
+    if (upperCode.startsWith('LST-') || /^[A-Z0-9-]{6,12}$/.test(upperCode)) {
+      const tokenRow = await q1<any>(
+        `SELECT user_id FROM telegram_link_tokens WHERE code = $1 AND expires_at > now()`,
+        [upperCode],
+      )
+      if (tokenRow && tokenRow.user_id) {
+        await q(`DELETE FROM user_telegram WHERE user_id = $1 OR chat_id = $2`, [tokenRow.user_id, chatId])
+        await q(
+          `INSERT INTO user_telegram (user_id, chat_id, username, first_name)
+           VALUES ($1, $2, $3, $4)`,
+          [tokenRow.user_id, chatId, username, fromUser.first_name || ''],
+        )
+        await q(`DELETE FROM telegram_link_tokens WHERE code = $1`, [upperCode])
+
+        await sendTelegram(
+          chatId,
+          `🌿 <b>Листок успешно подключен!</b>\n\n` +
+            `Привет, ${escapeHtml(fromUser.first_name || 'друг')}! Теперь вы можете прямо сюда отправлять любые траты.\n\n` +
+            `Например:\n` +
+            `• <code>Такси 450</code>\n` +
+            `• <code>Пятёрочка 1820</code>\n` +
+            `• <code>250 кофе</code>`,
+        )
+        return { ok: true, status: 'linked' }
+      }
+    }
+
     await sendTelegram(
       chatId,
-      `🌿 Чтобы записывать расходы через Telegram, сначала подключите бота в приложении Листок (раздел <b>Настройки</b>).`,
+      `🌿 Чтобы записывать расходы через Telegram, сначала подключите бота в приложении Листок (раздел <b>Настройки</b> → <b>Telegram-бот</b>).`,
     )
     return { ok: true }
   }

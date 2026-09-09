@@ -295,9 +295,12 @@ export async function setTelegramWebhookAuto(): Promise<{ ok: boolean; url?: str
   const webhookUrl = `${appUrl}/api/telegram`
 
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`, {
-      signal: AbortSignal.timeout(8000),
-    }).then((r) => r.json())
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`,
+      {
+        signal: AbortSignal.timeout(8000),
+      },
+    ).then((r) => r.json())
 
     return {
       ok: Boolean(res?.ok),
