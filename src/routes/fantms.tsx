@@ -425,7 +425,7 @@ function FantmsAdminScreen() {
                 value={setupPass}
                 onChange={(e) => setSetupPass(e.target.value)}
                 placeholder="Минимум 4 символа"
-                className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
               />
             </div>
 
@@ -438,12 +438,12 @@ function FantmsAdminScreen() {
                 value={setupConfirm}
                 onChange={(e) => setSetupConfirm(e.target.value)}
                 placeholder="Повторите пароль"
-                className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
               />
             </div>
 
             {authError && (
-              <p className="rounded-lg bg-red-500/10 border border-red-500/25 p-2 text-[11.5px] text-red-400">
+              <p className="rounded-xl bg-red-500/10 border border-red-500/25 p-2.5 text-[12px] text-red-400">
                 {authError}
               </p>
             )}
@@ -451,7 +451,7 @@ function FantmsAdminScreen() {
             <button
               type="submit"
               disabled={authBusy || !setupPass.trim()}
-              className="w-full h-8.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-[12px] font-medium transition shadow-xs disabled:opacity-50"
+              className="w-full h-10 sm:h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white text-[13px] font-medium transition shadow-xs disabled:opacity-50 touch-manipulation"
             >
               {authBusy ? 'Сохранение…' : 'Установить пароль и войти'}
             </button>
@@ -496,12 +496,12 @@ function FantmsAdminScreen() {
                 onChange={(e) => setLoginPass(e.target.value)}
                 placeholder="••••••••"
                 autoFocus
-                className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[14px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
               />
             </div>
 
             {authError && (
-              <p className="rounded-lg bg-red-500/10 border border-red-500/25 p-2 text-[11.5px] text-red-400">
+              <p className="rounded-xl bg-red-500/10 border border-red-500/25 p-2.5 text-[12px] text-red-400">
                 {authError}
               </p>
             )}
@@ -509,7 +509,7 @@ function FantmsAdminScreen() {
             <button
               type="submit"
               disabled={authBusy || !loginPass.trim()}
-              className="w-full h-8.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-[12px] font-medium transition shadow-xs disabled:opacity-50"
+              className="w-full h-10 sm:h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white text-[13px] font-medium transition shadow-xs disabled:opacity-50 touch-manipulation"
             >
               {authBusy ? 'Проверка…' : 'Войти в панель'}
             </button>
@@ -525,29 +525,29 @@ function FantmsAdminScreen() {
   const metrics = overview?.metrics || {}
 
   return (
-    <div className="min-h-screen bg-[#0c0e0c] pb-24 text-zinc-200">
-      {/* 1. Верхний бар панели */}
-      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-[#111311]/90 backdrop-blur-md px-4 py-2.5 sm:px-6">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 font-bold text-[13px]">
+    <div className="min-h-screen bg-[#0c0e0c] pb-[max(env(safe-area-inset-bottom),32px)] text-zinc-200">
+      {/* 1. Верхний бар панели (с учётом iOS Safe Area и Dynamic Island) */}
+      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-[#111311]/95 backdrop-blur-xl px-3 sm:px-6 pt-[max(env(safe-area-inset-top),10px)] pb-2.5 sm:pb-3">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="flex h-8 w-8 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-xl sm:rounded-lg bg-emerald-500/15 text-emerald-400 font-bold text-[14px] sm:text-[13px]">
               🌿
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-[13.5px] font-semibold text-white leading-none">
+                <span className="text-[13.5px] sm:text-[14px] font-semibold text-white leading-none truncate">
                   Листок Control
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-medium text-emerald-400">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   Online
                 </span>
               </div>
-              <span className="text-[10.5px] text-zinc-400 font-mono">/fantms</span>
+              <span className="text-[10px] sm:text-[10.5px] text-zinc-400 font-mono block truncate">/fantms</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -556,15 +556,16 @@ function FantmsAdminScreen() {
               }}
               disabled={overviewBusy}
               title="Обновить данные"
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 text-[11.5px] font-medium rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition active:scale-95 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-7 px-2.5 text-[11.5px] font-medium rounded-xl sm:rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition active:scale-95 disabled:opacity-50 touch-manipulation"
             >
               <RefreshCw size={12} className={cn(overviewBusy && 'animate-spin text-emerald-400')} />
-              <span className="hidden sm:inline">Обновить</span>
+              <span className="hidden md:inline">Обновить</span>
             </button>
 
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 text-[11.5px] font-medium rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition active:scale-95"
+              title="Перейти в приложение Листок"
+              className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-7 px-2.5 text-[11.5px] font-medium rounded-xl sm:rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition active:scale-95 touch-manipulation"
             >
               <ArrowLeft size={12} />
               <span className="hidden sm:inline">В приложение</span>
@@ -574,7 +575,7 @@ function FantmsAdminScreen() {
               type="button"
               onClick={handleLogout}
               title="Выйти из админки"
-              className="inline-flex items-center gap-1 h-7 px-2 text-[11.5px] font-medium rounded-lg border border-red-900/30 bg-red-950/20 hover:bg-red-950/40 text-red-400 transition active:scale-95"
+              className="inline-flex items-center justify-center gap-1 h-8 sm:h-7 px-2.5 sm:px-2 text-[11.5px] font-medium rounded-xl sm:rounded-lg border border-red-900/30 bg-red-950/20 hover:bg-red-950/40 text-red-400 transition active:scale-95 touch-manipulation"
             >
               <LogOut size={12} />
               <span className="hidden sm:inline">Выйти</span>
@@ -585,16 +586,16 @@ function FantmsAdminScreen() {
 
       {/* Системное уведомление о действии */}
       {actionNotice && (
-        <div className="mx-auto max-w-5xl px-4 pt-3">
-          <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-300">
-            <span className="flex items-center gap-1.5 font-medium">
-              <CheckCircle2 size={14} className="text-emerald-400" />
-              {actionNotice}
+        <div className="mx-auto max-w-5xl px-3 sm:px-4 pt-2.5">
+          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-300">
+            <span className="flex items-center gap-1.5 font-medium min-w-0 truncate">
+              <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+              <span className="truncate">{actionNotice}</span>
             </span>
             <button
               type="button"
               onClick={() => setActionNotice(null)}
-              className="text-zinc-400 hover:text-white text-[12px] ml-2"
+              className="text-zinc-400 hover:text-white text-[13px] ml-2 shrink-0 touch-manipulation"
             >
               ✕
             </button>
@@ -603,9 +604,12 @@ function FantmsAdminScreen() {
       )}
 
       {/* 2. Контейнер панели */}
-      <main className="mx-auto max-w-5xl p-4 sm:p-6 space-y-4 sm:space-y-5">
-        {/* Переключатель вкладок (аккуратный сегментированный бар) */}
-        <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-zinc-800/80 bg-[#141614] p-1 shadow-xs">
+      <main className="mx-auto max-w-5xl p-3 sm:p-6 space-y-3.5 sm:space-y-5">
+        {/* Переключатель вкладок (эластичный Apple-свайп бар) */}
+        <nav
+          className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth rounded-2xl border border-zinc-800/80 bg-[#141614] p-1.5 shadow-xs touch-pan-x"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {[
             { id: 'overview', label: 'Обзор и БД', icon: PieChart },
             { id: 'llm', label: 'ИИ / Сканы', icon: BrainCircuit },
@@ -623,9 +627,9 @@ function FantmsAdminScreen() {
                   setTab(item.id as any)
                 }}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition whitespace-nowrap shrink-0',
+                  'flex items-center gap-1.5 rounded-xl px-3 sm:px-3.5 py-2 text-[12px] sm:text-[12.5px] font-medium transition whitespace-nowrap shrink-0 touch-manipulation active:scale-95',
                   active
-                    ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700/60 font-semibold'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs font-semibold'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border border-transparent',
                 )}
               >
@@ -799,7 +803,50 @@ function FantmsAdminScreen() {
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
+              {/* Mobile View: Inset Grouped card list (sm:hidden) */}
+              <div className="sm:hidden divide-y divide-zinc-800/60">
+                {(overview?.recentUsers ?? []).length === 0 ? (
+                  <div className="p-4 text-center text-xs text-zinc-500">Пользователей пока нет</div>
+                ) : (
+                  (overview?.recentUsers ?? []).map((u: any) => (
+                    <div key={u.id} className="p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 font-semibold text-xs border border-emerald-500/20">
+                            {(u.name || u.email || 'U').slice(0, 1).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-semibold text-white truncate">
+                              {u.name || 'Пользователь'}
+                            </div>
+                            <div className="text-[11px] font-mono text-zinc-400 truncate">
+                              {u.email}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-[13px] font-mono font-bold text-emerald-400 tabular-nums">
+                            {money(u.spentTotal)}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 font-mono">расходы</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10.5px] text-zinc-400 pt-1 border-t border-zinc-800/40 font-mono">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-zinc-800/70 px-1.5 py-0.5 text-zinc-300">
+                          📄 {u.receiptsCount} {u.receiptsCount === 1 ? 'чек' : u.receiptsCount > 1 && u.receiptsCount < 5 ? 'чека' : 'чеков'}
+                        </span>
+                        <span className="text-zinc-500">
+                          {u.createdAt ? String(u.createdAt).slice(0, 10) : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop View: Full data table (hidden sm:block) */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left text-[12px]">
                   <thead className="border-b border-zinc-800/80 bg-black/30 text-[10.5px] uppercase tracking-wider text-zinc-400">
                     <tr>
@@ -868,7 +915,7 @@ function FantmsAdminScreen() {
                   value={llmBaseUrl}
                   onChange={(e) => setLlmBaseUrl(e.target.value)}
                   placeholder="https://openrouter.ai/api/v1"
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
                 />
               </div>
 
@@ -880,7 +927,7 @@ function FantmsAdminScreen() {
                   value={llmModel}
                   onChange={(e) => setLlmModel(e.target.value)}
                   placeholder="google/gemini-2.5-flash"
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
                 />
               </div>
 
@@ -893,7 +940,7 @@ function FantmsAdminScreen() {
                   value={llmApiKey}
                   onChange={(e) => setLlmApiKey(e.target.value)}
                   placeholder={hasLlmKey ? '•••••••••••••••• (ключ сохранён)' : 'sk-or-v1-…'}
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
                 />
               </div>
 
@@ -901,7 +948,7 @@ function FantmsAdminScreen() {
                 <button
                   type="submit"
                   disabled={llmBusy}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-4 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50 touch-manipulation shadow-xs"
                 >
                   {llmBusy ? 'Сохраняем…' : 'Сохранить настройки'}
                 </button>
@@ -910,7 +957,7 @@ function FantmsAdminScreen() {
                   type="button"
                   onClick={handleTestLlm}
                   disabled={llmBusy || !hasLlmKey}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-3.5 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50 touch-manipulation"
                 >
                   <Zap size={12} className="text-amber-400" />
                   <span>Проверить Ping</span>
@@ -978,7 +1025,7 @@ function FantmsAdminScreen() {
                   value={tgToken}
                   onChange={(e) => setTgToken(e.target.value)}
                   placeholder="897...:AAF..."
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none transition"
                 />
               </div>
 
@@ -990,7 +1037,7 @@ function FantmsAdminScreen() {
                   value={tgName}
                   onChange={(e) => setTgName(e.target.value)}
                   placeholder="my_finance_bot"
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none transition"
                 />
               </div>
 
@@ -998,7 +1045,7 @@ function FantmsAdminScreen() {
                 <button
                   type="submit"
                   disabled={tgBusy}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-4 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition active:scale-95 disabled:opacity-50 touch-manipulation shadow-xs"
                 >
                   {tgBusy ? 'Сохраняем…' : 'Сохранить настройки'}
                 </button>
@@ -1007,7 +1054,7 @@ function FantmsAdminScreen() {
                   type="button"
                   onClick={handleDiagnoseTelegram}
                   disabled={tgBusy}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-3.5 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50 touch-manipulation"
                 >
                   <Activity size={12} className="text-sky-400" />
                   <span>Проверить статус</span>
@@ -1017,7 +1064,7 @@ function FantmsAdminScreen() {
                   type="button"
                   onClick={handleSetWebhook}
                   disabled={tgBusy}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-emerald-600/40 bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 transition active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-3.5 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg border border-emerald-600/40 bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 transition active:scale-95 disabled:opacity-50 touch-manipulation"
                 >
                   <Send size={12} className="text-emerald-400" />
                   <span>Установить Webhook в 1 клик</span>
@@ -1089,7 +1136,7 @@ function FantmsAdminScreen() {
                 <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Публичный VAPID-ключ (Application Server Key)
                 </label>
-                <div className="rounded-lg border border-zinc-800 bg-black/40 p-2.5 font-mono text-[11px] text-zinc-300 break-all select-all">
+                <div className="rounded-xl border border-zinc-800 bg-black/40 p-3 font-mono text-[11px] sm:text-[12px] text-zinc-300 break-all select-all leading-relaxed">
                   {overview?.services?.vapidPublicKey || 'Ключ сгенерирован сервером автоматически'}
                 </div>
               </div>
@@ -1098,7 +1145,7 @@ function FantmsAdminScreen() {
                 <button
                   type="button"
                   onClick={handleTriggerTick}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-4 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 touch-manipulation"
                 >
                   <Calendar size={12} className="text-sky-400" />
                   <span>Отправить напоминания по счетам прямо сейчас</span>
@@ -1123,7 +1170,7 @@ function FantmsAdminScreen() {
               </p>
             </div>
 
-            <form onSubmit={handleChangePass} className="space-y-3 max-w-[340px]">
+            <form onSubmit={handleChangePass} className="space-y-3 max-w-[360px]">
               <div>
                 <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Текущий пароль
@@ -1133,7 +1180,7 @@ function FantmsAdminScreen() {
                   value={oldPass}
                   onChange={(e) => setOldPass(e.target.value)}
                   placeholder="Текущий пароль"
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
                 />
               </div>
 
@@ -1146,7 +1193,7 @@ function FantmsAdminScreen() {
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
                   placeholder="Минимум 4 символа"
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
                 />
               </div>
 
@@ -1159,14 +1206,14 @@ function FantmsAdminScreen() {
                   value={confirmNewPass}
                   onChange={(e) => setConfirmNewPass(e.target.value)}
                   placeholder="Повторите пароль"
-                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
+                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
                 />
               </div>
 
               {passChangeMsg && (
                 <p
                   className={cn(
-                    'rounded-lg border p-2 text-[11.5px]',
+                    'rounded-xl border p-2.5 text-[12px]',
                     passChangeMsg.includes('✓')
                       ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
                       : 'border-red-500/40 bg-red-500/10 text-red-300',
@@ -1179,7 +1226,7 @@ function FantmsAdminScreen() {
               <button
                 type="submit"
                 disabled={passChangeBusy || !oldPass.trim() || !newPass.trim()}
-                className="h-7.5 px-4 text-[12px] font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50"
+                className="w-full sm:w-auto h-10 sm:h-8 px-5 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50 touch-manipulation shadow-xs"
               >
                 {passChangeBusy ? 'Сохраняем…' : 'Обновить пароль'}
               </button>
