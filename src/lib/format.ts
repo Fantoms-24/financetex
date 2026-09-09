@@ -1,16 +1,35 @@
-export const CATEGORIES: Array<{ id: string; label: string }> = [
-  { id: 'food', label: 'Еда' },
-  { id: 'prepared', label: 'Готовая еда' },
-  { id: 'household', label: 'Дом' },
-  { id: 'hygiene', label: 'Гигиена' },
-  { id: 'health', label: 'Здоровье' },
-  { id: 'drinks', label: 'Напитки' },
-  { id: 'snacks', label: 'Снеки' },
-  { id: 'other', label: 'Разное' },
+export interface CategoryMeta {
+  id: string
+  label: string
+  shortLabel: string
+  icon: string
+  color: string
+  hex: string
+  border: string
+}
+
+export const CATEGORIES: Array<CategoryMeta> = [
+  { id: 'food', label: 'Супермаркеты', shortLabel: 'Продукты', icon: '🛒', color: 'bg-emerald-600', hex: '#059669', border: 'border-emerald-500/30' },
+  { id: 'prepared', label: 'Кафе и рестораны', shortLabel: 'Кафе', icon: '☕', color: 'bg-amber-600', hex: '#d97706', border: 'border-amber-500/30' },
+  { id: 'transport', label: 'Транспорт и авто', shortLabel: 'Транспорт', icon: '🚕', color: 'bg-sky-600', hex: '#0284c7', border: 'border-sky-500/30' },
+  { id: 'household', label: 'Дом и ремонт', shortLabel: 'Дом', icon: '🏠', color: 'bg-indigo-600', hex: '#4f46e5', border: 'border-indigo-500/30' },
+  { id: 'health', label: 'Здоровье и аптеки', shortLabel: 'Здоровье', icon: '💊', color: 'bg-rose-600', hex: '#e11d48', border: 'border-rose-500/30' },
+  { id: 'hygiene', label: 'Уход и красота', shortLabel: 'Уход', icon: '🫧', color: 'bg-teal-600', hex: '#0d9488', border: 'border-teal-500/30' },
+  { id: 'drinks', label: 'Напитки', shortLabel: 'Напитки', icon: '🧃', color: 'bg-yellow-600', hex: '#ca8a04', border: 'border-yellow-500/30' },
+  { id: 'snacks', label: 'Снеки и сладкое', shortLabel: 'Снеки', icon: '🥨', color: 'bg-orange-500', hex: '#f97316', border: 'border-orange-500/30' },
+  { id: 'other', label: 'Разное', shortLabel: 'Разное', icon: '📦', color: 'bg-stone-500', hex: '#78716c', border: 'border-stone-500/30' },
 ]
 
+export function getCategoryMeta(id: string | null | undefined): CategoryMeta {
+  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1]
+}
+
 export function categoryLabel(id: string | null | undefined): string {
-  return CATEGORIES.find((c) => c.id === id)?.label ?? 'Разное'
+  return getCategoryMeta(id).label
+}
+
+export function categoryIcon(id: string | null | undefined): string {
+  return getCategoryMeta(id).icon
 }
 
 export function money(n: number | null | undefined): string {
@@ -75,7 +94,7 @@ export function plural(n: number, one: string, few: string, many: string): strin
   return many
 }
 
-/** Дней до платежа в этом месяце: today / tomorrow / in-2 / overdue */
+/** Дней до платежа в этом месяце: today / tomorrow / in-1 / in-2 / overdue */
 export function billDueLabel(dayOfMonth: number, now: Date = new Date()): {
   key: 'overdue' | 'today' | 'in-1' | 'in-2'
   label: string
@@ -142,7 +161,34 @@ export function parseMagicExpense(raw: string): {
   let category = 'food'
 
   if (
-    lower.includes('самокат') ||
+    lower.includes('такси') ||
+    lower.includes('бензин') ||
+    lower.includes('метро') ||
+    lower.includes('автобус') ||
+    lower.includes('парковк') ||
+    lower.includes('проезд') ||
+    lower.includes('каршеринг') ||
+    lower.includes('заправк') ||
+    lower.includes('мойка') ||
+    lower.includes('яндекс go') ||
+    lower.includes('uber') ||
+    lower.includes('лукойл') ||
+    lower.includes('газпром')
+  ) {
+    category = 'transport'
+  } else if (
+    lower.includes('кофе') ||
+    lower.includes('обед') ||
+    lower.includes('ланч') ||
+    lower.includes('ужин') ||
+    lower.includes('завтрак') ||
+    lower.includes('кафе') ||
+    lower.includes('ресторан') ||
+    lower.includes('бургер') ||
+    lower.includes('пицца') ||
+    lower.includes('суши') ||
+    lower.includes('шаурм') ||
+    lower.includes('столов') ||
     lower.includes('доставк') ||
     lower.includes('яндекс еда') ||
     lower.includes('деливери') ||
@@ -211,25 +257,6 @@ export function parseMagicExpense(raw: string): {
   ) {
     category = 'snacks'
   } else if (
-    lower.includes('такси') ||
-    lower.includes('бензин') ||
-    lower.includes('метро') ||
-    lower.includes('автобус') ||
-    lower.includes('парковк') ||
-    lower.includes('проезд') ||
-    lower.includes('каршеринг') ||
-    lower.includes('заправк') ||
-    lower.includes('мойка')
-  ) {
-    category = 'other'
-  } else if (
-    lower.includes('кофе') ||
-    lower.includes('обед') ||
-    lower.includes('ланч') ||
-    lower.includes('ужин') ||
-    lower.includes('завтрак') ||
-    lower.includes('кафе') ||
-    lower.includes('ресторан') ||
     lower.includes('вкусвилл') ||
     lower.includes('пятёрочк') ||
     lower.includes('пятерочк') ||
@@ -239,13 +266,16 @@ export function parseMagicExpense(raw: string): {
     lower.includes('продукт') ||
     lower.includes('хлеб') ||
     lower.includes('молоко') ||
-    lower.includes('бургер') ||
-    lower.includes('пицца') ||
-    lower.includes('суши') ||
-    lower.includes('шаурм') ||
-    lower.includes('столов')
+    lower.includes('сыр') ||
+    lower.includes('мясо') ||
+    lower.includes('рыб') ||
+    lower.includes('овощ') ||
+    lower.includes('фрукт') ||
+    lower.includes('самокат')
   ) {
     category = 'food'
+  } else {
+    category = 'other'
   }
 
   return { amount, title, category }

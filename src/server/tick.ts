@@ -1,5 +1,5 @@
 import { monthKey } from '~/lib/format'
-import { q } from './db'
+import { q, q1 } from './db'
 import { sendToUser, notifyHouseExcept } from './push'
 
 function slotRank(offset: number): number {
@@ -62,9 +62,16 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     if (b.paid) continue
     const already = parseAlertKey(b.last_alert_key, cycle)
     if (already !== null && already >= slotRank(offset)) continue
+
+    const isTomorrow = offset === 1
+    const pushTitle = isTomorrow ? `🔔 Завтра платёж: ${b.title}` : b.title
+    const pushBody = isTomorrow
+      ? `Завтра спишется ${Number(b.amount).toLocaleString('ru-RU')} ₽ за «${b.title}». Проверьте баланс на карте 💳`
+      : `${offsetLabel(offset)} списание ${Number(b.amount).toLocaleString('ru-RU')} ₽`
+
     const res = await sendToUser(b.user_id, {
-      title: b.title,
-      body: `${offsetLabel(offset)} списание ${Number(b.amount).toLocaleString('ru-RU')} ₽`,
+      title: pushTitle,
+      body: pushBody,
       data: { url: '/bills', type: 'bill-reminder' },
     })
     result.sent += res.sent
@@ -97,9 +104,16 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     if (offset === null) continue
     const already = parseAlertKey(b.last_alert_key, cycle)
     if (already !== null && already >= slotRank(offset)) continue
+
+    const isTomorrow = offset === 1
+    const pushTitle = isTomorrow ? `🔔 ${b.house_name} · Завтра платёж` : b.house_name
+    const pushBody = isTomorrow
+      ? `Завтра спишется ${b.title} (${Number(b.amount).toLocaleString('ru-RU')} ₽)`
+      : `${offsetLabel(offset)} платёж: ${b.title} (${Number(b.amount).toLocaleString('ru-RU')} ₽)`
+
     const res = await notifyHouseExcept(b.house_id, null, {
-      title: b.house_name,
-      body: `${offsetLabel(offset)} платёж: ${b.title} (${Number(b.amount).toLocaleString('ru-RU')} ₽)`,
+      title: pushTitle,
+      body: pushBody,
       data: { url: `/groups/${b.house_id}`, type: 'house-bill-reminder' },
     })
     result.sent += res.sent
@@ -110,7 +124,7 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     }
   }
 
-  // Вечерний микро-чекин (если запуск происходит с 20:30 до 22:30)
+  // Вечерний чекин итогов дня (если запуск происходит с 20:30 до 22:30)
   const hour = now.getHours()
   if (hour >= 20 && hour <= 22) {
     await runEveningCheckin(now).catch(() => {})
@@ -140,9 +154,28 @@ export async function runEveningCheckin(
 
   for (const u of users ?? []) {
     if (!u.user_id) continue
+
+    // Проверяем траты пользователя за сегодняшний день
+    const spentRow = await q1<{ total: number }>(
+      `SELECT coalesce(sum(total), 0)::bigint AS total
+         FROM receipts
+        WHERE user_id = $1
+          AND (purchased_at::date = $2::date OR (purchased_at IS NULL AND created_at::date = $2::date))`,
+      [u.user_id, todayKey],
+    ).catch(() => null)
+
+    const daySpent = Number(spentRow?.total || 0)
+    let pushTitle = '🌿 Листок · День экономии'
+    let pushBody = 'День подошёл к концу. Листок сохранил 🌿 хороший день экономии!'
+
+    if (daySpent > 0) {
+      pushTitle = '🌿 Листок · Итоги дня'
+      pushBody = `День подошёл к концу: сегодня учтено ${daySpent.toLocaleString('ru-RU')} ₽. Листок сохранил ваш баланс 🌿`
+    }
+
     const res = await sendToUser(u.user_id, {
-      title: '🌿 Листок · Итоги дня',
-      body: 'День подходит к концу. Все траты дня учтены? Нажмите, чтобы закрыть день.',
+      title: pushTitle,
+      body: pushBody,
       data: { url: '/', type: 'evening-checkin' },
     })
     result.sent += res.sent
@@ -156,5 +189,41 @@ export async function runEveningCheckin(
   }
 
   return result
+}
+
+// Автономный фоновый планировщик для RelaxDev (Node.js сервер)
+let schedulerStarted = false
+
+export function startBackgroundScheduler(): void {
+  if (schedulerStarted || typeof window !== 'undefined') return
+  schedulerStarted = true
+
+  // Проверка каждые 15 минут
+  const intervalMs = 15 * 60 * 1000
+  setInterval(async () => {
+    try {
+      const now = new Date()
+      // Московское время (UTC+3)
+      const mskTime = new Date(now.getTime() + (3 * 60 + now.getTimezoneOffset()) * 60 * 1000)
+      const hour = mskTime.getHours()
+      const minute = mskTime.getMinutes()
+
+      // 1. Утренние напоминания о счетах: 09:00 - 09:20 MSK
+      if (hour === 9 && minute < 20) {
+        console.log('[scheduler] Running morning bills tick (09:00 MSK)...')
+        await runTick(mskTime)
+      }
+
+      // 2. Вечерний чекин в 21:00: 21:00 - 21:20 MSK
+      if (hour === 21 && minute < 20) {
+        console.log('[scheduler] Running evening checkin (21:00 MSK)...')
+        await runEveningCheckin(mskTime)
+      }
+    } catch (err) {
+      console.error('[scheduler] Background push error:', err)
+    }
+  }, intervalMs)
+
+  console.log('[scheduler] Background push scheduler active (09:00 bills, 21:00 checkin MSK)')
 }
 

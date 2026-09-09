@@ -28,7 +28,7 @@ import {
   pushSupported,
 } from '~/lib/push-client'
 import { getAdminState } from '~/server/functions/admin'
-import { pushSubscribe, pushTest, triggerEveningCheckin, vapidPublic } from '~/server/functions/push'
+import { pushSubscribe, pushTest, triggerEveningCheckin, tickBills, vapidPublic } from '~/server/functions/push'
 import { saveProfile, saveSettings } from '~/server/functions/settings'
 
 export const Route = createFileRoute('/settings')({
@@ -168,10 +168,10 @@ function Settings() {
     try {
       const res: any = await triggerEveningCheckin().catch((e: any) => ({ ok: false, error: e?.message }))
       if (res && res.ok) {
-        setTestResult('✓ Вечерний чекин отправлен! Сверните приложение, чтобы увидеть уведомление в 21:00.')
+        setTestResult('✓ Вечерний чекин 21:00 отправлен! Сверните Листок, чтобы увидеть уведомление на экране.')
         showInAppNotification({
-          title: '🌿 Листок · Итоги дня',
-          body: 'День подходит к концу. Все траты дня учтены? Нажмите, чтобы закрыть день.',
+          title: '🌿 Листок · День экономии',
+          body: 'День подошёл к концу. Листок сохранил 🌿 хороший день экономии!',
           icon: 'sparkles',
           url: '/',
         })
@@ -180,6 +180,30 @@ function Settings() {
       }
     } catch {
       setTestError('Ошибка отправки чекина')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onTestBillReminder() {
+    setBusy(true)
+    setTestResult(null)
+    setTestError(null)
+    try {
+      const res: any = await tickBills().catch((e: any) => ({ ok: false, error: e?.message }))
+      if (res && res.ok) {
+        setTestResult('✓ Напоминание о счетах за 1 день отправлено!')
+        showInAppNotification({
+          title: '🔔 Завтра платёж: Подписка Листок',
+          body: 'Завтра списание 350 ₽. Проверьте баланс на карте 💳',
+          icon: 'sparkles',
+          url: '/bills',
+        })
+      } else {
+        setTestError(res?.error || 'Не удалось отправить напоминание о счетах.')
+      }
+    } catch {
+      setTestError('Ошибка проверки счетов')
     } finally {
       setBusy(false)
     }
@@ -354,20 +378,20 @@ function Settings() {
         </p>
 
         {perm.granted && (
-          <div className="rounded-[16px] border border-rule/70 bg-cream/40 p-3.5 space-y-2">
+          <div className="rounded-[18px] border border-rule/70 bg-cream/40 p-3.5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles size={14} className="text-sage" />
-                <span className="text-[13px] font-semibold text-ink">Вечерний микро-чекин (21:00)</span>
+                <span className="text-[13px] font-semibold text-ink">Вечерний чекин и счета</span>
               </div>
               <span className="rounded-full bg-sage/12 px-2 py-0.2 text-[10.5px] font-semibold text-sage">
-                Активен
+                21:00 MSK
               </span>
             </div>
             <p className="text-[12px] text-muted leading-relaxed">
-              Мягкое напоминание подвести итоги дня и закрыть Листок перед сном без стресса.
+              В 21:00 Листок пришлёт: «День подошёл к концу. Листок сохранил 🌿 хороший день экономии!» (или сумму трат дня). А за 1 день до списания ЖКХ, аренды или подписок заранее напомнит о счёте.
             </p>
-            <div className="pt-0.5">
+            <div className="flex flex-wrap gap-2 pt-0.5">
               <Button
                 type="button"
                 variant="paper"
@@ -377,9 +401,22 @@ function Settings() {
                   haptic(8)
                   onTestCheckin()
                 }}
-                className="text-[11.5px] h-8 rounded-[10px]"
+                className="text-[11.5px] h-8 rounded-[10px] gap-1 px-3 shadow-xs"
               >
-                Проверить чекин сейчас
+                <span>🌿 Тест чекина 21:00</span>
+              </Button>
+              <Button
+                type="button"
+                variant="paper"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  haptic(8)
+                  onTestBillReminder()
+                }}
+                className="text-[11.5px] h-8 rounded-[10px] gap-1 px-3 shadow-xs"
+              >
+                <span>🔔 Тест счетов за 1 день</span>
               </Button>
             </div>
           </div>

@@ -109,6 +109,7 @@ async function create(): Promise<DB> {
   }
 
   await migrate(db)
+  import('../tick').then((m) => m.startBackgroundScheduler?.()).catch(() => {})
   return db
 }
 

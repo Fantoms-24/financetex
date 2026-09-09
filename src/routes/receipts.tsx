@@ -21,6 +21,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { BottomSheet } from '~/components/BottomSheet'
 import { ShareMonthModal } from '~/components/ShareMonthModal'
+import { CategoryAnalytics } from '~/components/CategoryAnalytics'
 import { useApp } from '~/lib/app-state'
 import { CATEGORIES, categoryLabel, dateRu, money, moneyShort, monthKey, monthLabelRu, plural, prevMonthKey } from '~/lib/format'
 import { addReceipt, deleteReceipt, getReceipt, listReceipts, setReceiptHouse } from '~/server/functions/receipts'
@@ -197,33 +198,6 @@ function Receipts() {
 
   const periodAvgCheck = periodItems.length > 0 ? Math.round(periodTotal / periodItems.length) : 0
 
-  // Аналитика распределения трат по категориям (Category Insights)
-  const categoryStats = React.useMemo(() => {
-    const totals: Record<string, number> = {}
-    let grandTotal = 0
-    for (const it of periodItems) {
-      const cat = it.category || 'other'
-      const val = Number(it.total) || 0
-      totals[cat] = (totals[cat] || 0) + val
-      grandTotal += val
-    }
-    if (grandTotal === 0) return []
-
-    return CATEGORIES.map((cat) => {
-      const amount = totals[cat.id] || 0
-      const percent = Math.round((amount / grandTotal) * 100)
-      return {
-        id: cat.id,
-        label: cat.label,
-        amount,
-        percent,
-        color: CATEGORY_COLORS[cat.id] || 'bg-sage',
-      }
-    })
-      .filter((c) => c.amount > 0)
-      .sort((a, b) => b.amount - a.amount)
-  }, [periodItems])
-
   return (
     <div className="space-y-5 px-4 pb-44 pt-3 sm:px-5">
       {/* 1. Шапка раздела: чистая и сбалансированная */}
@@ -341,90 +315,14 @@ function Receipts() {
             </span>
           </div>
         </div>
-
-        {/* Категорийный срез (Category Insights) */}
-        {categoryStats.length > 0 && (
-          <div className="border-t border-rule/50 pt-3">
-            <div className="mb-2 flex items-center justify-between text-[11.5px] text-muted">
-              <span className="font-medium">Категории расходов</span>
-              {selectedCategory !== 'all' ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    haptic(6)
-                    setSelectedCategory('all')
-                  }}
-                  className="font-semibold text-sage hover:underline cursor-pointer"
-                >
-                  Сбросить фильтр ✕
-                </button>
-              ) : (
-                <span className="t-num font-medium text-ink/70">
-                  {categoryStats.length} {plural(categoryStats.length, 'категория', 'категории', 'категорий')}
-                </span>
-              )}
-            </div>
-
-            {/* Сегментированная тактильная полоса */}
-            <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-cream p-0.5">
-              {categoryStats.map((cat) => {
-                const isSelected = selectedCategory === cat.id
-                const isFaded = selectedCategory !== 'all' && !isSelected
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      haptic(6)
-                      setSelectedCategory(isSelected ? 'all' : cat.id)
-                    }}
-                    style={{ width: `${Math.max(cat.percent, 4)}%` }}
-                    className={cn(
-                      'h-full rounded-full transition-all duration-300 hover:opacity-100 cursor-pointer',
-                      cat.color,
-                      isFaded && 'opacity-25',
-                      isSelected && 'ring-2 ring-sage ring-offset-1',
-                    )}
-                    title={`${cat.label}: ${cat.percent}% (${money(cat.amount)})`}
-                  />
-                )
-              })}
-            </div>
-
-            {/* Быстрые чипы категорий для фильтрации */}
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {categoryStats.map((cat) => {
-                const isSelected = selectedCategory === cat.id
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      haptic(6)
-                      setSelectedCategory(isSelected ? 'all' : cat.id)
-                    }}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition active:scale-95 cursor-pointer',
-                      isSelected
-                        ? 'bg-sage text-onsage shadow-xs font-semibold'
-                        : 'border border-rule/70 bg-cream/50 text-muted hover:border-sage/40 hover:text-ink',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'h-1.5 w-1.5 rounded-full',
-                        isSelected ? 'bg-onsage' : cat.color,
-                      )}
-                    />
-                    <span>{cat.label}</span>
-                    <span className="t-num opacity-75">{cat.percent}%</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
       </section>
+
+      {/* 3.1 Детальная интерактивная аналитика категорий трат (Кольцо + Полосы + Подсказка Листка) */}
+      <CategoryAnalytics
+        items={periodItems}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+      />
 
       {/* 4. Поиск и фильтрация по категориям */}
       <div className="space-y-2.5">
