@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as BillsRouteImport } from './routes/bills'
+import { Route as FantmsRouteImport } from './routes/fantms'
 import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ReceiptsRouteImport } from './routes/receipts'
@@ -41,6 +42,11 @@ const AgentRoute = AgentRouteImport.update({
 const BillsRoute = BillsRouteImport.update({
   id: '/bills',
   path: '/bills',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FantmsRoute = FantmsRouteImport.update({
+  id: '/fantms',
+  path: '/fantms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GroupsRoute = GroupsRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/agent': typeof AgentRoute
   '/bills': typeof BillsRoute
+  '/fantms': typeof FantmsRoute
   '/groups': typeof GroupsRouteWithChildren
   '/login': typeof LoginRoute
   '/receipts': typeof ReceiptsRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/agent': typeof AgentRoute
   '/bills': typeof BillsRoute
+  '/fantms': typeof FantmsRoute
   '/groups': typeof GroupsRouteWithChildren
   '/login': typeof LoginRoute
   '/receipts': typeof ReceiptsRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/agent': typeof AgentRoute
   '/bills': typeof BillsRoute
+  '/fantms': typeof FantmsRoute
   '/groups': typeof GroupsRouteWithChildren
   '/login': typeof LoginRoute
   '/receipts': typeof ReceiptsRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent'
     | '/bills'
+    | '/fantms'
     | '/groups'
     | '/login'
     | '/receipts'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent'
     | '/bills'
+    | '/fantms'
     | '/groups'
     | '/login'
     | '/receipts'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agent'
     | '/bills'
+    | '/fantms'
     | '/groups'
     | '/login'
     | '/receipts'
@@ -188,6 +200,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AgentRoute: typeof AgentRoute
   BillsRoute: typeof BillsRoute
+  FantmsRoute: typeof FantmsRoute
   GroupsRoute: typeof GroupsRouteWithChildren
   LoginRoute: typeof LoginRoute
   ReceiptsRoute: typeof ReceiptsRoute
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/bills'
       fullPath: '/bills'
       preLoaderRoute: typeof BillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fantms': {
+      id: '/fantms'
+      path: '/fantms'
+      fullPath: '/fantms'
+      preLoaderRoute: typeof FantmsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/groups': {
@@ -310,6 +330,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AgentRoute: AgentRoute,
   BillsRoute: BillsRoute,
+  FantmsRoute: FantmsRoute,
   GroupsRoute: GroupsRouteWithChildren,
   LoginRoute: LoginRoute,
   ReceiptsRoute: ReceiptsRoute,

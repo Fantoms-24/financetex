@@ -106,7 +106,8 @@ function Shell() {
     registerSW()
   }, [])
 
-  const isPublicRoute = pathname === '/login' || pathname.startsWith('/split/')
+  const isPublicRoute =
+    pathname === '/login' || pathname.startsWith('/split/') || pathname.startsWith('/fantms')
 
   React.useEffect(() => {
     if (!ready) return
@@ -117,7 +118,7 @@ function Shell() {
     }
   }, [ready, user, pathname, navigate, isPublicRoute])
 
-  const bare = pathname === '/login' || pathname.startsWith('/split/')
+  const bare = pathname === '/login' || pathname.startsWith('/split/') || pathname.startsWith('/fantms')
   const isChat = pathname === '/agent' || pathname.startsWith('/agent/')
   const hideNav = bare || isChat
 

@@ -455,34 +455,6 @@ function Settings() {
             <p className="text-[12px] text-muted leading-relaxed">
               В 21:00 Листок пришлёт: «День подошёл к концу. Листок сохранил 🌿 хороший день экономии!» (или сумму трат дня). А за 1 день до списания ЖКХ, аренды или подписок заранее напомнит о счёте.
             </p>
-            <div className="flex flex-wrap gap-2 pt-0.5">
-              <Button
-                type="button"
-                variant="paper"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  haptic(8)
-                  onTestCheckin()
-                }}
-                className="text-[11.5px] h-8 rounded-[10px] gap-1 px-3 shadow-xs"
-              >
-                <span>🌿 Тест чекина 21:00</span>
-              </Button>
-              <Button
-                type="button"
-                variant="paper"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  haptic(8)
-                  onTestBillReminder()
-                }}
-                className="text-[11.5px] h-8 rounded-[10px] gap-1 px-3 shadow-xs"
-              >
-                <span>🔔 Тест счетов за 1 день</span>
-              </Button>
-            </div>
           </div>
         )}
 
@@ -754,21 +726,8 @@ function Settings() {
         )}
       </section>
 
-      {/* 6. Безопасность, админка и выход */}
+      {/* 6. Выход из аккаунта */}
       <div className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
-        {isAdmin ? (
-          <Link
-            to="/admin"
-            onClick={() => haptic(8)}
-            className="flex min-h-[52px] items-center justify-between px-4 transition-colors hover:bg-black/[0.015] active:bg-black/[0.03]"
-          >
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck size={18} className="text-sage" />
-              <span className="text-[14px] font-medium text-ink">Панель администратора</span>
-            </div>
-            <ChevronRight size={17} className="text-muted" />
-          </Link>
-        ) : null}
 
         <button
           type="button"
