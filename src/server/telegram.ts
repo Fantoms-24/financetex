@@ -1,19 +1,95 @@
 import { newId, q, q1 } from './db'
 import { categoryLabel, money, monthKey, parseMagicExpense } from '~/lib/format'
 
-export function getBotToken(): string {
-  return (process.env.TELEGRAM_BOT_TOKEN || '').trim()
+export async function getBotToken(): Promise<string> {
+  const envToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
+  if (envToken) return envToken
+  const row = await q1<any>(`SELECT value FROM app_config WHERE key = 'telegram_bot_token'`)
+  return (row?.value || '').trim()
 }
 
-export function getBotUsername(): string {
-  return (process.env.TELEGRAM_BOT_NAME || 'listok_finance_bot').replace('@', '').trim()
+let cachedBotInfo: { username: string; firstName: string } | null = null
+
+export async function getBotInfo(): Promise<{ username: string | null; firstName: string | null }> {
+  if (cachedBotInfo) return cachedBotInfo
+
+  const token = await getBotToken()
+  if (token) {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+        signal: AbortSignal.timeout(6000),
+      }).then((r) => r.json())
+      if (res?.ok && res?.result?.username) {
+        cachedBotInfo = {
+          username: res.result.username,
+          firstName: res.result.first_name || '',
+        }
+        await q(
+          `INSERT INTO app_config (key, value, updated_at) VALUES ('telegram_bot_name', $1, now())
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+          [res.result.username],
+        )
+        return cachedBotInfo
+      }
+    } catch (e) {
+      console.error('[telegram] Failed to query getMe:', e)
+    }
+  }
+
+  const envName = (process.env.TELEGRAM_BOT_NAME || '').replace('@', '').trim()
+  if (envName && envName !== 'listok_finance_bot') {
+    return { username: envName, firstName: null }
+  }
+
+  const row = await q1<any>(`SELECT value FROM app_config WHERE key = 'telegram_bot_name'`)
+  const dbName = (row?.value || '').replace('@', '').trim()
+  if (dbName) {
+    return { username: dbName, firstName: null }
+  }
+
+  return { username: null, firstName: null }
+}
+
+export async function saveTelegramConfig(
+  botToken?: string,
+  botName?: string,
+): Promise<{ ok: boolean; username?: string | null; error?: string }> {
+  if (botToken !== undefined) {
+    const cleanToken = botToken.trim()
+    await q(
+      `INSERT INTO app_config (key, value, updated_at) VALUES ('telegram_bot_token', $1, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [cleanToken],
+    )
+    cachedBotInfo = null
+  }
+  if (botName !== undefined) {
+    const cleanName = botName.replace('@', '').trim()
+    await q(
+      `INSERT INTO app_config (key, value, updated_at) VALUES ('telegram_bot_name', $1, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [cleanName],
+    )
+    cachedBotInfo = null
+  }
+
+  const info = await getBotInfo()
+  const token = await getBotToken()
+  if (token) {
+    try {
+      const appUrl = (process.env.BETTER_AUTH_URL || 'https://financetex.relaxdev.ru').replace(/\/+$/, '')
+      await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${appUrl}/api/telegram`)
+    } catch {}
+  }
+
+  return { ok: true, username: info.username }
 }
 
 /**
  * Отправка сообщения в Telegram чат
  */
 export async function sendTelegram(chatId: string | number, text: string): Promise<boolean> {
-  const token = getBotToken()
+  const token = await getBotToken()
   if (!token) {
     console.log(`[telegram:mock] To ${chatId}: ${text}`)
     return false

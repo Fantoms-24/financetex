@@ -1,15 +1,16 @@
 import { createServerFn } from '@tanstack/react-start'
 import { q, q1 } from '../db'
 import { guarded } from '../session'
-import { getBotUsername } from '../telegram'
+import { getBotInfo, saveTelegramConfig } from '../telegram'
 
 export interface TelegramState {
   connected: boolean
   username: string | null
   chatId: string | null
   linkCode?: string | null
-  botUrl?: string
-  botName: string
+  botUrl?: string | null
+  botName: string | null
+  isBotConfigured: boolean
 }
 
 /**
@@ -22,7 +23,9 @@ export const getTelegramStatus = createServerFn({ method: 'GET' }).handler(async
       [user.id],
     )
 
-    const botName = getBotUsername()
+    const info = await getBotInfo()
+    const botName = info.username
+    const isBotConfigured = Boolean(botName)
 
     if (link && link.chat_id) {
       return {
@@ -30,7 +33,8 @@ export const getTelegramStatus = createServerFn({ method: 'GET' }).handler(async
         username: link.username || null,
         chatId: link.chat_id,
         botName,
-        botUrl: `https://t.me/${botName}`,
+        isBotConfigured,
+        botUrl: botName ? `https://t.me/${botName}` : null,
       }
     }
 
@@ -49,10 +53,26 @@ export const getTelegramStatus = createServerFn({ method: 'GET' }).handler(async
       chatId: null,
       linkCode: code,
       botName,
-      botUrl: `https://t.me/${botName}?start=${code}`,
+      isBotConfigured,
+      botUrl: botName ? `https://t.me/${botName}?start=${code}` : null,
     }
   }),
 )
+
+/**
+ * Сохранение токена или имени бота из настроек
+ */
+export const saveBotSettings = createServerFn({ method: 'POST' })
+  .validator((d: { botToken?: string; botName?: string }) => ({
+    botToken: d.botToken !== undefined ? String(d.botToken).trim() : undefined,
+    botName: d.botName !== undefined ? String(d.botName).trim() : undefined,
+  }))
+  .handler(async ({ data }) =>
+    guarded(async () => {
+      const res = await saveTelegramConfig(data.botToken, data.botName)
+      return res
+    }),
+  )
 
 /**
  * Отключение Telegram от аккаунта

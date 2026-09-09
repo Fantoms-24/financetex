@@ -34,7 +34,7 @@ import {
 import { getAdminState } from '~/server/functions/admin'
 import { pushSubscribe, pushTest, triggerEveningCheckin, tickBills, vapidPublic } from '~/server/functions/push'
 import { saveProfile, saveSettings } from '~/server/functions/settings'
-import { getTelegramStatus, unlinkTelegram, type TelegramState } from '~/server/functions/telegram'
+import { getTelegramStatus, saveBotSettings, unlinkTelegram, type TelegramState } from '~/server/functions/telegram'
 
 export const Route = createFileRoute('/settings')({
   component: Settings,
@@ -56,6 +56,9 @@ function Settings() {
   const [tgState, setTgState] = React.useState<TelegramState | null>(null)
   const [copiedTgCode, setCopiedTgCode] = React.useState(false)
   const [tgBusy, setTgBusy] = React.useState(false)
+  const [botConfigInput, setBotConfigInput] = React.useState('')
+  const [botConfigBusy, setBotConfigBusy] = React.useState(false)
+  const [showBotConfig, setShowBotConfig] = React.useState(false)
 
   const loadTelegram = React.useCallback(async () => {
     const res = await getTelegramStatus().catch(() => null)
@@ -65,6 +68,32 @@ function Settings() {
   React.useEffect(() => {
     if (user) loadTelegram()
   }, [user, loadTelegram])
+
+  const handleSaveBotConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const val = botConfigInput.trim()
+    if (!val || botConfigBusy) return
+    setBotConfigBusy(true)
+    haptic(8)
+    try {
+      const isToken = val.includes(':') && val.length > 20
+      const res: any = await saveBotSettings({
+        data: isToken ? { botToken: val } : { botName: val.replace('@', '') },
+      })
+      if (res?.ok) {
+        setBotConfigInput('')
+        setShowBotConfig(false)
+        await loadTelegram()
+        showInAppNotification({
+          title: 'Бот успешно настроен 🌿',
+          body: res.username ? `Бот @${res.username} подключен` : 'Настройки бота сохранены',
+          icon: 'sparkles',
+        })
+      }
+    } finally {
+      setBotConfigBusy(false)
+    }
+  }
 
   const handleUnlinkTg = async () => {
     if (!confirm('Отвязать Telegram-бот от Листка?')) return
@@ -668,16 +697,59 @@ function Settings() {
               </div>
             ) : null}
 
-            <a
-              href={tgState?.botUrl || `https://t.me/${tgState?.botName || 'listok_finance_bot'}?start=${tgState?.linkCode || ''}`}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => haptic(8)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-xs hover:bg-sky-700 transition"
-            >
-              <Send size={15} />
-              <span>Подключить Telegram в 1 клик</span>
-            </a>
+            {tgState?.isBotConfigured ? (
+              <a
+                href={tgState?.botUrl || `https://t.me/${tgState?.botName}?start=${tgState?.linkCode || ''}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => haptic(8)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-xs hover:bg-sky-700 transition"
+              >
+                <Send size={15} />
+                <span>Подключить @{tgState.botName} в 1 клик</span>
+              </a>
+            ) : null}
+
+            {/* Настройка бота: юзернейм или токен от BotFather */}
+            <div className="rounded-xl border border-rule/80 bg-cream/30 p-3 space-y-2 text-[12px]">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-ink">
+                  {tgState?.isBotConfigured ? `Бот: @${tgState.botName}` : '⚙️ Настройка Telegram-бота'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowBotConfig(!showBotConfig)}
+                  className="text-sage font-medium hover:underline text-[11.5px]"
+                >
+                  {showBotConfig ? 'Скрыть' : tgState?.isBotConfigured ? 'Изменить бота' : 'Вставить токен/имя'}
+                </button>
+              </div>
+
+              {!tgState?.isBotConfigured || showBotConfig ? (
+                <form onSubmit={handleSaveBotConfig} className="space-y-2 pt-1">
+                  <p className="text-[11.5px] text-muted leading-relaxed">
+                    Вставьте токен бота от @BotFather (например: <code className="text-ink">7123456...:AAF...</code>) или юзернейм вашего бота (например: <code className="text-ink">@my_finance_bot</code>):
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={botConfigInput}
+                      onChange={(e) => setBotConfigInput(e.target.value)}
+                      placeholder="Токен или @имя_бота"
+                      className="h-9 rounded-xl text-[12.5px] flex-1 font-mono"
+                    />
+                    <Button
+                      type="submit"
+                      variant="sage"
+                      size="sm"
+                      disabled={!botConfigInput.trim() || botConfigBusy}
+                      className="h-9 rounded-xl px-3 font-semibold shrink-0"
+                    >
+                      {botConfigBusy ? 'Сохраняем…' : 'Сохранить'}
+                    </Button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
           </div>
         )}
       </section>
