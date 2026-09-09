@@ -437,7 +437,7 @@ function Menu() {
                       {w.daySpent >= 10000 ? `${Math.round(w.daySpent / 1000)}k` : `${w.daySpent} ₽`}
                     </span>
                   ) : (
-                    <span className="text-[12px]" title="Хорошая экономия (день без трат)">
+                    <span className="text-[12px]" title="Хорошая экономия">
                       🌿
                     </span>
                   )}
@@ -475,7 +475,7 @@ function Menu() {
             ) : (
               <span className="font-medium text-sage flex items-center gap-1">
                 <span>🌿</span>
-                <span>Хорошая экономия (0 ₽)</span>
+                <span>Хорошая экономия</span>
               </span>
             )}
           </div>
