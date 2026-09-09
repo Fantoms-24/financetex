@@ -46,17 +46,11 @@ export const Route = createFileRoute('/api/telegram')({
         const info = await getBotInfo().catch((e) => ({ error: (e as Error)?.message }))
         const deep = await checkTelegramDeepStatus().catch((e) => ({ error: (e as Error)?.message }))
 
-        const webhookUrl = 'https://financetex.relaxdev.ru/api/telegram'
-        const directSetupUrl = token
-          ? `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`
-          : null
-
         return json({
           ok: true,
           service: 'Listok Telegram Bot Webhook',
           hasToken: Boolean(token),
           tokenPrefix: token ? `${token.slice(0, 6)}...${token.slice(-4)}` : null,
-          directSetupUrl,
           info,
           deep,
           setupResult,
