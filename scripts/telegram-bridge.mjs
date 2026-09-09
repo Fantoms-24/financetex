@@ -1,12 +1,14 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8979857832:AAEKQSw8Vs4Hjgzb4bbfI6zRemcYUUyMY7s'
 const BACKEND_URL = process.env.BACKEND_URL || 'https://financetex.relaxdev.ru/api/telegram'
+const TG_API_BASE = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/+$/, '')
 
 console.log('[tg-bridge] Starting Telegram Polling Bridge...')
 console.log('[tg-bridge] Backend URL:', BACKEND_URL)
+console.log('[tg-bridge] Telegram API Base:', TG_API_BASE)
 
 async function main() {
   try {
-    const delRes = await globalThis.fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteWebhook`).then((r) => r.json())
+    const delRes = await globalThis.fetch(`${TG_API_BASE}/bot${BOT_TOKEN}/deleteWebhook`).then((r) => r.json())
     console.log('[tg-bridge] Webhook removed:', delRes)
   } catch (err) {
     console.warn('[tg-bridge] deleteWebhook warning:', err.message)
@@ -23,7 +25,7 @@ async function main() {
 
   while (isRunning) {
     try {
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${offset}&timeout=20`
+      const url = `${TG_API_BASE}/bot${BOT_TOKEN}/getUpdates?offset=${offset}&timeout=20`
       const res = await globalThis.fetch(url, { signal: AbortSignal.timeout(30000) })
       const data = await res.json()
 
@@ -42,7 +44,7 @@ async function main() {
 
             if (reply && (reply.method === 'sendMessage' || reply.text)) {
               console.log(`[tg-bridge] Forwarding reply to chat ${reply.chat_id || update.message?.chat?.id}...`)
-              await globalThis.fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+              await globalThis.fetch(`${TG_API_BASE}/bot${BOT_TOKEN}/sendMessage`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({
