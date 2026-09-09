@@ -137,6 +137,14 @@ function Shell() {
     return <SplashScreen message="Открываем Листок..." />
   }
 
+  if (pathname.startsWith('/fantms')) {
+    return (
+      <div className="min-h-screen w-full bg-[#0c0e0c] text-[#e4e7e4] antialiased">
+        <Outlet />
+      </div>
+    )
+  }
+
   return (
     <div className="sheet safe-top">
       <NotificationBanner />

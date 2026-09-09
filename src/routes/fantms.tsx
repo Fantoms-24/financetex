@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Database,
   ExternalLink,
+  FileText,
   KeyRound,
   Lock,
   LogOut,
@@ -30,9 +31,6 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
-import { Button } from '~/components/ui/button'
-import { Input } from '~/components/ui/input'
 import { money } from '~/lib/format'
 import { cn, haptic } from '~/lib/utils'
 import {
@@ -387,10 +385,10 @@ function FantmsAdminScreen() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#151715] text-[#e3e8e3]">
-        <div className="flex flex-col items-center gap-2">
-          <RefreshCw className="animate-spin text-emerald-500" size={24} />
-          <p className="text-[13px] text-zinc-400">Загрузка панели управления…</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#0c0e0c] text-zinc-300">
+        <div className="flex flex-col items-center gap-2.5">
+          <RefreshCw className="animate-spin text-emerald-400" size={22} />
+          <p className="text-[12px] text-zinc-400 font-mono">Загрузка панели управления…</p>
         </div>
       </div>
     )
@@ -401,62 +399,62 @@ function FantmsAdminScreen() {
   // ==========================================
   if (!isInitialized) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#111311] px-4 py-8 text-[#ecefec]">
-        <div className="w-full max-w-[420px] rounded-[24px] border border-zinc-800 bg-[#191c19] p-6 shadow-2xl space-y-5">
+      <div className="flex min-h-screen items-center justify-center bg-[#0c0e0c] px-4 py-8 text-zinc-200">
+        <div className="w-full max-w-[360px] rounded-2xl border border-zinc-800/80 bg-[#141614] p-5 sm:p-6 shadow-2xl space-y-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
-              <Shield size={22} />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+              <Shield size={17} />
             </div>
             <div>
-              <h1 className="t-display text-[20px] font-bold text-white">Листок Control</h1>
-              <span className="text-[12px] text-emerald-400 font-medium">Первоначальная настройка</span>
+              <h1 className="text-[15px] font-semibold text-white leading-tight">Листок Control</h1>
+              <span className="text-[11px] text-emerald-400">Первичная настройка доступа</span>
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-black/30 p-3 text-[12.5px] text-zinc-400 leading-relaxed">
-            Добро пожаловать в административную панель! Задайте главный мастер-пароль. Он защитит настройки ИИ, базы данных и Telegram-бота от посторонних.
-          </div>
+          <p className="text-[11.5px] text-zinc-400 leading-relaxed">
+            Задайте мастер-пароль. Он защитит ключи ИИ, базу данных и Telegram-бота.
+          </p>
 
-          <form onSubmit={handleSetupPassword} className="space-y-3.5">
+          <form onSubmit={handleSetupPassword} className="space-y-3">
             <div>
-              <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+              <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                 Новый мастер-пароль
               </label>
-              <Input
+              <input
                 type="password"
                 value={setupPass}
                 onChange={(e) => setSetupPass(e.target.value)}
                 placeholder="Минимум 4 символа"
-                className="h-11 rounded-xl bg-black/40 border-zinc-700 text-white font-mono"
+                className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+              <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                 Повторите пароль
               </label>
-              <Input
+              <input
                 type="password"
                 value={setupConfirm}
                 onChange={(e) => setSetupConfirm(e.target.value)}
-                placeholder="Повторите мастер-пароль"
-                className="h-11 rounded-xl bg-black/40 border-zinc-700 text-white font-mono"
+                placeholder="Повторите пароль"
+                className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
               />
             </div>
 
             {authError && (
-              <p className="rounded-lg bg-red-500/15 border border-red-500/30 p-2.5 text-[12px] text-red-400">
+              <p className="rounded-lg bg-red-500/10 border border-red-500/25 p-2 text-[11.5px] text-red-400">
                 {authError}
               </p>
             )}
 
-            <Button
+            <button
               type="submit"
               disabled={authBusy || !setupPass.trim()}
-              className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-950/40"
+              className="w-full h-8.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-[12px] font-medium transition shadow-xs disabled:opacity-50"
             >
-              {authBusy ? 'Сохранение…' : 'Установить пароль и войти 🚀'}
-            </Button>
+              {authBusy ? 'Сохранение…' : 'Установить пароль и войти'}
+            </button>
           </form>
         </div>
       </div>
@@ -468,53 +466,53 @@ function FantmsAdminScreen() {
   // ==========================================
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#111311] px-4 py-8 text-[#ecefec]">
-        <div className="w-full max-w-[400px] rounded-[24px] border border-zinc-800 bg-[#191c19] p-6 shadow-2xl space-y-5">
+      <div className="flex min-h-screen items-center justify-center bg-[#0c0e0c] px-4 py-8 text-zinc-200">
+        <div className="w-full max-w-[360px] rounded-2xl border border-zinc-800/80 bg-[#141614] p-5 sm:p-6 shadow-2xl space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
-                <Lock size={20} />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                <Lock size={16} />
               </div>
               <div>
-                <h1 className="t-display text-[20px] font-bold text-white">Листок Control</h1>
-                <span className="text-[11.5px] text-zinc-400">Вход для администратора</span>
+                <h1 className="text-[15px] font-semibold text-white leading-tight">Листок Control</h1>
+                <span className="text-[11px] text-zinc-400">Вход для администратора</span>
               </div>
             </div>
 
-            <Link to="/" className="text-[12px] text-zinc-400 hover:text-white flex items-center gap-1">
+            <Link to="/" className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 transition">
               <span>В приложение</span>
-              <ExternalLink size={12} />
+              <ExternalLink size={11} />
             </Link>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-3">
             <div>
-              <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+              <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                 Мастер-пароль
               </label>
-              <Input
+              <input
                 type="password"
                 value={loginPass}
                 onChange={(e) => setLoginPass(e.target.value)}
                 placeholder="••••••••"
                 autoFocus
-                className="h-11 rounded-xl bg-black/40 border-zinc-700 text-white font-mono text-[16px]"
+                className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
               />
             </div>
 
             {authError && (
-              <p className="rounded-lg bg-red-500/15 border border-red-500/30 p-2.5 text-[12px] text-red-400">
+              <p className="rounded-lg bg-red-500/10 border border-red-500/25 p-2 text-[11.5px] text-red-400">
                 {authError}
               </p>
             )}
 
-            <Button
+            <button
               type="submit"
               disabled={authBusy || !loginPass.trim()}
-              className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-950/40"
+              className="w-full h-8.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-[12px] font-medium transition shadow-xs disabled:opacity-50"
             >
-              {authBusy ? 'Проверка…' : 'Войти в панель управления'}
-            </Button>
+              {authBusy ? 'Проверка…' : 'Войти в панель'}
+            </button>
           </form>
         </div>
       </div>
@@ -527,84 +525,93 @@ function FantmsAdminScreen() {
   const metrics = overview?.metrics || {}
 
   return (
-    <div className="min-h-screen bg-[#0e100e] pb-32 text-[#e4e7e4]">
+    <div className="min-h-screen bg-[#0c0e0c] pb-24 text-zinc-200">
       {/* 1. Верхний бар панели */}
-      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-[#141614]/90 backdrop-blur-md px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-[960px] items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 font-bold">
+      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-[#111311]/90 backdrop-blur-md px-4 py-2.5 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400 font-bold text-[13px]">
               🌿
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="t-display text-[16px] font-bold text-white leading-none">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[13.5px] font-semibold text-white leading-none">
                   Листок Control
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.2 text-[10px] font-semibold text-emerald-400">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-medium text-emerald-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  RelaxDev Online
+                  Online
                 </span>
               </div>
-              <span className="text-[11px] text-zinc-400">Административная панель /fantms</span>
+              <span className="text-[10.5px] text-zinc-400 font-mono">/fantms</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
               onClick={() => {
                 haptic(6)
                 loadOverviewData()
               }}
               disabled={overviewBusy}
-              className="h-8 rounded-lg border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 text-[12px] gap-1 px-2.5"
+              title="Обновить данные"
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 text-[11.5px] font-medium rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition active:scale-95 disabled:opacity-50"
             >
-              <RefreshCw size={13} className={cn(overviewBusy && 'animate-spin')} />
+              <RefreshCw size={12} className={cn(overviewBusy && 'animate-spin text-emerald-400')} />
               <span className="hidden sm:inline">Обновить</span>
-            </Button>
+            </button>
 
-            <Link to="/">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-lg border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 text-[12px] gap-1 px-2.5"
-              >
-                <ArrowLeft size={13} />
-                <span className="hidden sm:inline">В приложение</span>
-              </Button>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 text-[11.5px] font-medium rounded-lg border border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition active:scale-95"
+            >
+              <ArrowLeft size={12} />
+              <span className="hidden sm:inline">В приложение</span>
             </Link>
 
-            <Button
-              size="sm"
-              variant="outline"
+            <button
+              type="button"
               onClick={handleLogout}
-              className="h-8 rounded-lg border-red-900/40 bg-red-950/20 text-red-400 hover:bg-red-950/40 text-[12px] gap-1 px-2.5"
+              title="Выйти из админки"
+              className="inline-flex items-center gap-1 h-7 px-2 text-[11.5px] font-medium rounded-lg border border-red-900/30 bg-red-950/20 hover:bg-red-950/40 text-red-400 transition active:scale-95"
             >
-              <LogOut size={13} />
+              <LogOut size={12} />
               <span className="hidden sm:inline">Выйти</span>
-            </Button>
+            </button>
           </div>
         </div>
       </header>
 
       {/* Системное уведомление о действии */}
       {actionNotice && (
-        <div className="bg-emerald-900/40 border-b border-emerald-800/60 px-4 py-2 text-center text-[12.5px] text-emerald-300 font-medium">
-          {actionNotice}
+        <div className="mx-auto max-w-5xl px-4 pt-3">
+          <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-300">
+            <span className="flex items-center gap-1.5 font-medium">
+              <CheckCircle2 size={14} className="text-emerald-400" />
+              {actionNotice}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActionNotice(null)}
+              className="text-zinc-400 hover:text-white text-[12px] ml-2"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
       {/* 2. Контейнер панели */}
-      <main className="mx-auto max-w-[960px] p-4 sm:p-6 space-y-6">
-        {/* Переключатель вкладок */}
-        <nav className="flex flex-wrap gap-1.5 rounded-2xl border border-zinc-800 bg-[#161816] p-1.5 shadow-sm">
+      <main className="mx-auto max-w-5xl p-4 sm:p-6 space-y-4 sm:space-y-5">
+        {/* Переключатель вкладок (аккуратный сегментированный бар) */}
+        <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-zinc-800/80 bg-[#141614] p-1 shadow-xs">
           {[
-            { id: 'overview', label: '📊 Обзор и БД', icon: PieChart },
-            { id: 'llm', label: '🧠 ИИ / Сканирование', icon: BrainCircuit },
-            { id: 'telegram', label: '🤖 Telegram-бот', icon: Bot },
-            { id: 'push', label: '🔔 Push и Тики', icon: Zap },
-            { id: 'security', label: '🔐 Мастер-пароль', icon: KeyRound },
+            { id: 'overview', label: 'Обзор и БД', icon: PieChart },
+            { id: 'llm', label: 'ИИ / Сканы', icon: BrainCircuit },
+            { id: 'telegram', label: 'Telegram-бот', icon: Bot },
+            { id: 'push', label: 'Push и Тики', icon: Zap },
+            { id: 'security', label: 'Безопасность', icon: KeyRound },
           ].map((item) => {
             const active = tab === item.id
             return (
@@ -612,17 +619,17 @@ function FantmsAdminScreen() {
                 key={item.id}
                 type="button"
                 onClick={() => {
-                  haptic(6)
+                  haptic(4)
                   setTab(item.id as any)
                 }}
                 className={cn(
-                  'flex items-center gap-2 rounded-xl px-3.5 py-2 text-[13px] font-medium transition active:scale-95',
+                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition whitespace-nowrap shrink-0',
                   active
-                    ? 'bg-emerald-600 text-white shadow-md'
-                    : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-white',
+                    ? 'bg-zinc-800 text-white shadow-xs border border-zinc-700/60 font-semibold'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border border-transparent',
                 )}
               >
-                <item.icon size={15} />
+                <item.icon size={13} className={cn(active ? 'text-emerald-400' : 'text-zinc-400')} />
                 <span>{item.label}</span>
               </button>
             )
@@ -633,128 +640,186 @@ function FantmsAdminScreen() {
         {/* ВКЛАДКА 1: ОБЗОР, СТАТИСТИКА И БАЗА ДАННЫХ */}
         {/* ==================================================== */}
         {tab === 'overview' && (
-          <div className="space-y-6">
-            {/* Карточки метрик */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-              <div className="rounded-[20px] border border-zinc-800 bg-[#161916] p-4 space-y-1">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
-                  Пользователи
-                </span>
-                <span className="t-display text-[26px] font-bold text-white block">
-                  {metrics.users || 0}
-                </span>
-                <span className="text-[11px] text-zinc-500">Зарегистрировано</span>
+          <div className="space-y-4">
+            {/* Карточки метрик: 2 колонки на мобилке, 4 на десктопе */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+              {/* Card 1: Users */}
+              <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-3 sm:p-3.5 flex flex-col justify-between hover:border-zinc-700/60 transition">
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                    Пользователи
+                  </span>
+                  <Users size={14} className="text-zinc-400" />
+                </div>
+                <div className="my-1.5">
+                  <span className="text-[22px] font-bold text-white tracking-tight font-mono tabular-nums">
+                    {metrics.users || 0}
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-400">Зарегистрировано</span>
               </div>
 
-              <div className="rounded-[20px] border border-zinc-800 bg-[#161916] p-4 space-y-1">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
-                  Чеки в архиве
-                </span>
-                <span className="t-display text-[26px] font-bold text-white block">
-                  {metrics.receipts || 0}
-                </span>
-                <span className="text-[11px] text-zinc-500">Всего покупок</span>
+              {/* Card 2: Receipts */}
+              <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-3 sm:p-3.5 flex flex-col justify-between hover:border-zinc-700/60 transition">
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                    Чеки в архиве
+                  </span>
+                  <FileText size={14} className="text-zinc-400" />
+                </div>
+                <div className="my-1.5">
+                  <span className="text-[22px] font-bold text-white tracking-tight font-mono tabular-nums">
+                    {metrics.receipts || 0}
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-400">Всего покупок</span>
               </div>
 
-              <div className="rounded-[20px] border border-zinc-800 bg-[#161916] p-4 space-y-1">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
-                  Сумма расходов
-                </span>
-                <span className="t-display text-[22px] font-bold text-emerald-400 block truncate">
-                  {money(metrics.totalSpent || 0)}
-                </span>
-                <span className="text-[11px] text-zinc-500">По всем чекам</span>
+              {/* Card 3: Expenses sum */}
+              <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-3 sm:p-3.5 flex flex-col justify-between hover:border-zinc-700/60 transition">
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                    Сумма расходов
+                  </span>
+                  <Wallet size={14} className="text-emerald-400/80" />
+                </div>
+                <div className="my-1.5">
+                  <span className="text-[20px] font-bold text-emerald-400 tracking-tight font-mono tabular-nums truncate block">
+                    {money(metrics.totalSpent || 0)}
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-400">По всем аккаунтам</span>
               </div>
 
-              <div className="rounded-[20px] border border-zinc-800 bg-[#161916] p-4 space-y-1">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
-                  Сплиты и Бюджеты
-                </span>
-                <span className="t-display text-[26px] font-bold text-white block">
-                  {(metrics.houses || 0) + (metrics.splits || 0)}
-                </span>
-                <span className="text-[11px] text-zinc-500">
-                  {metrics.houses || 0} групп • {metrics.splits || 0} сплитов
+              {/* Card 4: Splits & houses */}
+              <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-3 sm:p-3.5 flex flex-col justify-between hover:border-zinc-700/60 transition">
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                    Сплиты & Группы
+                  </span>
+                  <PieChart size={14} className="text-zinc-400" />
+                </div>
+                <div className="my-1.5">
+                  <span className="text-[22px] font-bold text-white tracking-tight font-mono tabular-nums">
+                    {(metrics.houses || 0) + (metrics.splits || 0)}
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-400">
+                  {metrics.houses || 0} групп · {metrics.splits || 0} сплитов
                 </span>
               </div>
             </div>
 
-            {/* Быстрые действия с базой и тиками */}
-            <div className="rounded-[22px] border border-zinc-800 bg-[#161916] p-5 space-y-3.5">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <Database size={17} className="text-emerald-400" />
-                  <h3 className="t-display text-[15px] font-bold text-white">
-                    Операции с базой данных и фоновыми службами
-                  </h3>
-                </div>
+            {/* Сервисные операции и регламенты (аккуратный список без наложений) */}
+            <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-3.5 sm:p-4 space-y-3">
+              <div className="flex items-center gap-2 border-b border-zinc-800/80 pb-2.5">
+                <Database size={15} className="text-emerald-400" />
+                <h3 className="text-[13px] font-semibold text-white">
+                  Сервисные операции и регламенты
+                </h3>
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-                <Button
-                  variant="outline"
-                  onClick={handleHealDb}
-                  className="rounded-xl border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 gap-1.5 h-10 text-[12.5px]"
-                >
-                  <Database size={15} className="text-emerald-400" />
-                  <span>Проверить схему БД (Heal)</span>
-                </Button>
+              <div className="divide-y divide-zinc-800/60">
+                {/* 1. Heal DB */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-2">
+                  <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 mt-0.5 sm:mt-0">
+                      <Database size={14} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-medium text-white">Целостность базы данных (Heal)</div>
+                      <div className="text-[11px] text-zinc-400">Проверить таблицы, колонки и применить недостающие структуры</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleHealDb}
+                    className="inline-flex items-center justify-center gap-1.5 h-7 px-3 text-[11.5px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition shrink-0 active:scale-95 self-start sm:self-auto"
+                  >
+                    <Database size={12} className="text-emerald-400" />
+                    <span>Проверить БД</span>
+                  </button>
+                </div>
 
-                <Button
-                  variant="outline"
-                  onClick={handleTriggerTick}
-                  className="rounded-xl border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 gap-1.5 h-10 text-[12.5px]"
-                >
-                  <Calendar size={15} className="text-sky-400" />
-                  <span>Тик напоминаний счетов</span>
-                </Button>
+                {/* 2. Bill reminders */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-2">
+                  <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400 mt-0.5 sm:mt-0">
+                      <Calendar size={14} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-medium text-white">Напоминания по счетам</div>
+                      <div className="text-[11px] text-zinc-400">Найти приближающиеся платежи (за 1 день) и отправить push</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTriggerTick}
+                    className="inline-flex items-center justify-center gap-1.5 h-7 px-3 text-[11.5px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition shrink-0 active:scale-95 self-start sm:self-auto"
+                  >
+                    <Calendar size={12} className="text-sky-400" />
+                    <span>Запустить тик</span>
+                  </button>
+                </div>
 
-                <Button
-                  variant="outline"
-                  onClick={handleTriggerEvening}
-                  className="rounded-xl border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 gap-1.5 h-10 text-[12.5px]"
-                >
-                  <Moon size={15} className="text-amber-400" />
-                  <span>Тик спокойных дней (21:00)</span>
-                </Button>
+                {/* 3. Evening check-in */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-2">
+                  <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 mt-0.5 sm:mt-0">
+                      <Moon size={14} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-medium text-white">Вечерний чекин (21:00)</div>
+                      <div className="text-[11px] text-zinc-400">Подвести итоги лимитов дня и отправить уведомление экономии</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTriggerEvening}
+                    className="inline-flex items-center justify-center gap-1.5 h-7 px-3 text-[11.5px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition shrink-0 active:scale-95 self-start sm:self-auto"
+                  >
+                    <Moon size={12} className="text-amber-400" />
+                    <span>Запустить чекин</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Таблица последних зарегистрированных пользователей */}
-            <div className="rounded-[22px] border border-zinc-800 bg-[#161916] overflow-hidden space-y-3">
-              <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+            <div className="rounded-xl border border-zinc-800/80 bg-[#141614] overflow-hidden">
+              <div className="p-3 sm:p-3.5 border-b border-zinc-800/80 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Users size={16} className="text-emerald-400" />
-                  <h3 className="t-display text-[15px] font-bold text-white">
-                    Последние зарегистрированные пользователи
+                  <Users size={15} className="text-emerald-400" />
+                  <h3 className="text-[13px] font-semibold text-white">
+                    Зарегистрированные пользователи
                   </h3>
                 </div>
-                <span className="text-[12px] text-zinc-500">
-                  Показано {overview?.recentUsers?.length || 0}
+                <span className="text-[11px] text-zinc-400 font-mono">
+                  Всего: {overview?.recentUsers?.length || 0}
                 </span>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-[12.5px]">
-                  <thead className="border-b border-zinc-800 bg-black/20 text-[11px] uppercase tracking-wider text-zinc-400">
+                <table className="w-full text-left text-[12px]">
+                  <thead className="border-b border-zinc-800/80 bg-black/30 text-[10.5px] uppercase tracking-wider text-zinc-400">
                     <tr>
-                      <th className="px-4 py-2.5">Имя</th>
-                      <th className="px-4 py-2.5">Email</th>
-                      <th className="px-4 py-2.5">Чеков</th>
-                      <th className="px-4 py-2.5">Сумма расходов</th>
-                      <th className="px-4 py-2.5">Дата регистрации</th>
+                      <th className="px-3.5 py-2 font-medium">Имя</th>
+                      <th className="px-3.5 py-2 font-medium">Email</th>
+                      <th className="px-3.5 py-2 font-medium">Чеков</th>
+                      <th className="px-3.5 py-2 font-medium">Сумма расходов</th>
+                      <th className="px-3.5 py-2 font-medium">Регистрация</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
+                  <tbody className="divide-y divide-zinc-800/50 text-zinc-300">
                     {(overview?.recentUsers ?? []).map((u: any) => (
                       <tr key={u.id} className="hover:bg-zinc-800/30 transition-colors">
-                        <td className="px-4 py-2.5 font-medium text-white">{u.name || 'Пользователь'}</td>
-                        <td className="px-4 py-2.5 font-mono text-[11.5px] text-zinc-400">{u.email}</td>
-                        <td className="px-4 py-2.5">{u.receiptsCount}</td>
-                        <td className="px-4 py-2.5 font-semibold text-emerald-400">
+                        <td className="px-3.5 py-2 font-medium text-white">{u.name || 'Пользователь'}</td>
+                        <td className="px-3.5 py-2 font-mono text-[11.5px] text-zinc-400">{u.email}</td>
+                        <td className="px-3.5 py-2 font-mono">{u.receiptsCount}</td>
+                        <td className="px-3.5 py-2 font-mono font-medium text-emerald-400">
                           {money(u.spentTotal)}
                         </td>
-                        <td className="px-4 py-2.5 text-zinc-500 text-[11.5px]">
+                        <td className="px-3.5 py-2 text-zinc-400 text-[11px] font-mono whitespace-nowrap">
                           {u.createdAt ? String(u.createdAt).slice(0, 16).replace('T', ' ') : '—'}
                         </td>
                       </tr>
@@ -770,87 +835,86 @@ function FantmsAdminScreen() {
         {/* ВКЛАДКА 2: ИИ И РАСПОЗНАВАНИЕ ЧЕКОВ */}
         {/* ==================================================== */}
         {tab === 'llm' && (
-          <div className="rounded-[22px] border border-zinc-800 bg-[#161916] p-5 space-y-5">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+          <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <BrainCircuit size={18} className="text-emerald-400" />
+                <BrainCircuit size={17} className="text-emerald-400" />
                 <div>
-                  <h3 className="t-display text-[16px] font-bold text-white">
-                    Настройка ИИ для оптического распознавания чеков
+                  <h3 className="text-[14px] font-semibold text-white">
+                    ИИ для оптического распознавания чеков
                   </h3>
-                  <p className="text-[12px] text-zinc-400">
-                    Любой совместимый OpenAI API (OpenAI, Tabitoken, OpenRouter, Proxy)
+                  <p className="text-[11.5px] text-zinc-400">
+                    OpenAI-совместимый API (OpenRouter, Gemini, OpenAI)
                   </p>
                 </div>
               </div>
 
               <span
                 className={cn(
-                  'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
-                  hasLlmKey ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400',
+                  'rounded-full px-2 py-0.5 text-[10.5px] font-medium',
+                  hasLlmKey ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/15 text-red-400 border border-red-500/30',
                 )}
               >
-                {hasLlmKey ? 'API-ключ активен ✓' : 'Ключ не задан'}
+                {hasLlmKey ? 'Ключ задан ✓' : 'Ключ не задан'}
               </span>
             </div>
 
-            <form onSubmit={handleSaveLlm} className="space-y-4">
+            <form onSubmit={handleSaveLlm} className="space-y-3">
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Base URL API
                 </label>
-                <Input
+                <input
                   value={llmBaseUrl}
                   onChange={(e) => setLlmBaseUrl(e.target.value)}
-                  placeholder="https://api.openai.com/v1"
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono text-[13px]"
+                  placeholder="https://openrouter.ai/api/v1"
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Модель нейросети (Vision)
                 </label>
-                <Input
+                <input
                   value={llmModel}
                   onChange={(e) => setLlmModel(e.target.value)}
-                  placeholder="gpt-4o-mini"
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono text-[13px]"
+                  placeholder="google/gemini-2.5-flash"
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   API-ключ
                 </label>
-                <Input
+                <input
                   type="password"
                   value={llmApiKey}
                   onChange={(e) => setLlmApiKey(e.target.value)}
-                  placeholder={hasLlmKey ? '•••••••••••••••• (ключ уже сохранён)' : 'sk-…'}
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono text-[13px]"
+                  placeholder={hasLlmKey ? '•••••••••••••••• (ключ сохранён)' : 'sk-or-v1-…'}
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                <Button
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
                   type="submit"
                   disabled={llmBusy}
-                  className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[13px] px-5"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50"
                 >
-                  {llmBusy ? 'Сохраняем…' : 'Сохранить настройки ИИ'}
-                </Button>
+                  {llmBusy ? 'Сохраняем…' : 'Сохранить настройки'}
+                </button>
 
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={handleTestLlm}
                   disabled={llmBusy || !hasLlmKey}
-                  className="rounded-xl border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 gap-1.5 text-[13px]"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50"
                 >
-                  <Zap size={14} className="text-amber-400" />
-                  <span>Проверить связь с ИИ (Ping)</span>
-                </Button>
+                  <Zap size={12} className="text-amber-400" />
+                  <span>Проверить Ping</span>
+                </button>
               </div>
             </form>
 
@@ -858,19 +922,19 @@ function FantmsAdminScreen() {
             {llmTestResult && (
               <div
                 className={cn(
-                  'rounded-xl border p-3.5 text-[12.5px] space-y-1',
+                  'rounded-lg border p-3 text-[12px] space-y-1',
                   llmTestResult.ok
                     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
                     : 'border-red-500/40 bg-red-500/10 text-red-300',
                 )}
               >
                 <div className="flex items-center gap-1.5 font-semibold">
-                  {llmTestResult.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                  <span>{llmTestResult.ok ? 'Связь с ИИ работает отлично!' : 'Ошибка подключения'}</span>
-                  {llmTestResult.pingMs ? <span>({llmTestResult.pingMs} мс)</span> : null}
+                  {llmTestResult.ok ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                  <span>{llmTestResult.ok ? 'Связь с ИИ работает штатно' : 'Ошибка подключения'}</span>
+                  {llmTestResult.pingMs ? <span className="font-mono font-normal">({llmTestResult.pingMs} мс)</span> : null}
                 </div>
-                {llmTestResult.reply && <p>Ответ модели: «{llmTestResult.reply}»</p>}
-                {llmTestResult.error && <p>{llmTestResult.error}</p>}
+                {llmTestResult.reply && <p className="text-zinc-300">Ответ модели: «{llmTestResult.reply}»</p>}
+                {llmTestResult.error && <p className="text-red-400">{llmTestResult.error}</p>}
               </div>
             )}
           </div>
@@ -880,117 +944,115 @@ function FantmsAdminScreen() {
         {/* ВКЛАДКА 3: TELEGRAM-БОТ И ВЕБХУК */}
         {/* ==================================================== */}
         {tab === 'telegram' && (
-          <div className="rounded-[22px] border border-zinc-800 bg-[#161916] p-5 space-y-5">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+          <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <Bot size={18} className="text-sky-400" />
+                <Bot size={17} className="text-sky-400" />
                 <div>
-                  <h3 className="t-display text-[16px] font-bold text-white">
-                    Глобальные настройки Telegram-бота
+                  <h3 className="text-[14px] font-semibold text-white">
+                    Настройки Telegram-бота
                   </h3>
-                  <p className="text-[12px] text-zinc-400">
-                    Управление ботом для фиксации расходов на ходу через Telegram
+                  <p className="text-[11.5px] text-zinc-400">
+                    Бот для мгновенного добавления расходов из Telegram
                   </p>
                 </div>
               </div>
 
               <span
                 className={cn(
-                  'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
-                  tgName ? 'bg-sky-500/20 text-sky-400' : 'bg-zinc-800 text-zinc-400',
+                  'rounded-full px-2 py-0.5 text-[10.5px] font-medium',
+                  tgName ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30' : 'bg-zinc-800 text-zinc-400',
                 )}
               >
                 {tgName ? `@${tgName}` : 'Бот не настроен'}
               </span>
             </div>
 
-            <form onSubmit={handleSaveTelegram} className="space-y-4">
+            <form onSubmit={handleSaveTelegram} className="space-y-3">
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Токен бота от @BotFather
                 </label>
-                <Input
+                <input
                   type="password"
                   value={tgToken}
                   onChange={(e) => setTgToken(e.target.value)}
                   placeholder="897...:AAF..."
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono text-[13px]"
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Юзернейм бота (без @)
                 </label>
-                <Input
+                <input
                   value={tgName}
                   onChange={(e) => setTgName(e.target.value)}
                   placeholder="my_finance_bot"
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono text-[13px]"
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-sky-500/60 focus:outline-none"
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                <Button
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
                   type="submit"
                   disabled={tgBusy}
-                  className="rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-[13px] px-5"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition active:scale-95 disabled:opacity-50"
                 >
-                  {tgBusy ? 'Сохраняем…' : 'Сохранить настройки бота'}
-                </Button>
+                  {tgBusy ? 'Сохраняем…' : 'Сохранить настройки'}
+                </button>
 
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={handleDiagnoseTelegram}
                   disabled={tgBusy}
-                  className="rounded-xl border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 gap-1.5 text-[13px]"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50"
                 >
-                  <Activity size={14} className="text-sky-400" />
-                  <span>Проверить статус бота</span>
-                </Button>
+                  <Activity size={12} className="text-sky-400" />
+                  <span>Проверить статус</span>
+                </button>
 
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={handleSetWebhook}
                   disabled={tgBusy}
-                  className="rounded-xl border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 gap-1.5 text-[13px]"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-emerald-600/40 bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 transition active:scale-95 disabled:opacity-50"
                 >
-                  <Send size={14} className="text-emerald-400" />
-                  <span>Установить Webhook на этот сервер</span>
-                </Button>
+                  <Send size={12} className="text-emerald-400" />
+                  <span>Установить Webhook в 1 клик</span>
+                </button>
               </div>
             </form>
 
             {tgWebhookResult && (
-              <p className="rounded-xl bg-sky-950/40 border border-sky-800/50 p-3 text-[12.5px] text-sky-300">
+              <p className="rounded-lg bg-sky-950/30 border border-sky-800/40 p-2.5 text-[12px] text-sky-300 font-mono">
                 {tgWebhookResult}
               </p>
             )}
 
             {/* Диагностика Telegram */}
             {tgDiag && (
-              <div className="rounded-xl border border-zinc-800 bg-black/40 p-4 space-y-3 text-[12.5px]">
+              <div className="rounded-lg border border-zinc-800/80 bg-black/30 p-3.5 space-y-2.5 text-[12px]">
                 <h4 className="font-semibold text-white flex items-center gap-1.5">
-                  <CheckCircle2 size={16} className="text-emerald-400" />
+                  <CheckCircle2 size={14} className="text-emerald-400" />
                   <span>Ответ Telegram API:</span>
                 </h4>
                 {tgDiag.botInfo ? (
-                  <div className="grid grid-cols-2 gap-2 text-zinc-300 font-mono text-[12px]">
+                  <div className="grid grid-cols-2 gap-2 text-zinc-300 font-mono text-[11.5px]">
                     <div>Имя: <span className="text-white">{tgDiag.botInfo.first_name}</span></div>
                     <div>Username: <span className="text-sky-400">@{tgDiag.botInfo.username}</span></div>
                     <div>ID: <span className="text-zinc-400">{tgDiag.botInfo.id}</span></div>
-                    <div>Бот активен: <span className="text-emerald-400">Да ✓</span></div>
+                    <div>Статус: <span className="text-emerald-400">Активен ✓</span></div>
                   </div>
                 ) : null}
 
                 {tgDiag.webhookInfo ? (
-                  <div className="border-t border-zinc-800/80 pt-2 text-zinc-300 font-mono text-[11.5px] space-y-1">
-                    <div>Webhook URL: <span className="text-zinc-400">{tgDiag.webhookInfo.url || 'Не установлен'}</span></div>
-                    <div>Ожидает сообщений: <span className="text-zinc-400">{tgDiag.webhookInfo.pending_update_count || 0}</span></div>
+                  <div className="border-t border-zinc-800/60 pt-2 text-zinc-300 font-mono text-[11px] space-y-1">
+                    <div>Webhook: <span className="text-zinc-400">{tgDiag.webhookInfo.url || 'Не установлен'}</span></div>
+                    <div>Очередь сообщений: <span className="text-zinc-400">{tgDiag.webhookInfo.pending_update_count || 0}</span></div>
                     {tgDiag.webhookInfo.last_error_message ? (
-                      <div className="text-red-400">Последняя ошибка: {tgDiag.webhookInfo.last_error_message}</div>
+                      <div className="text-red-400">Ошибка доставки: {tgDiag.webhookInfo.last_error_message}</div>
                     ) : null}
                   </div>
                 ) : null}
@@ -1003,44 +1065,44 @@ function FantmsAdminScreen() {
         {/* ВКЛАДКА 4: PUSH-УВЕДОМЛЕНИЯ И VAPID */}
         {/* ==================================================== */}
         {tab === 'push' && (
-          <div className="rounded-[22px] border border-zinc-800 bg-[#161916] p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+          <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-4 sm:p-5 space-y-3.5">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <Zap size={18} className="text-amber-400" />
+                <Zap size={17} className="text-amber-400" />
                 <div>
-                  <h3 className="t-display text-[16px] font-bold text-white">
-                    Web Push & VAPID инфраструктура
+                  <h3 className="text-[14px] font-semibold text-white">
+                    Web Push и VAPID инфраструктура
                   </h3>
-                  <p className="text-[12px] text-zinc-400">
+                  <p className="text-[11.5px] text-zinc-400">
                     Доставка уведомлений на телефоны (iOS PWA / Android)
                   </p>
                 </div>
               </div>
 
-              <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-amber-400">
+              <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10.5px] font-medium text-amber-400">
                 {metrics.pushSubscribers || 0} устройств
               </span>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Публичный VAPID-ключ (Application Server Key)
                 </label>
-                <div className="rounded-xl border border-zinc-800 bg-black/40 p-2.5 font-mono text-[11.5px] text-zinc-300 break-all select-all">
-                  {overview?.services?.vapidPublicKey || 'Ключ генерируется сервером автоматически'}
+                <div className="rounded-lg border border-zinc-800 bg-black/40 p-2.5 font-mono text-[11px] text-zinc-300 break-all select-all">
+                  {overview?.services?.vapidPublicKey || 'Ключ сгенерирован сервером автоматически'}
                 </div>
               </div>
 
-              <div className="pt-2">
-                <Button
-                  variant="outline"
+              <div className="pt-1">
+                <button
+                  type="button"
                   onClick={handleTriggerTick}
-                  className="rounded-xl border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 gap-1.5 text-[13px]"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 text-[12px] font-medium rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95"
                 >
-                  <Calendar size={14} className="text-sky-400" />
-                  <span>Проверить и отправить напоминания по счетам прямо сейчас</span>
-                </Button>
+                  <Calendar size={12} className="text-sky-400" />
+                  <span>Отправить напоминания по счетам прямо сейчас</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1050,61 +1112,61 @@ function FantmsAdminScreen() {
         {/* ВКЛАДКА 5: СМЕНА МАСТЕР-ПАРОЛЯ */}
         {/* ==================================================== */}
         {tab === 'security' && (
-          <div className="rounded-[22px] border border-zinc-800 bg-[#161916] p-5 space-y-4">
-            <div className="border-b border-zinc-800 pb-3">
-              <h3 className="t-display text-[16px] font-bold text-white flex items-center gap-2">
-                <KeyRound size={18} className="text-emerald-400" />
+          <div className="rounded-xl border border-zinc-800/80 bg-[#141614] p-4 sm:p-5 space-y-3.5">
+            <div className="border-b border-zinc-800/80 pb-3">
+              <h3 className="text-[14px] font-semibold text-white flex items-center gap-2">
+                <KeyRound size={16} className="text-emerald-400" />
                 <span>Смена мастер-пароля администратора</span>
               </h3>
-              <p className="text-[12px] text-zinc-400">
+              <p className="text-[11.5px] text-zinc-400">
                 Задайте новый мастер-пароль для входа в `/fantms`
               </p>
             </div>
 
-            <form onSubmit={handleChangePass} className="space-y-3.5 max-w-[360px]">
+            <form onSubmit={handleChangePass} className="space-y-3 max-w-[340px]">
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Текущий пароль
                 </label>
-                <Input
+                <input
                   type="password"
                   value={oldPass}
                   onChange={(e) => setOldPass(e.target.value)}
                   placeholder="Текущий пароль"
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono"
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Новый пароль
                 </label>
-                <Input
+                <input
                   type="password"
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
                   placeholder="Минимум 4 символа"
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono"
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
                   Повторите новый пароль
                 </label>
-                <Input
+                <input
                   type="password"
                   value={confirmNewPass}
                   onChange={(e) => setConfirmNewPass(e.target.value)}
                   placeholder="Повторите пароль"
-                  className="h-10 rounded-xl bg-black/40 border-zinc-700 text-white font-mono"
+                  className="h-8.5 w-full rounded-lg bg-black/40 border border-zinc-800 text-white font-mono text-[12px] px-3 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
                 />
               </div>
 
               {passChangeMsg && (
                 <p
                   className={cn(
-                    'rounded-xl border p-2.5 text-[12px]',
+                    'rounded-lg border p-2 text-[11.5px]',
                     passChangeMsg.includes('✓')
                       ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
                       : 'border-red-500/40 bg-red-500/10 text-red-300',
@@ -1114,13 +1176,13 @@ function FantmsAdminScreen() {
                 </p>
               )}
 
-              <Button
+              <button
                 type="submit"
                 disabled={passChangeBusy || !oldPass.trim() || !newPass.trim()}
-                className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[13px] px-5"
+                className="h-7.5 px-4 text-[12px] font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50"
               >
-                {passChangeBusy ? 'Сохраняем…' : 'Обновить мастер-пароль'}
-              </Button>
+                {passChangeBusy ? 'Сохраняем…' : 'Обновить пароль'}
+              </button>
             </form>
           </div>
         )}
@@ -1128,3 +1190,4 @@ function FantmsAdminScreen() {
     </div>
   )
 }
+
