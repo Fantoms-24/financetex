@@ -56,6 +56,10 @@ export interface HouseItem {
   code: string
   owner_id: string
   members: number
+  monthly_budget?: number
+  total_spent?: number
+  receipts_count?: number
+  bills_count?: number
 }
 
 export interface Bootstrap {
@@ -127,7 +131,7 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
          LEFT JOIN houses h ON h.id = r.house_id
         WHERE r.user_id = $1
         ORDER BY r.purchased_at DESC NULLS LAST, r.created_at DESC
-        LIMIT 60`,
+        LIMIT 120`,
       [user.id]
     ),
     q<{ category: string; total: string | number }>(
@@ -149,10 +153,14 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
     ),
     q<any>(
       `SELECT h.id, h.name, h.code, h.owner_id,
-              (SELECT count(*)::int FROM house_members m WHERE m.house_id = h.id) AS members
+              coalesce(h.monthly_budget, 0)::int AS monthly_budget,
+              (SELECT count(*)::int FROM house_members m WHERE m.house_id = h.id) AS members,
+              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id) AS total_spent,
+              (SELECT count(*)::int FROM receipts r WHERE r.house_id = h.id) AS receipts_count,
+              (SELECT count(*)::int FROM house_bills b WHERE b.house_id = h.id) AS bills_count
          FROM houses h
          JOIN house_members me ON me.house_id = h.id AND me.user_id = $1
-        ORDER BY h.created_at`,
+        ORDER BY h.created_at DESC`,
       [user.id]
     ),
   ])

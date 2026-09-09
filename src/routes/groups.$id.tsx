@@ -142,12 +142,14 @@ function getBillIcon(title: string) {
   return <Receipt size={16} />
 }
 
+const houseSnapCache = new Map<string, Snap>()
+
 function HousePage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
   const { user } = useApp()
 
-  const [snap, setSnap] = React.useState<Snap | null>(null)
+  const [snap, setSnap] = React.useState<Snap | null>(() => houseSnapCache.get(id) || null)
   const [error, setError] = React.useState<string | null>(null)
   const [tab, setTab] = React.useState<'bills' | 'receipts' | 'goals' | 'analytics'>('bills')
   const [showSettings, setShowSettings] = React.useState(false)
@@ -164,14 +166,20 @@ function HousePage() {
       return
     }
     versionRef.current = r.version ?? ''
+    houseSnapCache.set(id, r)
     setSnap(r)
   }, [id])
 
   React.useEffect(() => {
-    setSnap(null)
+    const cached = houseSnapCache.get(id)
+    if (cached) {
+      setSnap(cached)
+    } else {
+      setSnap(null)
+    }
     setError(null)
     load()
-  }, [load])
+  }, [id, load])
 
   // Live polling
   React.useEffect(() => {
@@ -183,6 +191,7 @@ function HousePage() {
         if (!alive || !r || r.error) return
         if (r.version && r.version !== versionRef.current) {
           versionRef.current = r.version
+          houseSnapCache.set(id, r)
           setSnap(r)
         }
       } catch {

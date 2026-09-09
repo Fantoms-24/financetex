@@ -121,6 +121,9 @@ function FormattedMessageText({ text }: { text: string }) {
   )
 }
 
+let cachedPersonalMessages: Array<DisplayMsg> = []
+const cachedHouseMessages = new Map<string, Array<DisplayMsg>>()
+
 function Agent() {
   const search = Route.useSearch()
   const navigate = useNavigate()
@@ -128,7 +131,10 @@ function Agent() {
   const [selectedHouseId, setSelectedHouseId] = React.useState<string | null>(
     search.houseId || null,
   )
-  const [messages, setMessages] = React.useState<Array<DisplayMsg>>([])
+  const [messages, setMessages] = React.useState<Array<DisplayMsg>>(() => {
+    const hid = search.houseId || null
+    return hid ? cachedHouseMessages.get(hid) || [] : cachedPersonalMessages
+  })
   const [text, setText] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [copiedId, setCopiedId] = React.useState<string | null>(null)
@@ -176,14 +182,14 @@ function Agent() {
       try {
         const r: any = await agentHistory().catch(() => null)
         const raw = r?.messages ?? []
-        setMessages(
-          raw.map((m: any) => ({
-            id: m.id,
-            role: m.role,
-            text: m.text,
-            created_at: m.created_at,
-          })),
-        )
+        const formatted: Array<DisplayMsg> = raw.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          text: m.text,
+          created_at: m.created_at,
+        }))
+        cachedPersonalMessages = formatted
+        setMessages(formatted)
       } catch {}
     } else {
       // Режим совместного бюджета
@@ -192,32 +198,37 @@ function Agent() {
         if (r && !r.error) {
           setHouseSnap(r)
           const raw = r.messages ?? []
-          setMessages(
-            raw.map((m: any) => {
-              const isAgent = m.is_agent || m.user_id === 'agent'
-              const isMe = m.user_id === user.id
-              return {
-                id: m.id,
-                role: isAgent ? 'assistant' : 'user',
-                text: m.text,
-                created_at: m.created_at,
-                authorName: isAgent
-                  ? 'Листок · Советник'
-                  : isMe
-                  ? undefined
-                  : m.name || 'Участник',
-              }
-            }),
-          )
+          const formatted: Array<DisplayMsg> = raw.map((m: any) => {
+            const isAgent = m.is_agent || m.user_id === 'agent'
+            const isMe = m.user_id === user.id
+            return {
+              id: m.id,
+              role: isAgent ? 'assistant' : 'user',
+              text: m.text,
+              created_at: m.created_at,
+              authorName: isAgent
+                ? 'Листок · Советник'
+                : isMe
+                ? undefined
+                : m.name || 'Участник',
+            }
+          })
+          cachedHouseMessages.set(selectedHouseId, formatted)
+          setMessages(formatted)
         }
       } catch {}
     }
   }, [user, selectedHouseId])
 
   React.useEffect(() => {
-    setMessages([])
+    const cached = selectedHouseId
+      ? cachedHouseMessages.get(selectedHouseId) || []
+      : cachedPersonalMessages
+    if (cached.length > 0) {
+      setMessages(cached)
+    }
     loadMessages()
-  }, [loadMessages])
+  }, [loadMessages, selectedHouseId])
 
   // Авто-обновление чата общего бюджета
   React.useEffect(() => {

@@ -124,19 +124,23 @@ function Shell() {
     return <SplashScreen />
   }
 
+  // Неавторизованным пользователям не рендерим <Outlet /> (главную), чтобы исключить мерцание
+  if (!user && pathname !== '/login') {
+    return <SplashScreen message="Вход в Листок..." />
+  }
+
+  // Авторизованным пользователям на /login не показываем форму перед редиректом
+  if (user && pathname === '/login') {
+    return <SplashScreen message="Открываем Листок..." />
+  }
+
   return (
     <div className="sheet safe-top">
       <NotificationBanner />
       <main className={hideNav ? 'flex-1 flex flex-col min-h-0 overflow-hidden' : 'safe-bottom flex-1 flex flex-col min-h-0'}>
-        <motion.div
-          key={pathname}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          className="flex-1 flex flex-col min-h-0"
-        >
+        <div className="flex-1 flex flex-col min-h-0">
           <Outlet />
-        </motion.div>
+        </div>
       </main>
       {!hideNav && user ? <Nav /> : null}
     </div>

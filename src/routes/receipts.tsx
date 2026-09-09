@@ -75,11 +75,19 @@ function Receipts() {
   const [loadingDetail, setLoadingDetail] = React.useState(false)
 
   React.useEffect(() => {
+    if (boot.receipts && boot.receipts.length > 0) {
+      setItems(boot.receipts)
+    }
+  }, [boot.receipts])
+
+  React.useEffect(() => {
     if (!user) return
-    listReceipts({ data: { limit: 120 } })
-      .then((r) => setItems((r as any)?.receipts ?? []))
-      .catch(() => {})
-  }, [user])
+    if (!boot.receipts || boot.receipts.length === 0) {
+      listReceipts({ data: { limit: 120 } })
+        .then((r) => setItems((r as any)?.receipts ?? []))
+        .catch(() => {})
+    }
+  }, [user, boot.receipts])
 
   async function updateReceiptHouse(receiptId: string, nextHouseId: string | null) {
     haptic(6)

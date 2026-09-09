@@ -75,14 +75,24 @@ function Groups() {
   const [error, setError] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState<string | null>(null)
 
+  React.useEffect(() => {
+    if (boot.houses && boot.houses.length > 0) {
+      setHouses((boot.houses as Array<HouseRow>) ?? [])
+    }
+  }, [boot.houses])
+
   const reload = React.useCallback(async () => {
     const r = await listHouses().catch(() => null)
-    setHouses((r as any)?.houses ?? [])
+    if (r && (r as any).houses) {
+      setHouses((r as any).houses)
+    }
   }, [])
 
   React.useEffect(() => {
-    if (user) reload()
-  }, [user, reload])
+    if (user && (!boot.houses || boot.houses.length === 0)) {
+      reload()
+    }
+  }, [user, boot.houses, reload])
 
   // /groups — родитель для /groups/$id.
   const childActive = useRouterState({

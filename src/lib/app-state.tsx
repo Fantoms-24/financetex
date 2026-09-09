@@ -13,6 +13,46 @@ const EMPTY_BOOT: Bootstrap = {
   houses: [],
 }
 
+const CACHE_BOOT_KEY = 'listok_cache_boot_v2'
+const CACHE_USER_KEY = 'listok_cache_user_v2'
+
+function readCachedBoot(): Bootstrap | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(CACHE_BOOT_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function readCachedUser(): SessionUser | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(CACHE_USER_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function writeCache(user: SessionUser | null, boot: Bootstrap | null) {
+  if (typeof window === 'undefined') return
+  try {
+    if (user && boot) {
+      localStorage.setItem(CACHE_USER_KEY, JSON.stringify(user))
+      localStorage.setItem(CACHE_BOOT_KEY, JSON.stringify(boot))
+    } else {
+      localStorage.removeItem(CACHE_USER_KEY)
+      localStorage.removeItem(CACHE_BOOT_KEY)
+    }
+  } catch {
+    /* quota or private browsing */
+  }
+}
+
 export interface AppStateValue {
   ready: boolean
   user: SessionUser | null
@@ -32,6 +72,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [boot, setBoot] = React.useState<Bootstrap>(EMPTY_BOOT)
   const started = React.useRef(false)
 
+  // 1. Мгновенное восстановление из кэша (0 мс) для уже авторизованных
+  React.useEffect(() => {
+    const cachedUser = readCachedUser()
+    const cachedBoot = readCachedBoot()
+    if (cachedUser && cachedBoot) {
+      setUser(cachedUser)
+      setBoot(cachedBoot)
+      setReady(true)
+    }
+  }, [])
+
   const load = React.useCallback(async (): Promise<SessionUser | null> => {
     let me: SessionUser | null = null
     try {
@@ -44,13 +95,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setUser(me)
     if (!me) {
       setBoot(EMPTY_BOOT)
+      writeCache(null, null)
       return null
     }
 
-    // Boot данных ≤ 2.5 с. Не дождались — показываем меню с пустым bootstrap.
+    // Boot данных ≤ 2.5 с. Не дождались — остаёмся на кэшированном/пустом bootstrap
     const timeout = new Promise<Bootstrap | null>((resolve) => setTimeout(() => resolve(null), 2500))
-    const data = await Promise.race([bootstrapApp().catch(() => EMPTY_BOOT), timeout])
-    if (data) setBoot(data)
+    const data = await Promise.race([bootstrapApp().catch(() => null), timeout])
+    if (data && data.user) {
+      setBoot(data)
+      writeCache(me, data)
+    }
     return me
   }, [])
 
@@ -67,10 +122,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [load])
 
-  const setSession = React.useCallback((token: string, u: SessionUser | null) => {
-    useLocal.getState().setToken(token, u?.id ?? null)
-    setUser(u)
-  }, [])
+  const setSession = React.useCallback(
+    (token: string, u: SessionUser | null) => {
+      useLocal.getState().setToken(token, u?.id ?? null)
+      setUser(u)
+      if (u) {
+        load().catch(() => {})
+      }
+    },
+    [load],
+  )
 
   const logout = React.useCallback(async () => {
     try {
@@ -81,6 +142,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     useLocal.getState().setToken(null, null)
     setUser(null)
     setBoot(EMPTY_BOOT)
+    writeCache(null, null)
   }, [])
 
   const refresh = React.useCallback(async () => {

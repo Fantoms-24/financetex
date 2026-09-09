@@ -44,22 +44,32 @@ const TEMPLATES = [
 ]
 
 function Bills() {
-  const { user, refresh } = useApp()
-  const [bills, setBills] = React.useState<Array<BillRow>>([])
+  const { user, boot, refresh } = useApp()
+  const [bills, setBills] = React.useState<Array<BillRow>>((boot?.bills as any) ?? [])
   const [openSheet, setOpenSheet] = React.useState(false)
   const [title, setTitle] = React.useState('')
   const [amount, setAmount] = React.useState('')
   const [day, setDay] = React.useState('1')
   const [busy, setBusy] = React.useState(false)
 
+  React.useEffect(() => {
+    if (boot.bills && boot.bills.length > 0) {
+      setBills((boot.bills as any) ?? [])
+    }
+  }, [boot.bills])
+
   const reload = React.useCallback(async () => {
     const r: any = await listBills().catch(() => null)
-    setBills(r?.bills ?? [])
+    if (r?.bills) {
+      setBills(r.bills)
+    }
   }, [])
 
   React.useEffect(() => {
-    if (user) reload()
-  }, [user, reload])
+    if (user && (!boot.bills || boot.bills.length === 0)) {
+      reload()
+    }
+  }, [user, boot.bills, reload])
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
