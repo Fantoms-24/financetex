@@ -8,6 +8,10 @@ export async function getBotToken(): Promise<string> {
   return (row?.value || '').trim()
 }
 
+export function getTelegramApiBase(): string {
+  return (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/+$/, '')
+}
+
 let cachedBotInfo: { username: string; firstName: string } | null = null
 
 export async function getBotInfo(): Promise<{ username: string | null; firstName: string | null }> {
@@ -16,8 +20,9 @@ export async function getBotInfo(): Promise<{ username: string | null; firstName
   const token = await getBotToken()
   if (token) {
     try {
-      const res = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
-        signal: AbortSignal.timeout(6000),
+      const apiBase = getTelegramApiBase()
+      const res = await fetch(`${apiBase}/bot${token}/getMe`, {
+        signal: AbortSignal.timeout(15000),
       }).then((r) => r.json())
       if (res?.ok && res?.result?.username) {
         cachedBotInfo = {
@@ -30,9 +35,11 @@ export async function getBotInfo(): Promise<{ username: string | null; firstName
           [res.result.username],
         )
         return cachedBotInfo
+      } else {
+        console.error('[telegram] getMe returned error:', res)
       }
-    } catch (e) {
-      console.error('[telegram] Failed to query getMe:', e)
+    } catch (e: any) {
+      console.error('[telegram] Failed to query getMe:', e?.message || e, e?.cause)
     }
   }
 
@@ -108,7 +115,8 @@ export async function sendTelegram(chatId: string | number, text: string): Promi
   }
 
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const apiBase = getTelegramApiBase()
+    const res = await fetch(`${apiBase}/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -116,6 +124,7 @@ export async function sendTelegram(chatId: string | number, text: string): Promi
         text,
         parse_mode: 'HTML',
       }),
+      signal: AbortSignal.timeout(15000),
     })
 
     if (!res.ok) {
@@ -123,13 +132,14 @@ export async function sendTelegram(chatId: string | number, text: string): Promi
       console.error(`[telegram] sendMessage HTML failed (${res.status}): ${errText}`)
       // Fallback: Telegram rejects message if HTML entities are invalid
       const plainText = text.replace(/<[^>]+>/g, '')
-      const retryRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      const retryRes = await fetch(`${apiBase}/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
           text: plainText,
         }),
+        signal: AbortSignal.timeout(15000),
       })
       if (!retryRes.ok) {
         const retryErr = await retryRes.text().catch(() => '')

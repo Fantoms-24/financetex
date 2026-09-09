@@ -264,12 +264,13 @@ export async function checkTelegramDeepStatus(): Promise<{
   }
 
   try {
+    const apiBase = (process.env.TELEGRAM_API_URL || 'https://api.telegram.org').replace(/\/+$/, '')
     const [meRes, hookRes] = await Promise.all([
-      fetch(`https://api.telegram.org/bot${token}/getMe`, { signal: AbortSignal.timeout(6000) }).then((r) =>
+      fetch(`${apiBase}/bot${token}/getMe`, { signal: AbortSignal.timeout(15000) }).then((r) =>
         r.json(),
       ),
-      fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`, {
-        signal: AbortSignal.timeout(6000),
+      fetch(`${apiBase}/bot${token}/getWebhookInfo`, {
+        signal: AbortSignal.timeout(15000),
       }).then((r) => r.json()),
     ])
 
@@ -280,7 +281,12 @@ export async function checkTelegramDeepStatus(): Promise<{
       error: meRes?.ok ? undefined : meRes?.description || 'Не удалось получить данные бота',
     }
   } catch (e: any) {
-    return { ok: false, error: e?.message || 'Ошибка связи с Telegram API' }
+    return {
+      ok: false,
+      error: e?.message || 'Ошибка связи с Telegram API',
+      cause: e?.cause ? String(e.cause?.message || e.cause?.code || e.cause) : null,
+      causeCode: e?.cause?.code || null,
+    }
   }
 }
 
