@@ -32,7 +32,18 @@ async function main() {
       if (data.ok && Array.isArray(data.result)) {
         for (const update of data.result) {
           offset = update.update_id + 1
-          console.log(`[tg-bridge] Processing update #${update.update_id} from ${update.message?.chat?.id || 'unknown'}: ${update.message?.text || ''}`)
+          const chatInfo = update.message?.chat?.id || update.callback_query?.message?.chat?.id || update.callback_query?.from?.id || 'unknown'
+          const updateDesc = update.message?.text || (update.message?.photo ? '[Photo]' : '') || (update.message?.voice ? '[Voice]' : '') || (update.callback_query ? `[Callback: ${update.callback_query.data}]` : '')
+          console.log(`[tg-bridge] Processing update #${update.update_id} from ${chatInfo}: ${updateDesc}`)
+
+          // Acknowledge callback immediately to dismiss any loading spinner in client
+          if (update.callback_query?.id) {
+            globalThis.fetch(`${TG_API_BASE}/bot${BOT_TOKEN}/answerCallbackQuery`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ callback_query_id: update.callback_query.id }),
+            }).catch(() => {})
+          }
 
           try {
             const serverRes = await globalThis.fetch(BACKEND_URL, {
@@ -40,20 +51,31 @@ async function main() {
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify(update),
             })
-            const reply = await serverRes.json()
+            const reply = await serverRes.json().catch(() => null)
 
             if (reply && (reply.method === 'sendMessage' || reply.text)) {
-              console.log(`[tg-bridge] Forwarding reply to chat ${reply.chat_id || update.message?.chat?.id}...`)
-              await globalThis.fetch(`${TG_API_BASE}/bot${BOT_TOKEN}/sendMessage`, {
+              const targetChatId = reply.chat_id || update.message?.chat?.id || update.callback_query?.message?.chat?.id || update.callback_query?.from?.id
+              console.log(`[tg-bridge] Forwarding reply to chat ${targetChatId}...`)
+              const payload = {
+                chat_id: targetChatId,
+                text: reply.text,
+                parse_mode: reply.parse_mode || 'HTML',
+              }
+              if (reply.reply_markup) {
+                payload.reply_markup = reply.reply_markup
+              }
+
+              const sendRes = await globalThis.fetch(`${TG_API_BASE}/bot${BOT_TOKEN}/sendMessage`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: reply.chat_id || update.message?.chat?.id,
-                  text: reply.text,
-                  parse_mode: reply.parse_mode || 'HTML',
-                }),
+                body: JSON.stringify(payload),
               })
-              console.log('[tg-bridge] Reply sent successfully ✓')
+              if (sendRes.ok) {
+                console.log('[tg-bridge] Reply sent successfully ✓')
+              } else {
+                const errText = await sendRes.text().catch(() => '')
+                console.error(`[tg-bridge] sendMessage failed (${sendRes.status}):`, errText)
+              }
             }
           } catch (err) {
             console.error('[tg-bridge] Error forwarding update to backend:', err.message)

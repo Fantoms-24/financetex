@@ -19,12 +19,20 @@ bot.use(async (ctx, next) => {
       body: JSON.stringify(ctx.update),
     })
 
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery().catch(() => {})
+    }
+
     const reply = await res.json().catch(() => null)
 
     if (reply && (reply.method === 'sendMessage' || reply.text)) {
-      await ctx.reply(reply.text, {
+      const extra = {
         parse_mode: reply.parse_mode || 'HTML',
-      })
+      }
+      if (reply.reply_markup) {
+        extra.reply_markup = reply.reply_markup
+      }
+      await ctx.reply(reply.text, extra)
     }
   } catch (err) {
     console.error('❌ Ошибка отправки на бэкенд:', err.message)
