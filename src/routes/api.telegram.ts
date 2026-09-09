@@ -1,6 +1,13 @@
+import dns from 'node:dns'
 import { createFileRoute } from '@tanstack/react-router'
 import { processTelegramWebhook, getBotToken, getBotInfo } from '~/server/telegram'
 import { checkTelegramDeepStatus, setTelegramWebhookAuto } from '~/server/fantms'
+
+try {
+  if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first')
+  }
+} catch {}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -35,11 +42,19 @@ export const Route = createFileRoute('/api/telegram')({
         const token = await getBotToken()
         const info = await getBotInfo().catch((e) => ({ error: (e as Error)?.message }))
         const deep = await checkTelegramDeepStatus().catch((e) => ({ error: (e as Error)?.message }))
+
+        const dnsInfo = await new Promise((resolve) => {
+          dns.lookup('api.telegram.org', { all: true }, (err, addresses) => {
+            resolve({ err: err?.message, addresses })
+          })
+        }).catch((e: any) => ({ error: e.message }))
+
         return json({
           ok: true,
           service: 'Listok Telegram Bot Webhook',
           hasToken: Boolean(token),
           tokenPrefix: token ? `${token.slice(0, 6)}...${token.slice(-4)}` : null,
+          dnsInfo,
           info,
           deep,
           setupResult,
