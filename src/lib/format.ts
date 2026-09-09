@@ -281,3 +281,143 @@ export function parseMagicExpense(raw: string): {
   return { amount, title, category }
 }
 
+export interface CompoundSplitResult {
+  mainTotal: number
+  mainCount: number
+  mainPerPerson: number
+
+  subTotal: number
+  subCount: number
+  subPerPerson: number
+
+  bothCount: number
+  bothPerPerson: number
+
+  mainOnlyCount: number
+  mainOnlyPerPerson: number
+
+  grandTotal: number
+  title: string
+}
+
+/**
+ * Умный разбор составного сплита (например: 6000 на 4 и 2000 на 2)
+ */
+export function parseSmartCompoundSplit(text: string): CompoundSplitResult | null {
+  if (!text) return null
+
+  // 1. Нормализация тысяч с поддержкой Unicode (кириллицы)
+  let norm = text.toLowerCase()
+    .replace(/(?<![\p{L}\p{N}])(\d+)\s*(?:тыс(?:яч[а-я]*)?|к|k)(?![\p{L}\p{N}])/gui, (_, n) => String(Number(n) * 1000))
+    .replace(/(?<![\p{L}\p{N}])две\s+тысячи(?![\p{L}\p{N}])/gui, '2000')
+    .replace(/(?<![\p{L}\p{N}])три\s+тысячи(?![\p{L}\p{N}])/gui, '3000')
+    .replace(/(?<![\p{L}\p{N}])четыре\s+тысячи(?![\p{L}\p{N}])/gui, '4000')
+    .replace(/(?<![\p{L}\p{N}])пять\s+тысяч(?![\p{L}\p{N}])/gui, '5000')
+    .replace(/(?<![\p{L}\p{N}])шесть\s+тысяч(?![\p{L}\p{N}])/gui, '6000')
+    .replace(/(?<![\p{L}\p{N}])семь\s+тысяч(?![\p{L}\p{N}])/gui, '7000')
+    .replace(/(?<![\p{L}\p{N}])восемь\s+тысяч(?![\p{L}\p{N}])/gui, '8000')
+    .replace(/(?<![\p{L}\p{N}])девять\s+тысяч(?![\p{L}\p{N}])/gui, '9000')
+    .replace(/(?<![\p{L}\p{N}])десять\s+тысяч(?![\p{L}\p{N}])/gui, '10000')
+
+  const wordToNum: Record<string, number> = {
+    'одного': 1, 'один': 1, 'одну': 1, '1': 1,
+    'двоих': 2, 'два': 2, 'две': 2, 'двух': 2, '2': 2, '2х': 2, '2-х': 2,
+    'троих': 3, 'три': 3, 'трех': 3, 'трёх': 3, '3': 3, '3х': 3, '3-х': 3,
+    'четверых': 4, 'четыре': 4, 'четырех': 4, 'четырёх': 4, '4': 4, '4х': 4, '4-х': 4,
+    'пятерых': 5, 'пять': 5, 'пяти': 5, '5': 5, '5х': 5, '5-х': 5,
+    'шестерых': 6, 'шесть': 6, 'шести': 6, '6': 6, '6х': 6, '6-х': 6,
+    'семерых': 7, 'семь': 7, 'семи': 7, '7': 7,
+    'восьмерых': 8, 'восемь': 8, 'восьми': 8, '8': 8,
+    'девятерых': 9, 'девять': 9, 'девяти': 9, '9': 9,
+    'десятерых': 10, 'десять': 10, 'десяти': 10, '10': 10,
+  }
+
+  for (const [w, val] of Object.entries(wordToNum)) {
+    norm = norm.replace(new RegExp(`(?<![\\p{L}\\p{N}])${w}(?![\\p{L}\\p{N}])`, 'gui'), String(val))
+  }
+
+  const amountRegex = /(?<![\p{L}\p{N}])(\d{2,9})(?![\p{L}\p{N}])/gu
+  const amountPositions: Array<{ amount: number; index: number; length: number }> = []
+  let match: RegExpExecArray | null
+  while ((match = amountRegex.exec(norm)) !== null) {
+    const val = parseInt(match[1], 10)
+    if (val >= 50) {
+      amountPositions.push({ amount: val, index: match.index, length: match[0].length })
+    }
+  }
+
+  if (amountPositions.length < 2) return null
+
+  const pairs: Array<{ amount: number; count: number }> = []
+
+  for (let i = 0; i < amountPositions.length; i++) {
+    const cur = amountPositions[i]
+    const nextStart = i + 1 < amountPositions.length ? amountPositions[i + 1].index : norm.length
+    const windowText = norm.slice(cur.index + cur.length, nextStart)
+
+    const divMatch = windowText.match(/(?:на|\/|подели[а-я]*.*?на|раздели[а-я]*.*?на)\s*(\d{1,2})/iu)
+    if (divMatch) {
+      const count = parseInt(divMatch[1], 10)
+      if (count > 0 && count <= 50) {
+        pairs.push({ amount: cur.amount, count })
+      }
+    }
+  }
+
+  if (pairs.length < 2) return null
+
+  let main = pairs[0]
+  let sub = pairs[1]
+
+  if (pairs[0].count < pairs[1].count) {
+    main = pairs[1]
+    sub = pairs[0]
+  }
+
+  const mainPerPerson = Math.round(main.amount / main.count)
+  const subPerPerson = Math.round(sub.amount / sub.count)
+  const bothPerPerson = mainPerPerson + subPerPerson
+
+  const bothCount = sub.count
+  const mainOnlyCount = Math.max(0, main.count - sub.count)
+
+  // Извлечение названия счёта
+  let clean = text.replace(/^\/(split|calc)\s*/i, '')
+  clean = clean
+    .replace(/(?<![\p{L}\p{N}])\d{2,9}(?![\p{L}\p{N}])/gui, '')
+    .replace(/(?<![\p{L}\p{N}])(?:на|\/|подели[а-я]*|раздели[а-я]*)\s*(?:на\s*)?\d{1,2}(?:\s*(?:чел[а-я]*|люд[а-я]*))?/gui, '')
+    .replace(/(?<![\p{L}\p{N}])(?:двоих|троих|четверых|пятерых|шестерых)(?![\p{L}\p{N}])/gui, '')
+    .replace(/\b(?:тыс(?:яч[а-я]*)?|руб[а-я]*|р|₽)\b/gui, '')
+    .replace(/[,;+\-–—]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const stopWords = ['допустим', 'счёт', 'счет', 'мне', 'необходимо', 'чтоб', 'поделилось', 'а', 'ещё', 'еще', 'есть', 'которые', 'нужно', 'разделить', 'поделить', 'и', 'то', 'есть', 'приплюсовалась', 'к', 'сумме', 'понял', 'калькулятор']
+  const words = clean.split(' ').filter(w => w && !stopWords.includes(w.toLowerCase()))
+  let title = words.join(' ').trim()
+  if (!title || title.length > 30 || words.length > 5 || title.includes('?')) {
+    title = 'Совместный счёт'
+  } else {
+    title = title.charAt(0).toUpperCase() + title.slice(1)
+  }
+
+  return {
+    mainTotal: main.amount,
+    mainCount: main.count,
+    mainPerPerson,
+
+    subTotal: sub.amount,
+    subCount: sub.count,
+    subPerPerson,
+
+    bothCount,
+    bothPerPerson,
+
+    mainOnlyCount,
+    mainOnlyPerPerson: mainPerPerson,
+
+    grandTotal: main.amount + sub.amount,
+    title,
+  }
+}
+

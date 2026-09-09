@@ -1,5 +1,5 @@
 import { newId, q, q1 } from './db'
-import { categoryLabel, money, monthKey, parseMagicExpense } from '~/lib/format'
+import { categoryLabel, money, monthKey, parseMagicExpense, parseSmartCompoundSplit, type CompoundSplitResult } from '~/lib/format'
 import { getLlmConfig } from './config'
 import { createSplitSession } from './split'
 
@@ -272,6 +272,106 @@ function makeReply(chatId: string | number, text: string, replyMarkup?: any) {
   }
   if (replyMarkup) replyObj.reply_markup = replyMarkup
   return replyObj
+}
+
+/**
+ * Обработка сложного составного сплита (например: 6000 на 4 и 2000 на 2)
+ */
+async function handleCompoundSplit(
+  chatId: string,
+  userId: string,
+  fromUser: any,
+  compound: CompoundSplitResult,
+  transcriptionPrefix?: string
+) {
+  const userInfo = await q1<any>(
+    `SELECT coalesce(p.display_name, u.name) AS name, p.phone, p.bank
+       FROM "user" u
+       LEFT JOIN profiles p ON p.user_id = u.id
+      WHERE u.id = $1`,
+    [userId]
+  )
+
+  const organizerName = userInfo?.name || fromUser?.first_name || 'Организатор'
+  const organizerPhone = userInfo?.phone || null
+  const organizerBank = userInfo?.bank || null
+
+  const session = await createSplitSession({
+    userId,
+    title: compound.title || 'Совместный счёт',
+    total: compound.grandTotal,
+    organizerName,
+    organizerPhone,
+    organizerBank,
+    items: [
+      {
+        name: `Основной счёт (${money(compound.mainTotal)} на ${compound.mainCount} чел.)`,
+        price: compound.mainTotal,
+        qty: 1,
+        isShared: true,
+      },
+      {
+        name: `Доп. расходы (${money(compound.subTotal)} на ${compound.subCount} чел.)`,
+        price: compound.subTotal,
+        qty: 1,
+        isShared: false,
+      },
+    ],
+  })
+
+  const appUrl = (process.env.BETTER_AUTH_URL || 'https://financetex.relaxdev.ru').replace(/\/+$/, '')
+  const splitUrl = `${appUrl}/split/${session.code}`
+
+  const sbpBlock = organizerPhone
+    ? `📱 <b>Телефон (СБП):</b> <code>${escapeHtml(organizerPhone)}</code>\n` +
+      `🏦 <b>Банк:</b> <b>${escapeHtml(organizerBank || 'Любой банк')}</b>\n`
+    : `📱 <b>Телефон (СБП):</b> <i>Не указан (настройте: <code>/sbp +7... Банк</code>)</i>\n`
+
+  const voiceIntro = transcriptionPrefix ? `🎙️ <i>«${escapeHtml(transcriptionPrefix)}»</i>\n\n` : ''
+
+  const replyText =
+    voiceIntro +
+    `🍕 <b>Умный расчёт счёта</b>\n\n` +
+    `🎯 <b>Цель:</b> <b>${escapeHtml(compound.title)}</b>\n` +
+    `💰 <b>Общая сумма:</b> <b>${money(compound.grandTotal)}</b>\n` +
+    `👑 <b>Организатор:</b> <b>${escapeHtml(organizerName)}</b>\n` +
+    sbpBlock +
+    `\n📊 <b>Детализация разделения:</b>\n` +
+    `1️⃣ <b>Основной счёт:</b> ${money(compound.mainTotal)} на ${compound.mainCount} чел. → по <b>${money(compound.mainPerPerson)}</b>\n` +
+    `2️⃣ <b>Доп. расходы:</b> ${money(compound.subTotal)} на ${compound.subCount} чел. → по <b>${money(compound.subPerPerson)}</b>\n\n` +
+    `👥 <b>Кто сколько переводит:</b>\n` +
+    `• <b>${compound.bothCount} чел.</b> (участвуют в обоих счетах):\n` +
+    `  ${money(compound.mainPerPerson)} + ${money(compound.subPerPerson)} = <b>${money(compound.bothPerPerson)}</b>\n` +
+    `• <b>${compound.mainOnlyCount} чел.</b> (только основной счёт):\n` +
+    `  <b>${money(compound.mainOnlyPerPerson)}</b>\n\n` +
+    `Отправьте ссылку друзьям в чат — они увидят точный расклад и реквизиты:\n` +
+    `👉 <b>${splitUrl}</b>`
+
+  const shareLines = [
+    `🍕 Расчёт счёта: ${compound.title} (${money(compound.grandTotal)})`,
+    `👑 Организатор: ${organizerName}`,
+  ]
+  if (organizerPhone) {
+    shareLines.push(`📱 СБП: ${organizerPhone} (${organizerBank || 'Банк'})`)
+  }
+  shareLines.push(`\n👥 Кто сколько скидывает:`)
+  shareLines.push(`• ${compound.bothCount} чел. (с допами): ${money(compound.bothPerPerson)} (${money(compound.mainPerPerson)} + ${money(compound.subPerPerson)})`)
+  shareLines.push(`• ${compound.mainOnlyCount} чел. (основной): ${money(compound.mainOnlyPerPerson)}`)
+  shareLines.push(`\n👉 Ссылка для сбора: ${splitUrl}`)
+
+  const shareText = shareLines.join('\n')
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(splitUrl)}&text=${encodeURIComponent(shareText)}`
+
+  const replyMarkup = {
+    inline_keyboard: [
+      [
+        { text: '📤 Переслать друзьям в чат', url: shareUrl },
+        { text: '🌐 Открыть сплит', url: splitUrl }
+      ]
+    ]
+  }
+
+  return { ok: true, status: 'compound_split_created', reply: makeReply(chatId, replyText, replyMarkup) }
 }
 
 /**
@@ -726,6 +826,12 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
       }
     }
 
+    // Проверяем: не надиктовал ли пользователь сложный составной сплит (например: "6000 на 4 и 2000 на 2")
+    const voiceCompound = parseSmartCompoundSplit(transcribedText)
+    if (voiceCompound) {
+      return handleCompoundSplit(chatId, userId, fromUser, voiceCompound, transcribedText)
+    }
+
     // 2. Извлечение трат через языковую модель
     let parsedItems: Array<{ store: string; amount: number; category: string }> = []
     try {
@@ -823,6 +929,37 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
   }
 
   // =========================================================================
+  // 5.9. 🧮 Сложный составной сплит (например: 6000 на 4 и 2000 на 2)
+  // =========================================================================
+  const compoundMatch = parseSmartCompoundSplit(text)
+  if (compoundMatch) {
+    return handleCompoundSplit(chatId, userId, fromUser, compoundMatch)
+  }
+
+  // Команда /calc
+  if (text === '/calc' || text.startsWith('/calc ')) {
+    const calcRest = text.slice(5).trim()
+    if (!calcRest) {
+      const replyText =
+        `🧮 <b>Умный калькулятор сплита</b>\n\n` +
+        `Разделит счёт, когда часть компании брала дополнительные блюда или услуги:\n\n` +
+        `<b>Примеры:</b>\n` +
+        `• <code>6000 на 4 и 2000 на 2</code>\n` +
+        `• <code>/split 6000 на 4 и 2000 на 2 Кафе</code>\n` +
+        `• <code>6000/4 + 2000/2</code>\n` +
+        `• <i>«Подели 6000 на четверых, а 2000 на двоих»</i>\n\n` +
+        `Листок моментально рассчитает суммы (например, 2 500 ₽ и 1 500 ₽) и создаст ссылку для сбора денег!`
+
+      return { ok: true, reply: makeReply(chatId, replyText) }
+    }
+
+    const calcMatch = parseSmartCompoundSplit(calcRest)
+    if (calcMatch) {
+      return handleCompoundSplit(chatId, userId, fromUser, calcMatch)
+    }
+  }
+
+  // =========================================================================
   // 6. 🍕 Команда /split [сумма] [цель]
   // =========================================================================
   if (text.startsWith('/split')) {
@@ -851,6 +988,11 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
         `• Настроить номер телефона и банк: <code>/sbp +79991234567 Т-Банк</code>`
 
       return { ok: true, reply: makeReply(chatId, replyText) }
+    }
+
+    const splitCompound = parseSmartCompoundSplit(rest)
+    if (splitCompound) {
+      return handleCompoundSplit(chatId, userId, fromUser, splitCompound)
     }
 
     const parsed = parseMagicExpense(rest)
@@ -1052,6 +1194,7 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     `• 📸 <b>Фотографией:</b> сфотографируйте чек или скриншот из банка\n` +
     `• 🎙️ <b>Голосом:</b> надиктуйте траты аудиосообщением\n` +
     `• 🍕 <b>Сплит счёта:</b> <code>/split 3000 Ужин</code>\n` +
+    `• 🧮 <b>Сложный сплит:</b> <code>6000 на 4 и 2000 на 2</code> (или <code>/calc</code>)\n` +
     `• 📱 <b>Реквизиты СБП:</b> <code>/sbp +79991234567 Т-Банк</code>\n` +
     `• ☀️ <b>Баланс:</b> <code>/balance</code>`
 
