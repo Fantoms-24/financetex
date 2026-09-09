@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "cap:sync": "cap sync android",
+    "bot": "node bot.js",
     "bot:bridge": "node scripts/telegram-bridge.mjs"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.3.3",
+    "telegraf": "^4.16.3",
     "web-push": "^3.6.7",
     "ws": "^8.21.3",
     "zustand": "^5.0.8"
