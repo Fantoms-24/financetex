@@ -1,7 +1,4 @@
 import { APP_TABLES, AUTH_TABLES, HEAL_STATEMENTS } from './schema'
-import { createRequire } from 'node:module'
-
-const req = createRequire(import.meta.url)
 
 export type Row = Record<string, any>
 
@@ -25,14 +22,8 @@ async function create(): Promise<DB> {
 
   if (url) {
     try {
-      let PoolClass: any
-      try {
-        const pgMod = req('pg')
-        PoolClass = pgMod?.Pool || pgMod?.default?.Pool || pgMod
-      } catch {
-        const mod: any = await import('pg')
-        PoolClass = mod?.Pool || mod?.default?.Pool || mod?.default || mod
-      }
+      const mod: any = await import('pg')
+      let PoolClass = mod?.Pool || mod?.default?.Pool || mod?.default || mod
       if (typeof PoolClass !== 'function' && PoolClass?.Pool) {
         PoolClass = PoolClass.Pool
       }

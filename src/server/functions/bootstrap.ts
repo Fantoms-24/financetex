@@ -62,6 +62,23 @@ export interface HouseItem {
   bills_count?: number
 }
 
+export interface UserGoal {
+  id: string
+  title: string
+  amount: number
+  collected: number
+  icon: string
+  color: string
+  target_date: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+export interface TelegramInfo {
+  connected: boolean
+  username: string | null
+}
+
 export interface Bootstrap {
   user: SessionUser | null
   settings: UserSettings
@@ -69,6 +86,8 @@ export interface Bootstrap {
   receipts: Receipt[]
   bills: Bill[]
   houses: HouseItem[]
+  goals: UserGoal[]
+  telegram: TelegramInfo
 }
 
 const EMPTY_SETTINGS: UserSettings = {
@@ -95,6 +114,8 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
       receipts: [],
       bills: [],
       houses: [],
+      goals: [],
+      telegram: { connected: false, username: null },
     }
   }
 
@@ -117,7 +138,7 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
   }
 
   const startOfMonth = `${monthKey()}-01`
-  const [spent, receipts, byCat, bills, houses] = await Promise.all([
+  const [spent, receipts, byCat, bills, houses, goals, tgRow] = await Promise.all([
     q1<{ total: string | number; cnt: number }>(
       `SELECT coalesce(sum(total), 0)::bigint AS total, count(*)::int AS cnt
          FROM receipts
@@ -163,6 +184,20 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
         ORDER BY h.created_at DESC`,
       [user.id]
     ),
+    q<any>(
+      `SELECT id, title, amount, collected, icon, color,
+              target_date::text AS target_date,
+              completed_at::text AS completed_at,
+              created_at::text AS created_at
+         FROM user_goals
+        WHERE user_id = $1
+        ORDER BY completed_at NULLS FIRST, created_at DESC`,
+      [user.id]
+    ),
+    q1<any>(
+      `SELECT chat_id, username FROM user_telegram WHERE user_id = $1`,
+      [user.id]
+    ),
   ])
 
   const spentNum = Number(spent?.total ?? 0)
@@ -192,5 +227,14 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
       day_of_month: Number(b.day_of_month),
     })),
     houses: houses ?? [],
+    goals: (goals ?? []).map((g: any) => ({
+      ...g,
+      amount: Number(g.amount || 0),
+      collected: Number(g.collected || 0),
+    })),
+    telegram: {
+      connected: Boolean(tgRow && tgRow.chat_id),
+      username: tgRow?.username || null,
+    },
   }
 })

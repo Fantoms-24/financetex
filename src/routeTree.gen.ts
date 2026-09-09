@@ -18,6 +18,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ReceiptsRouteImport } from './routes/receipts'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ApiTelegramRouteImport } from './routes/api.telegram'
 import { Route as GroupsIdRouteImport } from './routes/groups.$id'
 import { Route as ApiPushTickRouteImport } from './routes/api.push.tick'
 
@@ -66,6 +67,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTelegramRoute = ApiTelegramRouteImport.update({
+  id: '/api/telegram',
+  path: '/api/telegram',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GroupsIdRoute = GroupsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/receipts': typeof ReceiptsRoute
   '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
+  '/api/telegram': typeof ApiTelegramRoute
   '/groups/$id': typeof GroupsIdRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/receipts': typeof ReceiptsRoute
   '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
+  '/api/telegram': typeof ApiTelegramRoute
   '/groups/$id': typeof GroupsIdRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/receipts': typeof ReceiptsRoute
   '/scan': typeof ScanRoute
   '/settings': typeof SettingsRoute
+  '/api/telegram': typeof ApiTelegramRoute
   '/groups/$id': typeof GroupsIdRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/receipts'
     | '/scan'
     | '/settings'
+    | '/api/telegram'
     | '/groups/$id'
     | '/api/push/tick'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/receipts'
     | '/scan'
     | '/settings'
+    | '/api/telegram'
     | '/groups/$id'
     | '/api/push/tick'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/receipts'
     | '/scan'
     | '/settings'
+    | '/api/telegram'
     | '/groups/$id'
     | '/api/push/tick'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   ReceiptsRoute: typeof ReceiptsRoute
   ScanRoute: typeof ScanRoute
   SettingsRoute: typeof SettingsRoute
+  ApiTelegramRoute: typeof ApiTelegramRoute
   ApiPushTickRoute: typeof ApiPushTickRoute
 }
 
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/telegram': {
+      id: '/api/telegram'
+      path: '/api/telegram'
+      fullPath: '/api/telegram'
+      preLoaderRoute: typeof ApiTelegramRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/groups/$id': {
       id: '/groups/$id'
       path: '/$id'
@@ -275,6 +295,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReceiptsRoute: ReceiptsRoute,
   ScanRoute: ScanRoute,
   SettingsRoute: SettingsRoute,
+  ApiTelegramRoute: ApiTelegramRoute,
   ApiPushTickRoute: ApiPushTickRoute,
 }
 export const routeTree = rootRouteImport

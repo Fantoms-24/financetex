@@ -3,9 +3,13 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
   Bell,
+  Bot,
   ChevronRight,
+  Copy,
+  ExternalLink,
   LogOut,
   Phone,
+  Send,
   Settings as SettingsIcon,
   ShieldCheck,
   Sparkles,
@@ -30,6 +34,7 @@ import {
 import { getAdminState } from '~/server/functions/admin'
 import { pushSubscribe, pushTest, triggerEveningCheckin, tickBills, vapidPublic } from '~/server/functions/push'
 import { saveProfile, saveSettings } from '~/server/functions/settings'
+import { getTelegramStatus, unlinkTelegram, type TelegramState } from '~/server/functions/telegram'
 
 export const Route = createFileRoute('/settings')({
   component: Settings,
@@ -48,6 +53,36 @@ function Settings() {
   const [testError, setTestError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [isAdmin, setIsAdmin] = React.useState(false)
+  const [tgState, setTgState] = React.useState<TelegramState | null>(null)
+  const [copiedTgCode, setCopiedTgCode] = React.useState(false)
+  const [tgBusy, setTgBusy] = React.useState(false)
+
+  const loadTelegram = React.useCallback(async () => {
+    const res = await getTelegramStatus().catch(() => null)
+    if (res) setTgState(res)
+  }, [])
+
+  React.useEffect(() => {
+    if (user) loadTelegram()
+  }, [user, loadTelegram])
+
+  const handleUnlinkTg = async () => {
+    if (!confirm('Отвязать Telegram-бот от Листка?')) return
+    haptic(8)
+    setTgBusy(true)
+    try {
+      await unlinkTelegram()
+      await loadTelegram()
+      await refresh()
+      showInAppNotification({
+        title: 'Telegram отключен',
+        body: 'Бот успешно отвязан от вашего аккаунта',
+        icon: 'sparkles',
+      })
+    } finally {
+      setTgBusy(false)
+    }
+  }
 
   const initials = (user?.displayName || user?.name || 'U')
     .slice(0, 2)
@@ -520,7 +555,134 @@ function Settings() {
         </div>
       </section>
 
-      {/* 5. Безопасность, админка и выход */}
+      {/* 5. Telegram-бот для быстрой записи трат */}
+      <section className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
+        <div className="flex items-center justify-between border-b border-rule/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/12 text-sky-600">
+              <Bot size={16} />
+            </div>
+            <h2 className="t-display text-[15px] font-semibold text-ink">Telegram-бот</h2>
+          </div>
+          <span
+            className={cn(
+              'rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold',
+              tgState?.connected ? 'bg-sage/12 text-sage' : 'bg-rule text-muted',
+            )}
+          >
+            {tgState?.connected ? 'Подключен ✓' : 'Не привязан'}
+          </span>
+        </div>
+
+        {tgState?.connected ? (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-sage/30 bg-sage/8 p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sage text-onsage text-[13px] font-bold">
+                  TG
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted block">Привязанный аккаунт</span>
+                  <span className="text-[13.5px] font-semibold text-ink">
+                    {tgState.username || 'Telegram пользователь'}
+                  </span>
+                </div>
+              </div>
+
+              <a
+                href={tgState.botUrl || `https://t.me/${tgState.botName}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => haptic(6)}
+                className="flex items-center gap-1 rounded-lg bg-sage/15 px-2.5 py-1 text-[11.5px] font-semibold text-sage hover:underline"
+              >
+                <span>Чат</span>
+                <ExternalLink size={12} />
+              </a>
+            </div>
+
+            <div className="rounded-xl border border-rule/60 bg-paper/60 p-3 space-y-1.5 text-[12px] text-muted">
+              <p className="font-semibold text-ink">Как записывать расходы прямо на ходу:</p>
+              <p>Отправляйте боту в Telegram любые сообщения:</p>
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                <span className="rounded-lg bg-cream/70 p-1.5 font-mono text-[11px] text-ink">
+                  «Такси 450»
+                </span>
+                <span className="rounded-lg bg-cream/70 p-1.5 font-mono text-[11px] text-ink">
+                  «Пятёрочка 1820»
+                </span>
+                <span className="rounded-lg bg-cream/70 p-1.5 font-mono text-[11px] text-ink">
+                  «Обед 620»
+                </span>
+                <span className="rounded-lg bg-cream/70 p-1.5 font-mono text-[11px] text-ink">
+                  «/balance»
+                </span>
+              </div>
+              <p className="pt-1 text-[11px]">
+                Листок моментально вносит чек в журнал и показывает остаток на сегодня.
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={tgBusy}
+              onClick={handleUnlinkTg}
+              className="w-full text-stamp hover:bg-stamp/10 border-stamp/30"
+            >
+              Отключить Telegram
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[12.5px] leading-relaxed text-muted">
+              Записывайте расходы прямо на ходу за 2 секунды. Просто скиньте боту в Telegram сообщение вроде «Такси 450» или «Кофе 250», и трата сразу появится в Листке.
+            </p>
+
+            {tgState?.linkCode ? (
+              <div className="rounded-xl border border-dashed border-rule/90 bg-cream/50 p-3 text-center space-y-2">
+                <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block">
+                  Ваш код привязки бота:
+                </span>
+                <div className="inline-flex items-center gap-2 bg-paper px-3.5 py-1.5 rounded-xl border border-rule/80 shadow-xs">
+                  <span className="font-mono text-[18px] font-bold tracking-widest text-ink select-all">
+                    {tgState.linkCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      navigator.clipboard?.writeText(tgState.linkCode || '')
+                      setCopiedTgCode(true)
+                      setTimeout(() => setCopiedTgCode(false), 2000)
+                    }}
+                    className="text-muted hover:text-ink p-1"
+                    title="Скопировать код"
+                  >
+                    <Copy size={15} />
+                  </button>
+                </div>
+                {copiedTgCode && (
+                  <p className="text-[10.5px] text-sage font-medium">Код скопирован в буфер</p>
+                )}
+              </div>
+            ) : null}
+
+            <a
+              href={tgState?.botUrl || `https://t.me/${tgState?.botName || 'listok_finance_bot'}?start=${tgState?.linkCode || ''}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => haptic(8)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-xs hover:bg-sky-700 transition"
+            >
+              <Send size={15} />
+              <span>Подключить Telegram в 1 клик</span>
+            </a>
+          </div>
+        )}
+      </section>
+
+      {/* 6. Безопасность, админка и выход */}
       <div className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
         {isAdmin ? (
           <Link

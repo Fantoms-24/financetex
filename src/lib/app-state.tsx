@@ -11,6 +11,8 @@ const EMPTY_BOOT: Bootstrap = {
   receipts: [],
   bills: [],
   houses: [],
+  goals: [],
+  telegram: { connected: false, username: null },
 }
 
 const CACHE_BOOT_KEY = 'listok_cache_boot_v2'

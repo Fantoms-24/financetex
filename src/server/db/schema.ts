@@ -203,6 +203,42 @@ export const APP_TABLES = [
      key text PRIMARY KEY,
      value text,
      updated_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE TABLE IF NOT EXISTS user_goals (
+     id text PRIMARY KEY,
+     user_id text NOT NULL,
+     title text NOT NULL,
+     amount integer NOT NULL DEFAULT 0,
+     collected integer NOT NULL DEFAULT 0,
+     icon text NOT NULL DEFAULT 'target',
+     color text NOT NULL DEFAULT '#3d5c4a',
+     target_date date,
+     completed_at timestamptz,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS user_goals_user_idx ON user_goals (user_id, created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS user_goal_deposits (
+     id text PRIMARY KEY,
+     goal_id text NOT NULL,
+     user_id text NOT NULL,
+     amount integer NOT NULL DEFAULT 0,
+     note text,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS user_goal_deposits_goal_idx ON user_goal_deposits (goal_id, created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS user_telegram (
+     user_id text PRIMARY KEY,
+     chat_id text NOT NULL UNIQUE,
+     username text,
+     first_name text,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS user_telegram_chat_idx ON user_telegram (chat_id)`,
+  `CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+     code text PRIMARY KEY,
+     user_id text NOT NULL,
+     expires_at timestamptz NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
    )`
 ]
 
@@ -242,5 +278,38 @@ export const HEAL_STATEMENTS: Array<[string, string]> = [
   ["push_subs", `ALTER TABLE push_subs ADD COLUMN IF NOT EXISTS vapid_pub text`],
   ["push_subs", `ALTER TABLE push_subs ALTER COLUMN id SET DEFAULT gen_random_uuid()::text`],
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS evening_checkin boolean NOT NULL DEFAULT true`],
-  ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_checkin_date text`]
+  ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS last_checkin_date text`],
+  ["user_goals", `CREATE TABLE IF NOT EXISTS user_goals (
+     id text PRIMARY KEY,
+     user_id text NOT NULL,
+     title text NOT NULL,
+     amount integer NOT NULL DEFAULT 0,
+     collected integer NOT NULL DEFAULT 0,
+     icon text NOT NULL DEFAULT 'target',
+     color text NOT NULL DEFAULT '#3d5c4a',
+     target_date date,
+     completed_at timestamptz,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["user_goal_deposits", `CREATE TABLE IF NOT EXISTS user_goal_deposits (
+     id text PRIMARY KEY,
+     goal_id text NOT NULL,
+     user_id text NOT NULL,
+     amount integer NOT NULL DEFAULT 0,
+     note text,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["user_telegram", `CREATE TABLE IF NOT EXISTS user_telegram (
+     user_id text PRIMARY KEY,
+     chat_id text NOT NULL UNIQUE,
+     username text,
+     first_name text,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`],
+  ["telegram_link_tokens", `CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+     code text PRIMARY KEY,
+     user_id text NOT NULL,
+     expires_at timestamptz NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`]
 ]

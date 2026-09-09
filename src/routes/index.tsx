@@ -19,6 +19,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { PushNudge } from '~/components/PushNudge'
 import { PwaInstallPrompt } from '~/components/PwaInstallPrompt'
+import { PersonalGoals } from '~/components/PersonalGoals'
 import { showInAppNotification } from '~/components/NotificationBanner'
 import { useApp } from '~/lib/app-state'
 import {
@@ -602,6 +603,9 @@ function Menu() {
           </Link>
         </motion.div>
       </div>
+
+      {/* Копилки и личные цели */}
+      <PersonalGoals goals={boot.goals || []} onRefresh={refresh} dailyLeft={dailyLeft} />
 
       {/* 5. Лента трат, сгруппированная по дням с микро-итогами */}
       <section className="space-y-3.5">
