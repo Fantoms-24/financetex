@@ -151,7 +151,7 @@ function HousePage() {
 
   const [snap, setSnap] = React.useState<Snap | null>(() => houseSnapCache.get(id) || null)
   const [error, setError] = React.useState<string | null>(null)
-  const [tab, setTab] = React.useState<'bills' | 'receipts' | 'goals' | 'analytics'>('bills')
+  const [tab, setTab] = React.useState<'overview' | 'bills' | 'receipts' | 'goals'>('overview')
   const [showSettings, setShowSettings] = React.useState(false)
   const [copiedCode, setCopiedCode] = React.useState(false)
   const [showMembersDetail, setShowMembersDetail] = React.useState(false)
@@ -293,11 +293,15 @@ function HousePage() {
   const totalSalaries = snap.members.reduce((s, m) => s + Math.max(0, m.salary), 0)
   const activeGoalsCount = snap.wishes.filter((w) => !w.bought_at).length
   const receiptsSum = snap.receipts.reduce((s, r) => s + (Number(r.total) || 0), 0)
+  const monthSpent = Number(snap.analytics.totalSpent || receiptsSum)
+  const monthLeft = snap.house.monthly_budget > 0
+    ? Math.max(0, snap.house.monthly_budget - monthSpent)
+    : 0
 
   return (
-    <div className="pb-36 pt-3 sm:pb-32">
+    <div className="house-detail pb-36 pt-3 sm:pb-32" data-house-tab={tab}>
       {/* 1. Верхняя панель навигации */}
-      <header className="mb-3 px-4">
+      <header className="house-detail-header mb-3 px-4">
         <div className="flex items-center justify-between gap-2">
           <Link
             to="/groups"
@@ -311,12 +315,12 @@ function HousePage() {
 
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => copyCode(snap.house!.code)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-[12px] border border-rule/80 bg-paper px-2.5 font-mono text-[12px] font-bold tracking-widest text-ink shadow-xs transition hover:bg-white active:scale-95"
-              title="Нажмите, чтобы скопировать код"
+              onClick={() => shareCode(snap.house!.code, snap.house!.name)}
+              className="house-invite-button inline-flex h-9 items-center gap-1.5 rounded-[12px] border border-rule/80 bg-paper px-2.5 text-[12px] font-semibold text-ink shadow-xs transition hover:bg-white active:scale-95"
+              title="Пригласить близкого"
             >
-              <Copy size={12} className="shrink-0 text-sage" />
-              <span>{copiedCode ? 'Скопирован!' : snap.house.code}</span>
+              <Users size={14} className="shrink-0 text-sage" />
+              <span>Пригласить</span>
             </button>
 
             <button
@@ -376,7 +380,7 @@ function HousePage() {
 
       {/* Выпадающая панель настроек / управления бюджетом */}
       {showSettings ? (
-        <div className="mb-4 px-4">
+        <div className="house-settings mb-4 px-4">
           <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
             <div className="mb-3 flex items-center justify-between border-b border-rule/60 pb-2.5">
               <div className="flex items-center gap-2">
@@ -497,12 +501,12 @@ function HousePage() {
       ) : null}
 
       {/* 2. Финтех-сводка: Главная Hero-карточка баланса (без антипаттерна «коробка в коробке») */}
-      <section className="mb-3 px-4">
+      <section className="house-overview-block house-balance-block mb-3 px-4">
         <div className="relative overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
           {/* Верхняя строка: Месяц и статус счетов */}
           <div className="flex items-center justify-between text-[12px]">
             <span className="font-semibold uppercase tracking-wider text-muted">
-              Бюджет · {formatCycleMonth(snap.cycle)}
+              {formatCycleMonth(snap.cycle)}
             </span>
             {totalBillsCount > 0 ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-medium text-sage">
@@ -514,9 +518,11 @@ function HousePage() {
 
           {/* Главный баланс трат */}
           <div className="mt-3">
-            <span className="text-[11.5px] font-medium text-muted">Всего потрачено в этом месяце</span>
+            <span className="text-[11.5px] font-medium text-muted">
+              {snap.house.monthly_budget > 0 ? 'Осталось на месяц' : 'Потрачено в этом месяце'}
+            </span>
             <div className="t-display t-num mt-0.5 text-[28px] sm:text-[32px] font-semibold leading-none text-ink">
-              {money(snap.analytics.totalSpent || receiptsSum)}
+              {money(snap.house.monthly_budget > 0 ? monthLeft : monthSpent)}
             </div>
           </div>
 
@@ -567,8 +573,15 @@ function HousePage() {
         </div>
       </section>
 
+      <section className="house-overview-block house-quick-actions px-4">
+        <button onClick={() => setTab('receipts')}><ReceiptText size={19}/><span>Расход</span></button>
+        <button onClick={() => setTab('bills')}><Receipt size={19}/><span>Счёт</span></button>
+        <button onClick={() => setTab('goals')}><PiggyBank size={19}/><span>В цель</span></button>
+        <button onClick={() => shareCode(snap.house!.code, snap.house!.name)}><Users size={19}/><span>Пригласить</span></button>
+      </section>
+
       {/* 3. Участники и доходы (компактный ряд с перекрывающимися аватарами) */}
-      <section className="mb-3 px-4">
+      <section className="house-overview-block house-members-block mb-3 px-4">
         <div className="rounded-[18px] border border-rule/80 bg-paper p-3.5 shadow-paper">
           <button
             type="button"
@@ -674,7 +687,7 @@ function HousePage() {
       </section>
 
       {/* 4. Персональный финансовый советник бюджета (ИИ) */}
-      <div className="mb-3.5 px-4">
+      <div className="house-overview-block house-advisor-block mb-3.5 px-4">
         <Link
           to="/agent"
           search={{ houseId: id }}
@@ -708,14 +721,14 @@ function HousePage() {
       </div>
 
       {/* 5. Фирменный сегментированный переключатель вкладок */}
-      <div className="mb-3.5 px-4">
+      <div className="house-tabs mb-3.5 px-4">
         <div className="relative flex items-center rounded-[16px] border border-rule/80 bg-paper p-1 shadow-paper select-none overflow-x-auto no-scrollbar">
           {(
             [
+              { id: 'overview', label: 'Обзор', count: 0, icon: BarChart3 },
+              { id: 'receipts', label: 'Расходы', count: snap.receipts.length, icon: ReceiptText },
               { id: 'bills', label: 'Счета', count: snap.bills.length, icon: Receipt },
-              { id: 'receipts', label: 'Чеки', count: snap.receipts.length, icon: ReceiptText },
-              { id: 'goals', label: 'Копилки', count: activeGoalsCount, icon: PiggyBank },
-              { id: 'analytics', label: 'Лимит', count: 0, icon: BarChart3 },
+              { id: 'goals', label: 'Цели', count: activeGoalsCount, icon: PiggyBank },
             ] as const
           ).map((item) => {
             const active = tab === item.id
@@ -759,7 +772,7 @@ function HousePage() {
       </div>
 
       {/* 5. Содержимое вкладок с плавной анимацией смены без проседания высоты */}
-      <div className="px-4 min-h-[380px]">
+      <div className="house-tab-content px-4 min-h-[380px]">
         <motion.div
           key={tab}
           initial={{ opacity: 0 }}
@@ -1253,126 +1266,6 @@ function HousePage() {
           </div>
         ) : null}
 
-        {/* --- ВКЛАДКА 4: АНАЛИТИКА И БЮДЖЕТ (ANALYTICS) --- */}
-        {tab === 'analytics' ? (
-          <div className="space-y-4">
-            {/* 1. Карточка общего бюджета */}
-            <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
-              <div className="flex items-center justify-between">
-                <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-                  Общий бюджет
-                </span>
-                <EditBudgetModal
-                  currentBudget={snap.analytics.budget}
-                  onSave={async (val) => {
-                    await setHouseBudget({ data: { houseId: id, budget: val } })
-                    await load()
-                  }}
-                  trigger={(open) => (
-                    <button
-                      type="button"
-                      onClick={open}
-                      className="text-[12px] font-medium text-sage hover:underline"
-                    >
-                      {snap.analytics.budget > 0 ? 'Изменить' : '+ Задать бюджет'}
-                    </button>
-                  )}
-                />
-              </div>
-
-              {snap.analytics.budget > 0 ? (
-                <>
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <p className="t-display text-[32px] font-bold leading-none text-ink">
-                      {money(snap.analytics.left)}
-                    </p>
-                    <span className="text-[12.5px] text-muted">остаток лимита</span>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-[11.5px] text-muted">
-                      <span>Израсходовано {snap.analytics.percentSpent}%</span>
-                      <span className="t-num">Лимит: {money(snap.analytics.budget)}</span>
-                    </div>
-                    <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-rule-soft">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.max(3, snap.analytics.percentSpent)}%` }}
-                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                        className={cn(
-                          'h-full rounded-full',
-                          snap.analytics.percentSpent > 90
-                            ? 'bg-stamp'
-                            : snap.analytics.percentSpent > 75
-                              ? 'bg-amber-600'
-                              : 'bg-sage',
-                        )}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="mt-2 py-3 text-center">
-                  <p className="text-[13.5px] text-ink font-medium">Общий лимит не установлен</p>
-                  <p className="mt-1 text-[12px] text-muted">
-                    Задайте общий бюджет на месяц для комфортного контроля трат.
-                  </p>
-                </div>
-              )}
-
-              {/* Метрики расходов */}
-              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-rule/60 pt-3">
-                <div className="rounded-[10px] bg-cream/70 p-2.5">
-                  <span className="text-[11px] text-muted">Потрачено вместе</span>
-                  <p className="t-num mt-0.5 text-[15px] font-bold text-ink">
-                    {money(snap.analytics.totalSpent)}
-                  </p>
-                </div>
-                <div className="rounded-[10px] bg-cream/70 p-2.5">
-                  <span className="text-[11px] text-muted">Количество чеков</span>
-                  <p className="t-num mt-0.5 text-[15px] font-bold text-ink">
-                    {snap.receipts.length} шт.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-
-            {/* 3. Расходы по категориям */}
-            <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper">
-              <h3 className="t-display text-[15.5px] font-semibold text-ink leading-tight mb-1">
-                Расходы по категориям
-              </h3>
-              <p className="text-[11.5px] text-muted mb-3">структура общих трат за месяц</p>
-
-              {snap.analytics.byCategory.length === 0 ? (
-                <p className="py-2 text-center text-[12.5px] text-muted">Данных по категориям пока нет.</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {snap.analytics.byCategory.map((cat) => (
-                    <div key={cat.category}>
-                      <div className="flex items-center justify-between text-[12.5px] mb-1">
-                        <span className="font-medium text-ink">{cat.label}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="t-num font-semibold text-ink">{money(cat.total)}</span>
-                          <span className="text-[11px] text-muted">({cat.percent}%)</span>
-                        </div>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-rule-soft">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.max(3, cat.percent)}%` }}
-                          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                          className="h-full rounded-full bg-sage/80"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
 
           </motion.div>
       </div>

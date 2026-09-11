@@ -178,7 +178,7 @@ export const listHouses = createServerFn({ method: 'GET' }).handler(async () =>
     }>(
       `SELECT h.id, h.name, h.code, h.owner_id, coalesce(h.monthly_budget, 0)::int AS monthly_budget,
               (SELECT count(*)::int FROM house_members m WHERE m.house_id = h.id) AS members,
-              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id) AS total_spent,
+              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id AND r.purchased_at >= date_trunc('month', current_date)) AS total_spent,
               (SELECT count(*)::int FROM receipts r WHERE r.house_id = h.id) AS receipts_count,
               (SELECT count(*)::int FROM house_bills b WHERE b.house_id = h.id) AS bills_count
          FROM houses h

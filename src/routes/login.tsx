@@ -76,7 +76,7 @@ function Login() {
 
   return (
     <div className="login-layout relative flex min-h-[100svh] flex-col justify-between overflow-x-hidden bg-cream">
-      <aside className="login-story"><div className="login-wordmark">листок.</div><div><p className="eyebrow">ВАШЕ ФИНАНСОВОЕ ПРОСТРАНСТВО</p><h2>Больше ясности.<br/>Меньше забот.</h2><p>Повседневные расходы, большие планы и общие деньги. Всё складывается в одном месте.</p><div className="login-story-features"><span><Receipt size={21}/>Сохраняйте покупки с фотографии</span><span><Wallet size={21}/>Планируйте месяц в своём темпе</span><span><Users size={21}/>Делитесь расходами с близкими</span></div></div><span className="login-story-footer">Личные деньги. Общие планы.</span></aside>
+      <aside className="login-story"><div className="login-wordmark">Листок.</div><div><p className="eyebrow">ВАШЕ ФИНАНСОВОЕ ПРОСТРАНСТВО</p><h2>Больше ясности.<br/>Меньше забот.</h2><p>Повседневные расходы, большие планы и общие деньги. Всё складывается в одном месте.</p><div className="login-story-features"><span><Receipt size={21}/>Сохраняйте покупки с фотографии</span><span><Wallet size={21}/>Планируйте месяц в своём темпе</span><span><Users size={21}/>Делитесь расходами с близкими</span></div></div><span className="login-story-footer">Личные деньги. Общие планы.</span></aside>
       {/* Мягкий фон с градиентным свечением */}
       <div
         aria-hidden="true"

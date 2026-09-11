@@ -259,6 +259,8 @@ export async function checkTelegramDeepStatus(): Promise<{
   botInfo?: any
   webhookInfo?: any
   error?: string
+  cause?: string | null
+  causeCode?: string | null
 }> {
   const token = await getBotToken()
   if (!token) {
@@ -287,7 +289,7 @@ export async function checkTelegramDeepStatus(): Promise<{
       ok: false,
       error: e?.message || 'Ошибка связи с Telegram API',
       cause: e?.cause ? String(e.cause?.message || e.cause?.code || e.cause) : null,
-      causeCode: e?.cause?.code || null,
+      causeCode: e?.cause?.code ? String(e.cause.code) : null,
     }
   }
 }

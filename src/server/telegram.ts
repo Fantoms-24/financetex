@@ -796,7 +796,7 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     let transcribedText = ''
     try {
       const formData = new FormData()
-      formData.append('file', new Blob([audioBuf], { type: voiceObj.mime_type || 'audio/ogg' }), 'voice.ogg')
+      formData.append('file', new Blob([Uint8Array.from(audioBuf)], { type: voiceObj.mime_type || 'audio/ogg' }), 'voice.ogg')
       formData.append('model', 'whisper-1')
       formData.append('language', 'ru')
 

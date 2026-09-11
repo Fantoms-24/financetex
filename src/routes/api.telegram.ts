@@ -38,7 +38,7 @@ export const Route = createFileRoute('/api/telegram')({
       GET: async ({ request }) => {
         const url = new URL(request.url)
         const action = url.searchParams.get('action')
-        let setupResult = null
+        let setupResult: Awaited<ReturnType<typeof setTelegramWebhookAuto>> | null = null
         if (action === 'setWebhook') {
           setupResult = await setTelegramWebhookAuto()
         }
