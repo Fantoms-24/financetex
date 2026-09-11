@@ -8,18 +8,20 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
-import { motion } from 'motion/react'
 import { AppStateProvider, useApp } from '~/lib/app-state'
 import { Nav } from '~/components/Nav'
 import { Workspace } from '~/components/Workspace'
 import { SplashScreen } from '~/components/SplashScreen'
 import { NotificationBanner } from '~/components/NotificationBanner'
 import { Onboarding } from '~/components/Onboarding'
+import { PushNudge } from '~/components/PushNudge'
 import { registerSW } from '~/lib/push-client'
 import { prepareNativeShell } from '~/lib/native'
 import '~/styles/app.css'
 import '~/styles/workspace.css'
 import '~/styles/everyday.css'
+
+const useSafeLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect
 
 export const Route = createRootRoute({
   head: () => ({
@@ -34,7 +36,7 @@ export const Route = createRootRoute({
         name: 'description',
         content: 'Карманный финансист. Чеки, дневной бюджет и общие накопления на одном листке.',
       },
-      { name: 'theme-color', content: '#f5f6f8' },
+      { name: 'theme-color', content: '#f4f6f8' },
       { name: 'color-scheme', content: 'light' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
@@ -52,7 +54,7 @@ export const Route = createRootRoute({
     styles: [
       {
         children:
-          'html,body{margin:0;padding:0}html{background:#f5f6f8}',
+          'html,body{margin:0;padding:0}html{background:#f4f6f8}',
       },
     ],
   }),
@@ -108,7 +110,7 @@ function Shell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const navigate = useNavigate()
 
-  React.useEffect(() => {
+  useSafeLayoutEffect(() => {
     void registerSW()
     void prepareNativeShell()
   }, [])
@@ -124,6 +126,14 @@ function Shell() {
       navigate({ to: '/', replace: true })
     }
   }, [ready, user, pathname, navigate, isPublicRoute])
+
+  React.useEffect(() => {
+    const goHome = () => {
+      if (pathname !== '/') navigate({ to: '/', replace: true })
+    }
+    window.addEventListener('listok:android-back-home', goHome)
+    return () => window.removeEventListener('listok:android-back-home', goHome)
+  }, [pathname, navigate])
 
   const bare = pathname === '/login' || pathname.startsWith('/split/') || pathname.startsWith('/fantms')
   const isChat = pathname === '/agent' || pathname.startsWith('/agent/')
@@ -152,10 +162,10 @@ function Shell() {
     )
   }
 
-  if (!bare) return <Workspace><NotificationBanner /><Outlet /><Onboarding open={boot.settings.onboarding_completed === false} onCompleted={refresh} /></Workspace>
+  if (!bare) return <div className="app-screen-enter"><Workspace><NotificationBanner /><Outlet /><Onboarding open={boot.settings.onboarding_completed === false} onCompleted={refresh} />{boot.settings.onboarding_completed !== false ? <PushNudge /> : null}</Workspace></div>
 
   return (
-    <div className={`sheet safe-top public-shell ${pathname === '/login' ? 'login-shell' : ''}`}>
+    <div className={`sheet safe-top public-shell public-screen-enter ${pathname === '/login' ? 'login-shell' : ''}`}>
       <NotificationBanner />
       <main className={hideNav ? 'flex-1 flex flex-col min-h-0 overflow-hidden' : 'safe-bottom flex-1 flex flex-col min-h-0'}>
         <div className="flex-1 flex flex-col min-h-0">

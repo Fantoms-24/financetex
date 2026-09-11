@@ -13,20 +13,24 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: true,
-    backgroundColor: '#f3eee4',
+    backgroundColor: '#F4F6F8',
   },
   plugins: {
     SplashScreen: {
       launchAutoHide: true,
       launchShowDuration: 350,
-      backgroundColor: '#F3EEE4',
+      backgroundColor: '#F4F6F8',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
     },
     StatusBar: {
       overlaysWebView: true,
-      backgroundColor: '#F3EEE4',
-      style: 'LIGHT',
+      backgroundColor: '#FFFFFF',
+      style: 'DARK',
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_launcher_foreground',
+      iconColor: '#287653',
     },
   },
 }

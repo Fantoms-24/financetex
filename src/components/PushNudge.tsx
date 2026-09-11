@@ -1,7 +1,11 @@
 import * as React from 'react'
-import { Bell, Share, Sparkles } from 'lucide-react'
+import { Bell, Share, Sparkles, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Button } from './ui/button'
 import { enablePush, isIos, isStandalone, pushState, pushSupported } from '~/lib/push-client'
+import { showInAppNotification } from './NotificationBanner'
+
+const PROMPT_KEY = 'listok-notification-prompt-v1'
 
 export function PushNudge() {
   const [state, setState] = React.useState(() => pushState())
@@ -9,17 +13,36 @@ export function PushNudge() {
   const [ios, setIos] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [open, setOpen] = React.useState(false)
 
   React.useEffect(() => {
     setStandalone(isStandalone())
     setIos(isIos())
     setState(pushState())
-    const t = setInterval(() => setState(pushState()), 1500)
-    return () => clearInterval(t)
+    const remembered = localStorage.getItem(PROMPT_KEY)
+    const canExplainIos = isIos() && !isStandalone()
+    if (!remembered && (pushSupported() || canExplainIos) && !pushState().granted) setOpen(true)
   }, [])
 
-  if (!pushSupported()) return null
-  if (state.granted && standalone) return null
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        close()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  if (!pushSupported() && !(ios && !standalone)) return null
+  if (state.granted) return null
+
+  function close(reason: 'later' | 'enabled' = 'later') {
+    localStorage.setItem(PROMPT_KEY, reason)
+    setOpen(false)
+  }
 
   async function on() {
     setBusy(true)
@@ -27,53 +50,35 @@ export function PushNudge() {
     const res = await enablePush()
     setBusy(false)
     if (!res.ok) setError(res.error || 'Не получилось')
-    else setState(pushState())
+    else {
+      setState(pushState())
+      showInAppNotification({ title: 'Напоминания включены', body: 'О счетах и важных тратах сообщим вовремя.', icon: 'sparkles' })
+      close('enabled')
+    }
   }
 
   const needHome = ios && !standalone
 
-  return (
-    <div className="relative overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper transition-all">
-      <div className="flex items-start gap-3">
-        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sage/15 text-sage">
-          <Bell size={20} />
-          <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          </span>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          {needHome ? (
-            <>
-              <p className="t-display text-[15px] font-semibold text-ink">На iPhone сначала на Домой</p>
-              <p className="mt-1 text-[12.5px] leading-snug text-muted">
-                Поделиться → На экран Домой, затем откройте с иконки. После этого напоминания заработают.
-              </p>
-              <p className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-sage">
-                <Share size={14} /> Поделиться → На экран Домой
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <p className="t-display text-[15px] font-semibold text-ink">Напоминания Листка</p>
-                <span className="rounded-full bg-sage/10 px-2 py-0.5 text-[10px] font-bold text-sage">
-                  Важно
-                </span>
-              </div>
-              <p className="mt-1 text-[12.5px] leading-snug text-muted">
-                Предупредим о счетах за 2 дня и сообщим о тратах в общем бюджете — даже с выключенным экраном.
-              </p>
-              <Button variant="sage" size="sm" className="mt-3 gap-1.5" onClick={on} disabled={busy}>
-                <Sparkles size={14} />
-                <span>{busy ? 'Секунду…' : 'Включить напоминания'}</span>
-              </Button>
-              {error ? <p className="mt-2 text-[12px] text-stamp">{error}</p> : null}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+  return <AnimatePresence>
+    {open ? <motion.div className="notification-permission" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="notification-permission-title">
+      <motion.section className="notification-permission__card" initial={{ opacity: 0, y: 22, scale: .985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 22, scale: .985 }} transition={{ type: 'spring', stiffness: 360, damping: 30 }}>
+        <button className="notification-permission__close" aria-label="Не сейчас" onClick={() => close()}><X size={18} /></button>
+        <div className="notification-permission__mark"><Bell size={25} /><span><Sparkles size={12} /></span></div>
+        {needHome ? <>
+          <p className="eyebrow">НАПОМИНАНИЯ</p>
+          <h2 id="notification-permission-title">Сначала добавьте<br />Листок на Домой</h2>
+          <p>На iPhone уведомления доступны в приложении с домашнего экрана. Это займёт несколько секунд.</p>
+          <div className="notification-permission__ios"><Share size={16} /> Поделиться → На экран «Домой»</div>
+          <Button variant="ghost" size="md" className="w-full" onClick={() => close()}>Понятно, позже</Button>
+        </> : <>
+          <p className="eyebrow">НЕ ПРОПУСТИТЬ ВАЖНОЕ</p>
+          <h2 id="notification-permission-title">Напоминать<br />о важном?</h2>
+          <p>Сообщим о счёте, приближающемся лимите и действиях в общем бюджете. Только по делу.</p>
+          <Button variant="sage" size="lg" className="w-full" onClick={on} disabled={busy}>{busy ? 'Открываем разрешение…' : <><Bell size={18} /> Включить уведомления</>}</Button>
+          <button className="notification-permission__later" onClick={() => close()}>Не сейчас</button>
+          {error ? <p role="alert" className="notification-permission__error">{error}</p> : null}
+        </>}
+      </motion.section>
+    </motion.div> : null}
+  </AnimatePresence>
 }

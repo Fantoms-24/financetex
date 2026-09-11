@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-cream: #f5f6f8;
+  --color-cream: #f4f6f8;
   --color-paper: #ffffff;
   --color-ink: #20262c;
   --color-muted: #778087;
@@ -30,7 +30,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  background: #f3eee4;
+  background: #f4f6f8;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

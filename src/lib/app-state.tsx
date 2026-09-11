@@ -18,28 +18,6 @@ const EMPTY_BOOT: Bootstrap = {
 const CACHE_BOOT_KEY = 'listok_cache_boot_v2'
 const CACHE_USER_KEY = 'listok_cache_user_v2'
 
-function readCachedBoot(): Bootstrap | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(CACHE_BOOT_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
-
-function readCachedUser(): SessionUser | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(CACHE_USER_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
-
 function writeCache(user: SessionUser | null, boot: Bootstrap | null) {
   if (typeof window === 'undefined') return
   try {
@@ -77,19 +55,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const started = React.useRef(false)
   const loadSeq = React.useRef(0)
 
-  // Кэш сохраняем, чтобы после подтверждения сессии быстро показать данные.
-  // Но `ready` здесь не выставляем: старый кэш не доказывает, что вход всё ещё
-  // действителен. Иначе при открытии Android-приложения успевает мигнуть обзор
-  // перед редиректом на авторизацию.
-  React.useEffect(() => {
-    const cachedUser = readCachedUser()
-    const cachedBoot = readCachedBoot()
-    if (cachedUser && cachedBoot) {
-      setUser(cachedUser)
-      setBoot(cachedBoot)
-    }
-  }, [])
-
   const load = React.useCallback(async (): Promise<SessionUser | null> => {
     const ticket=++loadSeq.current
     try {
@@ -119,7 +84,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         : storageUnavailable
           ? 'Не удалось подключиться к хранилищу данных. Проверьте настройки базы в развёрнутом приложении.'
         : 'Не удалось обновить данные. Последние сохранённые данные остаются на экране.')
-      return readCachedUser()
+      return null
     }
   }, [])
 
@@ -145,12 +110,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const setSession = React.useCallback(
     (token: string, u: SessionUser | null) => {
       useLocal.getState().setToken(token, u?.id ?? null)
+      // После входа не открываем обзор с пустыми или старыми данными: сначала
+      // ждём подтверждения сессии и стартовых данных с сервера.
+      setReady(false)
       setBoot(EMPTY_BOOT)
       writeCache(null,null)
       setUser(u)
-      if (u) {
-        load().catch(() => {})
-      }
+      void load().finally(() => setReady(true))
     },
     [load],
   )

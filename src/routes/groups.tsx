@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
-import { ArrowRight, ChevronRight, Hash, KeyRound, Plus, ReceiptText, Users } from 'lucide-react'
+import { ArrowRight, ChevronRight, Hash, KeyRound, Plus, ReceiptText, Sprout, Users, UsersRound } from 'lucide-react'
 import { motion } from 'motion/react'
 import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
@@ -86,7 +86,7 @@ function Groups() {
     {error && <p role="alert" className="together-error">{error}</p>}
 
     {houses.length === 0 ? <section className="together-empty">
-      <img className="empty-state-art empty-state-art--large" src="/assets/visual-kit-v1/empty-create.webp" alt="" aria-hidden="true" />
+      <div className="together-empty-mark" aria-hidden="true"><UsersRound size={49} strokeWidth={1.55}/><span><Sprout size={18} strokeWidth={2}/></span></div>
       <h2>Деньги, о которых легко договориться</h2>
       <p>Соберите домашние расходы, поездку или общий проект в одном спокойном пространстве.</p>
       <button className="primary-action" onClick={() => setMode('create')}><Plus size={18}/>Создать пространство</button>

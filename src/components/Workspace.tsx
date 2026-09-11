@@ -6,6 +6,7 @@ import { useApp } from '~/lib/app-state'
 import { ExpenseEditor } from './ExpenseEditor'
 import { addReceipt } from '~/server/functions/receipts'
 import { CATEGORIES } from '~/lib/format'
+import { applyNativeTheme } from '~/lib/native'
 
 export const sections = [
   { to: '/', label: 'Обзор', icon: LayoutDashboard },
@@ -17,12 +18,15 @@ export const sections = [
 export function Workspace({ children }: { children: React.ReactNode }) {
   const { user, boot, refresh, syncError } = useApp()
   const path = useRouterState({ select: s => s.location.pathname })
-  const [dark, setDark] = React.useState(false)
+  const [dark, setDark] = React.useState(() => typeof window !== 'undefined' && localStorage.getItem('listok-theme') === 'dark')
   const [adding, setAdding] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState('')
-  React.useEffect(() => { setDark(localStorage.getItem('listok-theme') === 'dark') }, [])
-  React.useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light' }, [dark])
+  React.useEffect(() => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#20262c' : '#f4f6f8')
+    void applyNativeTheme(dark)
+  }, [dark])
   React.useEffect(() => {
     const open = () => setAdding(true)
     const key = (e: KeyboardEvent) => {

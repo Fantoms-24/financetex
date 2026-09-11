@@ -1,4 +1,5 @@
 import { pushSubscribe, pushUnsubscribe, vapidPublic } from '~/server/functions/push'
+import { isNativeApp, nativeNotificationWasGranted, requestNativeNotificationPermission } from '~/lib/native'
 
 export function isStandalone(): boolean {
   if (typeof window === 'undefined') return false
@@ -18,10 +19,15 @@ export function isIos(): boolean {
 }
 
 export function pushSupported(): boolean {
+  if (isNativeApp()) return true
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
 export function pushState(): { permission: NotificationPermission; granted: boolean } {
+  if (isNativeApp()) {
+    const granted = nativeNotificationWasGranted()
+    return { permission: granted ? 'granted' : 'default', granted }
+  }
   if (!pushSupported()) return { permission: 'default', granted: false }
   const permission = Notification.permission
   return { permission, granted: permission === 'granted' }
@@ -58,6 +64,10 @@ export interface PushResult {
 /** Запрашивает разрешение, подписывает и сохраняет подписку на сервере. */
 export async function enablePush(): Promise<PushResult> {
   if (!pushSupported()) return { ok: false, error: 'Браузер не умеет пуши' }
+  if (isNativeApp()) {
+    const granted = await requestNativeNotificationPermission()
+    return granted ? { ok: true } : { ok: false, error: 'Разрешение не дано в настройках Android' }
+  }
   if (isIos() && !isStandalone()) {
     return { ok: false, error: 'На iPhone сначала на Домой' }
   }
