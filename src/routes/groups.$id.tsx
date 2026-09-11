@@ -1,3 +1,5 @@
+import { assertSaved, newRequestId } from '~/lib/finance'
+import { ExpenseEditor } from '~/components/ExpenseEditor'
 import * as React from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
@@ -48,7 +50,7 @@ import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { useApp } from '~/lib/app-state'
-import { billDueLabel, categoryLabel, dateRu, money, moneyShort, plural, timeRu } from '~/lib/format'
+import { billDueLabel, CATEGORIES, categoryLabel, dateRu, money, moneyShort, plural, timeRu } from '~/lib/format'
 import { cn, haptic } from '~/lib/utils'
 import { showInAppNotification } from '~/components/NotificationBanner'
 import {
@@ -76,7 +78,7 @@ import {
   type Pay,
   type Wish,
 } from '~/server/functions/houses'
-import { listReceipts } from '~/server/functions/receipts'
+import { addReceipt, listReceipts } from '~/server/functions/receipts'
 
 export const Route = createFileRoute('/groups/$id')({
   component: HousePage,
@@ -275,14 +277,14 @@ function HousePage() {
   }, 0)
 
   const paidBills = snap.bills.filter((b) =>
-    snap.pays.some((p) => p.bill_id === b.id && p.cycle === snap.cycle),
+    snap.pays.some((p) => p.bill_id === b.id && p.cycle === snap.cycle && p.user_id === user?.id),
   )
   const paidCount = paidBills.length
   const totalBillsCount = snap.bills.length
   const percentPaid = totalBillsCount > 0 ? Math.round((paidCount / totalBillsCount) * 100) : 0
 
   const myPaidShare = snap.bills.reduce((sum, b) => {
-    const isPaid = snap.pays.some((p) => p.bill_id === b.id && p.cycle === snap.cycle)
+    const isPaid = snap.pays.some((p) => p.bill_id === b.id && p.cycle === snap.cycle && p.user_id === user?.id)
     if (isPaid) {
       return sum + (snap.shares?.[b.id]?.[myUserId] ?? 0)
     }
@@ -293,10 +295,14 @@ function HousePage() {
   const totalSalaries = snap.members.reduce((s, m) => s + Math.max(0, m.salary), 0)
   const activeGoalsCount = snap.wishes.filter((w) => !w.bought_at).length
   const receiptsSum = snap.receipts.reduce((s, r) => s + (Number(r.total) || 0), 0)
-  const monthSpent = Number(snap.analytics.totalSpent || receiptsSum)
+  const monthSpent = Number(snap.analytics.totalSpent ?? receiptsSum)
   const monthLeft = snap.house.monthly_budget > 0
     ? Math.max(0, snap.house.monthly_budget - monthSpent)
     : 0
+  const showMembersSection = snap.members.length > 1 && totalSalaries > 0
+  const hasUnfundedGoal = snap.wishes.some((wish) => !wish.bought_at && Number(wish.collected || 0) <= 0)
+  const isOverBudget = snap.house.monthly_budget > 0 && monthSpent > snap.house.monthly_budget
+  const showAdvisor = myUnpaidShare > 0 || isOverBudget || hasUnfundedGoal
 
   return (
     <div className="house-detail pb-36 pt-3 sm:pb-32" data-house-tab={tab}>
@@ -407,7 +413,7 @@ function HousePage() {
                 <EditBudgetModal
                   currentBudget={snap.house.monthly_budget}
                   onSave={async (val) => {
-                    await setHouseBudget({ data: { houseId: id, budget: val } })
+                    assertSaved(await setHouseBudget({ data: { houseId: id, budget: val } }))
                     await load()
                   }}
                 />
@@ -451,7 +457,7 @@ function HousePage() {
                         <button
                           onClick={async () => {
                             if (!confirm(`Исключить участника «${m.name}» из совместного бюджета?`)) return
-                            await kickMember({ data: { houseId: id, userId: m.user_id } })
+                            assertSaved(await kickMember({ data: { houseId: id, userId: m.user_id } }))
                             await load()
                           }}
                           className="flex items-center gap-1 text-[12px] text-stamp hover:underline"
@@ -473,7 +479,7 @@ function HousePage() {
                     className="flex items-center gap-1 rounded-[8px] border border-stamp/30 px-2.5 py-1.5 text-[12px] text-stamp hover:bg-stamp/10"
                     onClick={async () => {
                       if (!confirm('Удалить совместный бюджет полностью? Все платежи, чеки и копилки будут стёрты.')) return
-                      await deleteHouse({ data: { houseId: id } })
+                      assertSaved(await deleteHouse({ data: { houseId: id } }))
                       navigate({ to: '/groups' })
                     }}
                   >
@@ -487,7 +493,7 @@ function HousePage() {
                     className="flex items-center gap-1 rounded-[8px] border border-stamp/30 px-2.5 py-1.5 text-[12px] text-stamp hover:bg-stamp/10"
                     onClick={async () => {
                       if (!confirm('Выйти из совместного бюджета? Вы перестанете получать уведомления.')) return
-                      await leaveHouse({ data: { houseId: id } })
+                      assertSaved(await leaveHouse({ data: { houseId: id } }))
                       navigate({ to: '/groups' })
                     }}
                   >
@@ -573,15 +579,26 @@ function HousePage() {
         </div>
       </section>
 
-      <section className="house-overview-block house-quick-actions px-4">
-        <button onClick={() => setTab('receipts')}><ReceiptText size={19}/><span>Расход</span></button>
-        <button onClick={() => setTab('bills')}><Receipt size={19}/><span>Счёт</span></button>
-        <button onClick={() => setTab('goals')}><PiggyBank size={19}/><span>В цель</span></button>
-        <button onClick={() => shareCode(snap.house!.code, snap.house!.name)}><Users size={19}/><span>Пригласить</span></button>
+      <section className="house-overview-block house-primary-action px-4">
+        <AddHouseExpenseModal
+          houseId={id}
+          houseName={snap.house.name}
+          onSaved={load}
+          trigger={(open) => (
+            <button type="button" className="house-add-expense" onClick={open}>
+              <span className="house-add-expense__icon"><Plus size={21} /></span>
+              <span className="house-add-expense__copy">
+                <strong>Добавить общий расход</strong>
+                <small>Сразу в бюджет «{snap.house!.name}»</small>
+              </span>
+              <ChevronRight size={19} />
+            </button>
+          )}
+        />
       </section>
 
       {/* 3. Участники и доходы (компактный ряд с перекрывающимися аватарами) */}
-      <section className="house-overview-block house-members-block mb-3 px-4">
+      {showMembersSection ? <section className="house-overview-block house-members-block mb-3 px-4">
         <div className="rounded-[18px] border border-rule/80 bg-paper p-3.5 shadow-paper">
           <button
             type="button"
@@ -669,7 +686,7 @@ function HousePage() {
                       <SalaryWidget
                         initialSalary={m.salary}
                         onSave={async (newSal) => {
-                          await setSalary({ data: { houseId: id, amount: newSal } })
+                          assertSaved(await setSalary({ data: { houseId: id, amount: newSal } }))
                           await load()
                         }}
                       />
@@ -684,10 +701,10 @@ function HousePage() {
             </div>
           ) : null}
         </div>
-      </section>
+      </section> : null}
 
       {/* 4. Персональный финансовый советник бюджета (ИИ) */}
-      <div className="house-overview-block house-advisor-block mb-3.5 px-4">
+      {showAdvisor ? <div className="house-overview-block house-advisor-block mb-3.5 px-4">
         <Link
           to="/agent"
           search={{ houseId: id }}
@@ -710,15 +727,15 @@ function HousePage() {
               <p className="mt-0.5 text-[11.5px] text-muted leading-tight">
                 {myUnpaidShare > 0
                   ? `К оплате: ${money(myUnpaidShare)} · Нажмите для подсказки`
-                  : totalBillsCount === 0
-                  ? 'Добавьте счета ЖКХ для авто-расчёта долей'
-                  : 'Все счета закрыты · Анализ трат и копилок'}
+                  : isOverBudget
+                  ? `Лимит превышен на ${money(monthSpent - snap.house!.monthly_budget)}`
+                  : 'У цели пока нет взносов · Можно составить план накопления'}
               </p>
             </div>
           </div>
           <ChevronRight size={17} className="text-muted transition-transform group-hover:translate-x-0.5" />
         </Link>
-      </div>
+      </div> : null}
 
       {/* 5. Фирменный сегментированный переключатель вкладок */}
       <div className="house-tabs mb-3.5 px-4">
@@ -797,7 +814,7 @@ function HousePage() {
                   <AddBillModal
                     members={snap.members}
                     onAdd={async (v) => {
-                      await addHouseBill({ data: { houseId: id, ...v } })
+                      assertSaved(await addHouseBill({ data: { houseId: id, ...v } }))
                       await load()
                     }}
                     trigger={(open) => (
@@ -816,7 +833,7 @@ function HousePage() {
             ) : (
               <>
                 {snap.bills.map((b) => {
-                  const paid = snap.pays.some((p) => p.bill_id === b.id && p.cycle === snap.cycle)
+                  const paid = snap.pays.some((p) => p.bill_id === b.id && p.cycle === snap.cycle && p.user_id === user?.id)
                   const due = billDueLabel(b.day_of_month)
                   const share = snap.shares?.[b.id]?.[myUserId] ?? 0
                   const payerMember = snap.members.find((m) => m.user_id === b.payer_id)
@@ -901,7 +918,7 @@ function HousePage() {
                           onClick={async () => {
                             haptic(10)
                             const nextPaid = !paid
-                            await payHouseBill({ data: { houseId: id, billId: b.id, paid: nextPaid } })
+                            assertSaved(await payHouseBill({ data: { houseId: id, billId: b.id, paid: nextPaid } }))
                             if (nextPaid) {
                               showInAppNotification({
                                 title: '✓ Платёж оплачен',
@@ -925,7 +942,7 @@ function HousePage() {
                         <button
                           onClick={async () => {
                             if (!confirm(`Удалить платёж «${b.title}»?`)) return
-                            await deleteHouseBill({ data: { houseId: id, billId: b.id } })
+                            assertSaved(await deleteHouseBill({ data: { houseId: id, billId: b.id } }))
                             await load()
                           }}
                           className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted/50 transition hover:bg-stamp/10 hover:text-stamp"
@@ -941,7 +958,7 @@ function HousePage() {
                 <AddBillModal
                   members={snap.members}
                   onAdd={async (v) => {
-                    await addHouseBill({ data: { houseId: id, ...v } })
+                    assertSaved(await addHouseBill({ data: { houseId: id, ...v } }))
                     await load()
                   }}
                 />
@@ -962,7 +979,7 @@ function HousePage() {
                 </p>
               </div>
               <div className="flex gap-1.5">
-                <Link to="/scan">
+                <Link to="/scan" search={{houseId:id}}>
                   <Button size="sm" variant="sage" className="gap-1 rounded-[10px] text-[12px]">
                     <ScanLine size={14} /> Скан чека
                   </Button>
@@ -988,7 +1005,7 @@ function HousePage() {
                   Сканируйте покупки в магазине или привязывайте чеки из личного ящика к общему бюджету
                 </p>
                 <div className="mt-4 flex justify-center gap-2">
-                  <Link to="/scan">
+                  <Link to="/scan" search={{houseId:id}}>
                     <Button variant="sage" size="md" className="gap-1.5 rounded-[12px] px-4 text-[13.5px]">
                       <ScanLine size={16} /> Сканировать чек
                     </Button>
@@ -1050,7 +1067,7 @@ function HousePage() {
                             {isMyReceipt ? (
                               <button
                                 onClick={async () => {
-                                  await linkReceiptToHouse({ data: { houseId: id, receiptId: r.id, link: false } })
+                                  assertSaved(await linkReceiptToHouse({ data: { houseId: id, receiptId: r.id, link: false } }))
                                   await load()
                                 }}
                                 className="text-[12px] font-medium text-stamp hover:underline"
@@ -1086,7 +1103,7 @@ function HousePage() {
                 <div className="mt-4 flex justify-center">
                   <AddGoalModal
                     onAdd={async (v) => {
-                      await addWish({ data: { houseId: id, ...v } })
+                      assertSaved(await addWish({ data: { houseId: id, ...v } }))
                       await load()
                     }}
                     trigger={(open) => (
@@ -1205,11 +1222,11 @@ function HousePage() {
                           <div className="flex items-center gap-1.5">
                             <DepositModal
                               goalTitle={w.title}
-                              onDeposit={async (amt, note) => {
+                              onDeposit={async (amt, note, requestId) => {
                                 haptic(12)
-                                await depositGoal({
-                                  data: { houseId: id, wishId: w.id, amount: amt, note },
-                                })
+                                assertSaved(await depositGoal({
+                                  data: { houseId: id, wishId: w.id, amount: amt, note, requestId },
+                                }))
                                 showInAppNotification({
                                   title: '🎯 Взнос в цель сохранён',
                                   body: `В цель «${w.title}» внесено ${money(amt)}`,
@@ -1222,7 +1239,7 @@ function HousePage() {
                               onClick={async () => {
                                 haptic(12)
                                 const willComplete = !isComplete
-                                await toggleWish({ data: { houseId: id, wishId: w.id } })
+                                assertSaved(await toggleWish({ data: { houseId: id, wishId: w.id } }))
                                 if (willComplete) {
                                   showInAppNotification({
                                     title: '🎉 Цель достигнута!',
@@ -1241,7 +1258,7 @@ function HousePage() {
                           <button
                             onClick={async () => {
                               if (!confirm(`Удалить «${w.title}»?`)) return
-                              await deleteWish({ data: { houseId: id, wishId: w.id } })
+                              assertSaved(await deleteWish({ data: { houseId: id, wishId: w.id } }))
                               await load()
                             }}
                             className="flex h-8 w-8 items-center justify-center text-muted/50 hover:text-stamp transition"
@@ -1257,7 +1274,7 @@ function HousePage() {
 
                 <AddGoalModal
                   onAdd={async (v) => {
-                    await addWish({ data: { houseId: id, ...v } })
+                    assertSaved(await addWish({ data: { houseId: id, ...v } }))
                     await load()
                   }}
                 />
@@ -1306,6 +1323,7 @@ function SalaryWidget({
   const [editing, setEditing] = React.useState(false)
   const [val, setVal] = React.useState(initialSalary ? String(initialSalary) : '')
   const [busy, setBusy] = React.useState(false)
+  const [formError,setFormError]=React.useState('')
 
   if (!editing) {
     return (
@@ -1319,7 +1337,7 @@ function SalaryWidget({
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1">
+    <div className="flex shrink-0 items-center gap-1">{formError&&<span role="alert" className="text-stamp">{formError}</span>}
       <Input
         value={val}
         onChange={(e) => setVal(e.target.value.replace(/[^\d]/g, ''))}
@@ -1335,9 +1353,7 @@ function SalaryWidget({
         className="h-8 px-2.5 text-[12px] leading-none"
         onClick={async () => {
           setBusy(true)
-          await onSave(Math.round(Number(val || 0)))
-          setBusy(false)
-          setEditing(false)
+          try{await onSave(Math.round(Number(val || 0)));setEditing(false)}catch(e:any){setFormError(e.message||'Не удалось сохранить доход')}finally{setBusy(false)}
         }}
       >
         Ок
@@ -1368,6 +1384,7 @@ function EditBudgetModal({
   const [open, setOpen] = React.useState(false)
   const [val, setVal] = React.useState(currentBudget ? String(currentBudget) : '')
   const [busy, setBusy] = React.useState(false)
+  const [formError,setFormError]=React.useState('')
 
   React.useEffect(() => {
     if (open) {
@@ -1402,12 +1419,13 @@ function EditBudgetModal({
             try {
               await onSave(Math.round(Number(val.replace(/[^\d]/g, '') || 0)))
               setOpen(false)
-            } finally {
+            } catch(e:any){setFormError(e.message||'Не удалось сохранить. Попробуйте ещё раз')} finally {
               setBusy(false)
             }
           }}
           className="space-y-4 pt-1"
         >
+          {formError&&<p className="form-error" role="alert">{formError}</p>}
           <p className="text-[12.5px] text-muted leading-relaxed">
             Установите общий лимит трат семьи на месяц для контроля перерасхода.
           </p>
@@ -1457,13 +1475,16 @@ function DepositModal({
   onDeposit,
 }: {
   goalTitle: string
-  onDeposit: (amount: number, note?: string) => Promise<void>
+  onDeposit: (amount: number, note?: string,requestId?:string) => Promise<void>
 }) {
   const [open, setOpen] = React.useState(false)
   const [amount, setAmount] = React.useState('1000')
   const [note, setNote] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [formError,setFormError]=React.useState('')
 
+  const request=React.useRef('')
+  React.useEffect(()=>{if(open)request.current=newRequestId()},[open])
   const PRESETS = [500, 1000, 3000, 5000]
 
   return (
@@ -1489,15 +1510,16 @@ function DepositModal({
             if (!amt) return
             setBusy(true)
             try {
-              await onDeposit(amt, note.trim() || undefined)
+              await onDeposit(amt, note.trim() || undefined,request.current)
               setNote('')
               setOpen(false)
-            } finally {
+            } catch(e:any){setFormError(e.message||'Не удалось сохранить. Попробуйте ещё раз')} finally {
               setBusy(false)
             }
           }}
           className="space-y-4 pt-1"
         >
+          {formError&&<p className="form-error" role="alert">{formError}</p>}
           <div>
             <label className="mb-2 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
               Быстрый выбор суммы
@@ -1574,6 +1596,11 @@ function DepositModal({
   )
 }
 
+function AddHouseExpenseModal({houseId,onSaved,trigger}:{houseId:string;houseName:string;onSaved:()=>Promise<void>;trigger:(open:()=>void)=>React.ReactNode}){
+ const [open,setOpen]=React.useState(false)
+ return <>{trigger(()=>setOpen(true))}<ExpenseEditor open={open} onClose={()=>setOpen(false)} initialHouseId={houseId} onSaved={()=>void onSaved()}/></>
+}
+
 function AttachReceiptModal({
   houseId,
   onAttached,
@@ -1643,9 +1670,9 @@ function AttachReceiptModal({
                     variant="sage"
                     className="h-7 px-2.5 text-[11.5px] rounded-[8px]"
                     onClick={async () => {
-                      await linkReceiptToHouse({
+                      assertSaved(await linkReceiptToHouse({
                         data: { houseId, receiptId: r.id, link: true },
-                      })
+                      }))
                       setOpen(false)
                       await onAttached()
                     }}
@@ -1695,6 +1722,7 @@ function AddBillModal({
   const [split, setSplit] = React.useState('equal')
   const [payer, setPayer] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [formError,setFormError]=React.useState('')
 
   const PRESETS = ['Аренда', 'Интернет', 'ЖКУ', 'Подписки', 'Продукты']
 
@@ -1736,12 +1764,12 @@ function AddBillModal({
               setTitle('')
               setAmount('')
               setOpen(false)
-            } finally {
+            } catch(e:any){setFormError(e.message||'Не удалось сохранить. Попробуйте ещё раз')} finally {
               setBusy(false)
             }
           }}
           className="space-y-3.5 pt-1"
-        >
+        >{formError&&<p className="form-error" role="alert">{formError}</p>}
           <div>
             <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
               Быстрый шаблон
@@ -1887,6 +1915,7 @@ function AddGoalModal({
   const [initialAmount, setInitialAmount] = React.useState('')
   const [targetDate, setTargetDate] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [formError,setFormError]=React.useState('')
 
   return (
     <>
@@ -1925,12 +1954,12 @@ function AddGoalModal({
               setInitialAmount('')
               setTargetDate('')
               setOpen(false)
-            } finally {
+            } catch(e:any){setFormError(e.message||'Не удалось сохранить. Попробуйте ещё раз')} finally {
               setBusy(false)
             }
           }}
           className="space-y-3 pt-1"
-        >
+        >{formError&&<p className="form-error" role="alert">{formError}</p>}
           <div>
             <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
               Быстрый выбор идеи

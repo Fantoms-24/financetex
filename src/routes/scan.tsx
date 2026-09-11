@@ -1,3 +1,4 @@
+import { getReceipt } from '~/server/functions/receipts'
 import * as React from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '~/components/ui/button'
+import { ExpenseEditor } from '~/components/ExpenseEditor'
 import { SplitCreateModal } from '~/components/SplitCreateModal'
 import { useApp } from '~/lib/app-state'
 import { categoryLabel, money, moneyShort } from '~/lib/format'
@@ -24,6 +26,7 @@ import { showInAppNotification } from '~/components/NotificationBanner'
 import { cn, haptic } from '~/lib/utils'
 
 export const Route = createFileRoute('/scan')({
+  validateSearch: (search: Record<string, unknown>): {houseId?: string} => ({houseId: typeof search.houseId === 'string' ? search.houseId : undefined}),
   component: Scan,
 })
 
@@ -73,6 +76,9 @@ const VERDICT: Record<string, { label: string; color: string }> = {
 
 function Scan() {
   const navigate = useNavigate()
+  const search = Route.useSearch()
+  const [review, setReview] = React.useState(false)
+  const [savedId, setSavedId] = React.useState<string | null>(null)
   const { refresh, boot } = useApp()
   const cameraRef = React.useRef<HTMLInputElement>(null)
   const galleryRef = React.useRef<HTMLInputElement>(null)
@@ -80,7 +86,7 @@ function Scan() {
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [result, setResult] = React.useState<any>(null)
-  const [selectedHouseId, setSelectedHouseId] = React.useState<string | null>(null)
+  const [selectedHouseId, setSelectedHouseId] = React.useState<string | null>(search.houseId || null)
   const [openSplitModal, setOpenSplitModal] = React.useState(false)
 
   const uniqueHouses = React.useMemo(() => {
@@ -95,6 +101,7 @@ function Scan() {
     if (!file) return
     setError(null)
     setResult(null)
+    setSavedId(null)
     setBusy(true)
     try {
       setPreview(await compressImage(file))
@@ -122,12 +129,7 @@ function Scan() {
         return
       }
       setResult(res)
-      showInAppNotification({
-        title: '🧾 Чек успешно разобран!',
-        body: `${(res as any)?.receipt?.store || 'Чек'} — ${money((res as any)?.receipt?.total || 0)} записано`,
-        icon: 'sparkles',
-      })
-      await refresh()
+      setReview(true)
     } catch (e: any) {
       setError(e?.message || 'Не получилось разобрать')
     } finally {
@@ -137,6 +139,7 @@ function Scan() {
 
   function reset() {
     setPreview(null)
+    setSavedId(null)
     setResult(null)
     setError(null)
   }
@@ -147,10 +150,10 @@ function Scan() {
       <header className="page-heading scan-heading">
         <div>
           <p className="eyebrow">УМНОЕ РАСПОЗНАВАНИЕ</p>
-          <h1>{result ? 'Чек готов' : 'Скан чека'}<span>.</span></h1>
+          <h1>{savedId ? 'Чек сохранён' : result ? 'Проверьте чек' : 'Скан чека'}<span>.</span></h1>
           <p className="page-description">
             {result
-              ? 'Позиции и итог уже сохранены в вашем бюджете.'
+              ? savedId ? 'Расход записан. Повторная отправка не создаст копию.' : 'Распознавание может ошибаться. Проверьте сумму и дату перед сохранением.'
               : 'Сфотографируйте чек — всё остальное распознаем автоматически.'}
           </p>
         </div>
@@ -401,13 +404,14 @@ function Scan() {
                 <div className="flex items-center gap-2 rounded-[14px] bg-sage/12 px-3 py-2 text-[12.5px] font-medium text-sage">
                   <Users size={15} className="shrink-0 text-sage" />
                   <span>
-                    Записан в общий бюджет «
+                    Бюджет: «
                     {boot.houses.find((h) => h.id === (result.receipt?.house_id || selectedHouseId))?.name || 'Вместе'}
                     »
                   </span>
                 </div>
               ) : null}
 
+              {!savedId && <button className="primary-action" onClick={()=>setReview(true)}>Проверить и сохранить</button>}
               {/* Кнопка сплита счёта прямо из результатов скана */}
               <div className="pt-2">
                 <Button
@@ -415,7 +419,7 @@ function Scan() {
                   size="md"
                   onClick={() => {
                     haptic(8)
-                    setOpenSplitModal(true)
+                    if (savedId) setOpenSplitModal(true); else setReview(true)
                   }}
                   className="w-full gap-2 rounded-[16px] py-2.5 font-semibold shadow-paper"
                 >
@@ -476,11 +480,15 @@ function Scan() {
         </div>
       )}
 
+      <ExpenseEditor open={review} onClose={()=>setReview(false)} onSaved={async id=>{
+        setSavedId(id||null)
+        if(id)try{const saved=await getReceipt({data:{id}});if('receipt' in saved&&saved.receipt){setResult(saved);setSelectedHouseId(saved.receipt.house_id||null)}}catch{setError('Расход сохранён, но подробности пока не обновились')}
+      }} initialHouseId={selectedHouseId} draft={React.useMemo(()=>result ? {...result.receipt,purchased_at:result.receipt?.purchased_at || undefined,image:preview,items:result.items,houseId:selectedHouseId}:undefined,[result,preview,selectedHouseId])}/>
       {/* Модальное окно создания сплита */}
       <SplitCreateModal
         open={openSplitModal}
         onClose={() => setOpenSplitModal(false)}
-        receiptId={result?.receipt?.id}
+        receiptId={savedId}
         storeName={result?.receipt?.store || result?.store}
         totalAmount={result?.receipt?.total || result?.total}
         items={result?.items || []}

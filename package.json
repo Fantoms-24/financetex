@@ -10,6 +10,7 @@
     "build": "node scripts/patch-srvx.mjs && vite build && node scripts/patch-srvx.mjs",
     "start": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
+    "test:bugfix": "node scripts/test-bugfix.mjs",
     "lint": "tsc --noEmit",
     "cap:sync": "cap sync android",
     "bot": "node bot.js",

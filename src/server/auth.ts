@@ -13,23 +13,8 @@ export function normalizeEmail(login: string): string {
 }
 
 function trustedOrigins(): Array<string> {
-  const list = [
-    'http://localhost:8080',
-    'http://127.0.0.1:8080',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'https://*.run.app',
-    'https://*.google.com',
-    'https://*.aistudio.google.com',
-    'https://*.onrender.com',
-    'https://*.render.com',
-    'https://*.relaxdev.ru',
-    'https://*.preview.relaxdev.ru',
-    'https://relaxdev.ru',
-    'https://grok.com',
-    'https://*.grok.me',
-    'https://*.grok-sandbox.com',
-    'https://*.grok-preview.com',
+  const list = process.env.NODE_ENV === 'production' ? [] : [
+    'http://localhost:8080','http://127.0.0.1:8080','http://localhost:3000','http://127.0.0.1:3000',
   ]
   const prod = (process.env.BETTER_AUTH_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').trim()
   if (prod) list.push(prod.replace(/\/+$/, ''))
@@ -65,6 +50,9 @@ export function getAuth() {
   const prodUrl = (process.env.BETTER_AUTH_URL || process.env.APP_URL || '').trim()
   const secure = prodUrl.startsWith('https://')
 
+  if (process.env.NODE_ENV === 'production' && ((process.env.BETTER_AUTH_SECRET || '').trim().length < 32 || process.env.BETTER_AUTH_SECRET===DEV_SECRET)) {
+    throw new Error('Для запуска сервера задайте отдельный секрет авторизации')
+  }
   const opts: BetterAuthOptions = {
     basePath: '/api/auth',
     secret: (process.env.BETTER_AUTH_SECRET || '').trim() || DEV_SECRET,
@@ -72,7 +60,7 @@ export function getAuth() {
     database: { db: getKysely(), type: 'postgres', casing: 'camel', transaction: false },
     emailAndPassword: {
       enabled: true,
-      minPasswordLength: 4,
+      minPasswordLength: 8,
       requireEmailVerification: false,
       autoSignIn: true,
     },
@@ -89,7 +77,7 @@ export function getAuth() {
       cookiePrefix: 'chekagent',
       useSecureCookies: secure,
       // превью Grok шлёт Origin: https://grok.com — иначе 403 Invalid origin
-      disableCSRFCheck: true,
+      disableCSRFCheck: false,
       defaultCookieAttributes: {
         httpOnly: true,
         secure,
@@ -97,7 +85,7 @@ export function getAuth() {
         // have the Secure attribute»). На http (dev) — Lax, на https (Vercel /
         // Grok-iframe) — None. Better Auth печёт атрибуты в инстанс, поэтому
         // выбираем один раз, ориентируясь на продовый URL.
-        sameSite: secure ? 'none' : 'lax',
+        sameSite: 'lax',
         path: '/',
       },
       // id генерируем в JS: в таблицах id text PRIMARY KEY без DEFAULT,

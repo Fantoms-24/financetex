@@ -1,25 +1,25 @@
+import { listReceipts } from '~/server/functions/receipts'
+import { monthKey } from '~/lib/format'
+import { assertSaved, dueDay } from '~/lib/finance'
+import { Pencil, Pause, Play } from 'lucide-react'
 import * as React from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import {
-  ArrowLeft,
   Bell,
   BellOff,
   Check,
   CheckCircle2,
-  Clock,
   CreditCard,
   Plus,
   Trash2,
-  X,
 } from 'lucide-react'
-import { motion } from 'motion/react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { BottomSheet } from '~/components/BottomSheet'
 import { PersonalGoals } from '~/components/PersonalGoals'
 import { useApp } from '~/lib/app-state'
-import { billDueLabel, money, moneyShort, plural } from '~/lib/format'
-import { addBill, deleteBill, listBills, setBillPaid, toggleBillNotify } from '~/server/functions/bills'
+import { billDueLabel, money, plural } from '~/lib/format'
+import { updateBill, addBill, deleteBill, listBills, setBillPaid, toggleBillNotify } from '~/server/functions/bills'
 import { showInAppNotification } from '~/components/NotificationBanner'
 import { cn, haptic } from '~/lib/utils'
 
@@ -32,6 +32,7 @@ interface BillRow {
   title: string
   amount: number
   day_of_month: number
+  paused?: boolean
   notify: boolean
   paid_cycle: string | null
 }
@@ -52,9 +53,24 @@ function Bills() {
   const [amount, setAmount] = React.useState('')
   const [day, setDay] = React.useState('1')
   const [busy, setBusy] = React.useState(false)
+  const [error,setError]=React.useState('')
+  const [editing,setEditing]=React.useState<BillRow|null>(null)
+  const [acting,setActing]=React.useState(false)
+  const [payTarget,setPayTarget]=React.useState<BillRow|null>(null)
+  const [candidates,setCandidates]=React.useState<any[]>([])
+  const [candidatesBusy,setCandidatesBusy]=React.useState(false)
+  React.useEffect(()=>{
+    if(!payTarget)return
+    let live=true;setCandidates([]);setCandidatesBusy(true)
+    const now=new Date(),month=monthKey()
+    listReceipts({data:{total:payTarget.amount,from:month+'-01',to:month+'-'+new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),limit:300}})
+      .then(r=>{const data=assertSaved(r);if(live)setCandidates(data.receipts.filter(r=>! /^(bill|goal):/.test(r.source_key||'')))})
+      .catch(e=>{if(live)setError(e.message||'Не удалось найти расходы')}).finally(()=>{if(live)setCandidatesBusy(false)})
+    return()=>{live=false}
+  },[payTarget])
 
   React.useEffect(() => {
-    if (boot.bills && boot.bills.length > 0) {
+    if (boot.bills) {
       setBills((boot.bills as any) ?? [])
     }
   }, [boot.bills])
@@ -75,16 +91,13 @@ function Bills() {
   async function create(e: React.FormEvent) {
     e.preventDefault()
     const amt = Math.round(Number(amount.replace(/[^\d]/g, '') || 0))
-    if (!title.trim() || !amt) return
+    if (!title.trim() || !amt || busy) return
     setBusy(true)
     try {
-      await addBill({
-        data: {
-          title: title.trim(),
-          amount: amt,
-          day_of_month: Math.min(31, Math.max(1, Number(day || 1))),
-        },
-      })
+      setError('')
+      const data={title:title.trim(),amount:amt,day_of_month:Math.min(31,Math.max(1,Number(day||1)))}
+      assertSaved(editing?await updateBill({data:{...data,id:editing.id,paused:editing.paused}}):await addBill({data}))
+      setEditing(null)
       setTitle('')
       setAmount('')
       setDay('1')
@@ -92,22 +105,22 @@ function Bills() {
       haptic(10)
       await reload()
       await refresh()
-    } finally {
+    } catch(e:any){setError(e.message||'Не удалось сохранить платёж')} finally {
       setBusy(false)
     }
   }
 
   // Расчёт метрик радара счетов
   const totalAmount = React.useMemo(() => {
-    return bills.reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
+    return bills.filter(b=>!b.paused).reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
   }, [bills])
 
   const paidBills = React.useMemo(() => {
-    return bills.filter((b) => !!b.paid_cycle)
+    return bills.filter((b) => !!b.paid_cycle && !b.paused)
   }, [bills])
 
   const unpaidBills = React.useMemo(() => {
-    return bills.filter((b) => !b.paid_cycle)
+    return bills.filter((b) => !b.paid_cycle && !b.paused)
   }, [bills])
 
   const unpaidTotal = React.useMemo(() => {
@@ -118,22 +131,30 @@ function Bills() {
   const sortedBills = React.useMemo(() => {
     const currentDay = new Date().getDate()
     const sortedUnpaid = [...unpaidBills].sort((a, b) => {
-      const diffA = a.day_of_month >= currentDay ? a.day_of_month - currentDay : a.day_of_month - currentDay + 31
-      const diffB = b.day_of_month >= currentDay ? b.day_of_month - currentDay : b.day_of_month - currentDay + 31
-      return diffA - diffB
+      return dueDay(a.day_of_month) - dueDay(b.day_of_month)
     })
     const sortedPaid = [...paidBills].sort((a, b) => a.day_of_month - b.day_of_month)
-    return [...sortedUnpaid, ...sortedPaid]
-  }, [unpaidBills, paidBills])
+    return [...sortedUnpaid, ...sortedPaid, ...bills.filter(b=>b.paused)]
+  }, [unpaidBills, paidBills,bills])
+
+  const activeCount=bills.filter(b=>!b.paused).length
+  const paidPercent = activeCount > 0 ? Math.round((paidBills.length / activeCount) * 100) : 0
+  const nextBill = sortedBills.find((bill) => !bill.paid_cycle && !bill.paused)
+
+  async function perform(fn:()=>Promise<any>){
+    if(acting)return;setActing(true);setError('')
+    try{assertSaved(await fn());await reload();await refresh();return true}
+    catch(e:any){setError(e.message||'Не удалось сохранить. Попробуйте ещё раз');return false}
+    finally{setActing(false)}
+  }
 
   return (
     <div className="app-page plan-page">
-      {/* 1. Шапка с навигацией и добавлением */}
       <header className="page-heading plan-heading">
         <div>
-          <p className="eyebrow">ПЛАТЕЖИ И НАКОПЛЕНИЯ</p>
+          <p className="eyebrow">Платежи и накопления</p>
           <h1>План<span>.</span></h1>
-          <p className="page-description">Будущие списания и цели без неожиданностей.</p>
+          <p className="page-description">Всё важное на месяц — счета и личные цели.</p>
         </div>
 
         <Button
@@ -141,71 +162,82 @@ function Bills() {
           variant="sage"
           onClick={() => {
             haptic(8)
-            setOpenSheet(true)
+            setEditing(null);setTitle('');setAmount('');setDay('1');setError('');setOpenSheet(true)
           }}
-          className="gap-1.5 rounded-full px-3.5 h-10"
+          className="plan-add-button gap-1.5 rounded-full px-4 h-10"
         >
           <Plus size={16} />
-          <span>Добавить</span>
+          <span>Платёж</span>
         </Button>
       </header>
 
+      {error&&<p className="form-error" role="alert">{error}</p>}
+      <p className="form-hint">Оплата добавляет расход в историю. Повторная отметка отменяет его.</p>
       <div className="plan-layout">
-      <div className="plan-bills-column">
-      {/* 2. Радар регулярных списаний на месяц */}
-      {bills.length > 0 && (
-        <section className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-5 shadow-paper">
-          <div className="flex items-center justify-between text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-            <span>Обязательные списания месяца</span>
-            <span className="t-num font-medium text-sage">
-              {paidBills.length} из {bills.length} оплачено
-            </span>
-          </div>
+        <div className="plan-bills-column">
+          {bills.length > 0 && (
+            <section className="plan-summary" aria-label="Итог регулярных платежей">
+              <div className="plan-summary__topline">
+                <span>Списания в этом месяце</span>
+                <span className="plan-summary__count t-num">
+                  {paidBills.length} из {activeCount} оплачено
+                </span>
+              </div>
 
-          <div className="mt-1.5 flex items-baseline gap-3">
-            <p className="t-display t-num text-[34px] font-bold text-ink leading-tight">
-              {money(totalAmount)}
-            </p>
-            {unpaidBills.length > 0 ? (
-              <span className="text-[12.5px] text-muted">
-                · осталось {money(unpaidTotal)}
-              </span>
+              <div className="plan-summary__amount-row">
+                <div>
+                  <span className="plan-summary__amount-label">
+                    {unpaidBills.length > 0 ? 'Осталось оплатить' : 'Счета закрыты'}
+                  </span>
+                  <p className="plan-summary__amount t-display t-num">
+                    {money(unpaidBills.length > 0 ? unpaidTotal : totalAmount)}
+                  </p>
+                </div>
+                {unpaidBills.length === 0 ? (
+                  <span className="plan-summary__done"><CheckCircle2 size={16} /> Готово</span>
+                ) : (
+                  <span className="plan-summary__total t-num">Всего {money(totalAmount)}</span>
+                )}
+              </div>
+
+              <div className="plan-summary__progress" aria-label={`Оплачено ${paidPercent}%`}>
+                <span style={{ width: `${paidPercent}%` }} />
+              </div>
+
+              <p className="plan-summary__next">
+                {nextBill ? (
+                  <>
+                    <span>Ближайший</span>
+                    <strong>{nextBill.title}</strong>
+                    <span>· {billDueLabel(nextBill.day_of_month).label.toLowerCase()}</span>
+                  </>
+                ) : (
+                  <>В этом месяце больше ничего оплачивать не нужно</>
+                )}
+              </p>
+            </section>
+          )}
+
+          <section className="plan-section" aria-labelledby="regular-payments-title">
+            <div className="plan-section-heading">
+              <div>
+                <h2 id="regular-payments-title">Регулярные платежи</h2>
+                <p>{bills.length > 0 ? `${bills.length} ${plural(bills.length, 'платёж', 'платежа', 'платежей')} каждый месяц` : 'Чтобы не держать даты в голове'}</p>
+              </div>
+            </div>
+
+            {bills.length === 0 ? (
+              <div className="plan-empty">
+                <div className="empty-state-mark empty-state-mark--plan" aria-hidden="true">
+                  <CreditCard size={28} />
+                </div>
+                <div>
+                  <p className="plan-empty__title">Добавьте первый платёж</p>
+                  <p className="plan-empty__copy">Аренда, интернет, ЖКХ или подписка — Листок напомнит вовремя.</p>
+                </div>
+              </div>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-sage">
-                <CheckCircle2 size={13} /> Все счета закрыты
-              </span>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* 3. Список счетов */}
-      {bills.length === 0 ? (
-        <div className="rounded-[22px] border border-rule/70 bg-paper p-8 text-center shadow-paper">
-          <div className="empty-state-mark empty-state-mark--plan" aria-hidden="true">
-            <CreditCard size={31} />
-          </div>
-          <p className="t-display mt-3 text-[17px] font-semibold text-ink">Пока нет регулярных платежей</p>
-          <p className="mx-auto mt-1 max-w-[260px] text-[12.5px] leading-relaxed text-muted">
-            Добавьте аренду, интернет, ЖКХ или подписки — напомним заранее до дня списания.
-          </p>
-          <div className="mt-4 flex justify-center">
-            <Button
-              size="sm"
-              variant="sage"
-              onClick={() => {
-                haptic(8)
-                setOpenSheet(true)
-              }}
-              className="rounded-full gap-1.5"
-            >
-              <Plus size={15} />
-              <span>Добавить первый счёт</span>
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
+              <div className="plan-bill-list">
           {sortedBills.map((b) => {
             const due = billDueLabel(b.day_of_month)
             const paid = !!b.paid_cycle
@@ -215,86 +247,68 @@ function Bills() {
               <div
                 key={b.id}
                 className={cn(
-                  'overflow-hidden rounded-[20px] border p-4 shadow-paper transition-all',
+                  'plan-bill-card',
                   paid
-                    ? 'border-rule/50 bg-paper/65 opacity-90'
+                    ? 'is-paid'
                     : isAlert
-                      ? 'border-stamp/40 bg-paper'
-                      : 'border-rule/70 bg-paper',
+                      ? 'is-alert'
+                      : '',
                 )}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="t-display truncate text-[16.5px] font-semibold text-ink leading-tight">
+                <div className="plan-bill-card__main">
+                  <div className="plan-bill-date" aria-label={`${b.day_of_month}-е число`}>
+                    <strong className="t-num">{b.day_of_month}</strong>
+                    <span>число</span>
+                  </div>
+
+                  <div className="plan-bill-card__content">
+                    <div className="plan-bill-card__title-row">
+                      <span className="plan-bill-card__title t-display">
                         {b.title}
                       </span>
                       <span
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-[10.5px] font-semibold leading-none',
+                          'plan-bill-status',
                           paid
-                            ? 'bg-sage/12 text-sage'
+                            ? 'is-paid'
                             : isAlert
-                              ? 'bg-stamp/10 text-stamp'
-                              : 'bg-black/[0.04] text-muted',
+                              ? 'is-alert'
+                              : '',
                         )}
                       >
-                        {paid ? 'Оплачен' : due.label}
+                        {b.paused?'На паузе':paid ? 'Оплачен' : due.label}
                       </span>
                     </div>
-
-                    <p className="mt-1 text-[12px] text-muted">
-                      Списание каждого {b.day_of_month}-го числа
-                    </p>
+                    <p className="plan-bill-card__meta">Каждый месяц</p>
                   </div>
 
-                  <span className="t-num shrink-0 text-[17px] font-bold text-ink">
+                  <span className="plan-bill-card__amount t-num">
                     {money(b.amount)}
                   </span>
                 </div>
 
-                <div className="mt-3.5 flex items-center justify-between border-t border-rule/50 pt-3">
-                  {/* Кнопка отметки об оплате в 1 клик */}
+                <div className="plan-bill-card__actions">
                   <button
                     type="button"
-                    onClick={async () => {
-                      haptic(10)
-                      const nextPaid = !paid
-                      await setBillPaid({ data: { billId: b.id, paid: nextPaid } })
-                      if (nextPaid) {
-                        showInAppNotification({
-                          title: '✓ Платёж оплачен',
-                          body: `«${b.title}» (${money(b.amount)}) отмечен как оплаченный`,
-                          icon: 'sparkles',
-                        })
-                      }
-                      await reload()
-                      await refresh()
-                    }}
+                    disabled={acting||b.paused}
+                    onClick={()=>paid?perform(()=>setBillPaid({data:{billId:b.id,paid:false}})):setPayTarget(b)}
                     className={cn(
-                      'flex min-h-[34px] items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition-all active:scale-95',
+                      'plan-pay-action',
                       paid
-                        ? 'border border-sage/40 bg-sage/12 text-sage'
-                        : 'border border-rule/80 bg-paper text-ink hover:bg-black/[0.03]',
+                        ? 'is-paid'
+                        : '',
                     )}
                   >
                     {paid ? <Check size={13} strokeWidth={2.5} /> : null}
                     <span>{paid ? 'Оплачено' : 'Отметить оплату'}</span>
                   </button>
 
-                  {/* Иконки напоминаний и удаления */}
-                  <div className="flex items-center gap-1">
+                  <details className="plan-bill-menu"><summary>Ещё</summary><div className="plan-bill-tools"><button className="plan-icon-action" aria-label="Изменить платёж" onClick={()=>{setEditing(b);setTitle(b.title);setAmount(String(b.amount));setDay(String(b.day_of_month));setError('');setOpenSheet(true)}}><Pencil size={17}/></button><button className="plan-icon-action" disabled={acting} aria-label={b.paused?'Возобновить платёж':'Приостановить платёж'} title={b.paused?'Возобновить':'Пауза'} onClick={()=>perform(()=>updateBill({data:{...b,paused:!b.paused}}))}>{b.paused?<Play size={17}/>:<Pause size={17}/>}</button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        haptic(6)
-                        await toggleBillNotify({ data: { billId: b.id, notify: !b.notify } })
-                        await reload()
-                      }}
-                      className={cn(
-                        'flex h-8 w-8 items-center justify-center rounded-full transition active:scale-95',
-                        b.notify ? 'text-sage bg-sage/10' : 'text-muted hover:text-ink',
-                      )}
+                      disabled={acting}
+                      onClick={()=>perform(()=>toggleBillNotify({data:{billId:b.id,notify:!b.notify}}))}
+                      className={cn('plan-icon-action', b.notify ? 'is-active' : '')}
                       aria-label="Напоминания"
                       title={b.notify ? 'Напоминания включены' : 'Напоминания выключены'}
                     >
@@ -305,33 +319,36 @@ function Bills() {
                       type="button"
                       onClick={async () => {
                         if (!confirm(`Удалить «${b.title}»?`)) return
-                        haptic(10)
-                        await deleteBill({ data: { billId: b.id } })
-                        await reload()
-                        await refresh()
+                        await perform(()=>deleteBill({ data: { billId: b.id } }))
                       }}
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-muted hover:text-stamp transition active:scale-95"
+                      className="plan-icon-action is-delete"
                       aria-label="Удалить счёт"
                       title="Удалить счёт"
                     >
                       <Trash2 size={15} />
                     </button>
-                  </div>
+                  </div></details>
                 </div>
               </div>
             )
           })}
+              </div>
+            )}
+          </section>
         </div>
-      )}
-      </div>
 
-      <div className="plan-goals-column"><PersonalGoals goals={boot.goals} onRefresh={refresh} /></div>
+        <div className="plan-goals-column"><PersonalGoals goals={boot.goals} onRefresh={refresh} /></div>
       </div>
-      {/* 4. Шторка создания нового платежа (BottomSheet) */}
+      <BottomSheet open={!!payTarget} onClose={()=>{if(!acting)setPayTarget(null)}} title={payTarget?'Оплата · '+payTarget.title:'Оплата'}>
+       <p className="form-hint">Отметьте уже совершённую оплату. Деньги с банковской карты приложение не списывает.</p>
+       {error&&<p role="alert" className="form-error">{error}</p>}
+       <button disabled={acting} className="primary-action" onClick={async()=>{if(payTarget&&await perform(()=>setBillPaid({data:{billId:payTarget.id,paid:true}})))setPayTarget(null)}}>Записать расход {money(payTarget?.amount||0)}</button>
+       <details><summary>Этот расход уже записан</summary><p className="form-hint">Выберите покупку на такую же сумму за текущий месяц. Нового расхода не будет; отмена отметки сохранит исходную покупку.</p>{candidatesBusy?<p>Загрузка…</p>:!candidates.length?<p>Подходящих расходов пока нет.</p>:candidates.map(r=><button key={r.id} disabled={acting} className="payment-candidate" onClick={async()=>{if(payTarget&&await perform(()=>setBillPaid({data:{billId:payTarget.id,paid:true,receiptId:r.id}})))setPayTarget(null)}}><span>{r.store}<small>{r.purchased_at}</small></span><strong>{money(r.total)}</strong></button>)}</details>
+      </BottomSheet>
       <BottomSheet
         open={openSheet}
         onClose={() => setOpenSheet(false)}
-        title="Новый регулярный платёж"
+        title={editing?"Изменить платёж":"Новый регулярный платёж"}
       >
         <form onSubmit={create} className="space-y-4 pt-1">
           {/* Шаблоны популярных платежей */}
@@ -402,6 +419,7 @@ function Bills() {
             </div>
           </div>
 
+          <p className="form-hint">В коротком месяце платёж на 29–31 число переносится на последний день.</p>{error&&<p className="form-error" role="alert">{error}</p>}
           {/* Сохранить */}
           <div className="pt-2">
             <Button

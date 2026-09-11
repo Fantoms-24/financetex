@@ -1,9 +1,9 @@
+import { assertSaved, newRequestId } from '~/lib/finance'
 import * as React from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import {
   Car,
   Check,
-  ChevronRight,
   Gift,
   Home,
   Palmtree,
@@ -11,11 +11,8 @@ import {
   Plus,
   Shield,
   Smartphone,
-  Sparkles,
   Target,
   Trash2,
-  TrendingUp,
-  X,
 } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
 import { Button } from './ui/button'
@@ -23,7 +20,7 @@ import { Input } from './ui/input'
 import { showInAppNotification } from './NotificationBanner'
 import { money, moneyShort } from '~/lib/format'
 import { cn, haptic } from '~/lib/utils'
-import { createGoal, depositToGoal, deleteGoal, type UserGoal } from '~/server/functions/goals'
+import { goalHistory, reverseGoalDeposit, createGoal, depositToGoal, deleteGoal, type UserGoal } from '~/server/functions/goals'
 
 interface PersonalGoalsProps {
   goals: Array<UserGoal>
@@ -61,12 +58,6 @@ function getGoalIcon(icon: string, size = 18) {
   }
 }
 
-function goalCover(icon: string) {
-  if (icon === 'palmtree') return '/assets/visual-kit-v1/goal-trip.webp'
-  if (icon === 'home') return '/assets/visual-kit-v1/goal-home.webp'
-  return '/assets/visual-kit-v1/goal-dream.webp'
-}
-
 export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoalsProps) {
   const [openAddSheet, setOpenAddSheet] = React.useState(false)
   const [depositGoalTarget, setDepositGoalTarget] = React.useState<UserGoal | null>(null)
@@ -83,6 +74,23 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
   const [depNote, setDepNote] = React.useState('')
   const [depRecordExpense, setDepRecordExpense] = React.useState(true)
   const [depBusy, setDepBusy] = React.useState(false)
+  const [error,setError]=React.useState('')
+  const [history,setHistory]=React.useState<UserGoal|null>(null)
+  const [deposits,setDeposits]=React.useState<any[]>([])
+  const [historyBusy,setHistoryBusy]=React.useState(false)
+  const depRequest=React.useRef('')
+  React.useEffect(()=>{depRequest.current=newRequestId();setError('')},[depositGoalTarget])
+  async function openHistory(goal:UserGoal){setHistory(goal);setHistoryBusy(true);setError('')
+    try{const r=assertSaved(await goalHistory({data:{goalId:goal.id}}));setDeposits(r.deposits)}
+    catch(e:any){setError(e.message||'Не удалось загрузить взносы')}
+    finally{setHistoryBusy(false)}
+  }
+  async function undoDeposit(id:string){
+    if(historyBusy)return;setHistoryBusy(true);setError('')
+    try{assertSaved(await reverseGoalDeposit({data:{id}}));await onRefresh();if(history)await openHistory(history)}
+    catch(e:any){setError(e.message||'Не удалось отменить взнос')}
+    finally{setHistoryBusy(false)}
+  }
 
   const totalCollected = React.useMemo(() => {
     return goals.reduce((sum, g) => sum + (g.collected || 0), 0)
@@ -114,6 +122,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
           targetDate: newDate ? newDate : null,
         },
       })
+      assertSaved(res)
       if ('ok' in res && res.ok) {
         haptic(12)
         showInAppNotification({
@@ -127,7 +136,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
         setOpenAddSheet(false)
         await onRefresh()
       }
-    } finally {
+    } catch(e:any){setError(e.message||'Не удалось создать цель')} finally {
       setCreateBusy(false)
     }
   }
@@ -146,6 +155,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
           amount: amt,
           note: depNote.trim() || undefined,
           recordExpense: depRecordExpense,
+          requestId:depRequest.current,
         },
       })
 
@@ -169,65 +179,60 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
         setDepNote('')
         await onRefresh()
       }
-    } finally {
+    } catch(e:any){setError(e.message||'Не удалось пополнить цель')} finally {
       setDepBusy(false)
     }
   }
 
   const handleDelete = async (goal: UserGoal) => {
-    if (!confirm(`Удалить цель «${goal.title}»?`)) return
+    if (!confirm(`Удалить цель «${goal.title}»? Записанные расходы останутся в истории.`)) return
     haptic(8)
-    await deleteGoal({ data: { id: goal.id } })
-    await onRefresh()
+    try{assertSaved(await deleteGoal({ data: { id: goal.id } }));await onRefresh()}catch(e:any){setError(e.message||'Не удалось удалить цель')}
   }
 
   return (
-    <section className="space-y-3" aria-label="Личные цели и копилки">
-      {/* Заголовок секции */}
-      <div className="flex items-center justify-between px-1">
+    <section className="personal-goals" aria-label="Личные цели и копилки">{error&&<p className="form-error" role="alert">{error}</p>}
+      <div className="plan-section-heading plan-goals-heading">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/12 text-sage">
-            <PiggyBank size={16} strokeWidth={2.2} />
+          <div className="plan-section-icon">
+            <PiggyBank size={18} strokeWidth={2.1} />
           </div>
           <div>
-            <h2 className="text-[14px] font-semibold text-ink leading-tight">
-              Копилки и цели
-            </h2>
+            <h2>Копилки и цели</h2>
             {totalCollected > 0 ? (
-              <p className="text-[11px] font-medium text-muted">
+              <p>
                 Накоплено {money(totalCollected)} из {moneyShort(totalTarget)}
               </p>
             ) : (
-              <p className="text-[11px] font-medium text-muted">
-                Личные накопления
-              </p>
+              <p>Личные накопления</p>
             )}
           </div>
         </div>
 
-        <Button
-          variant="paper"
-          size="sm"
-          onClick={() => {
-            haptic(8)
-            setOpenAddSheet(true)
-          }}
-          className="h-8 gap-1 rounded-full border-rule/80 px-2.5 text-[11.5px] font-semibold text-sage hover:border-sage/40"
-        >
-          <Plus size={14} />
-          <span>Цель</span>
-        </Button>
+        {goals.length > 0 ? (
+          <Button
+            variant="paper"
+            size="sm"
+            onClick={() => {
+              haptic(8)
+              setOpenAddSheet(true)
+            }}
+            className="plan-goal-add"
+          >
+            <Plus size={15} />
+            <span>Новая цель</span>
+          </Button>
+        ) : null}
       </div>
 
-      {/* Список целей */}
       {goals.length === 0 ? (
-        <div className="receipt-card p-4.5 text-center sm:p-5">
-          <span className="empty-state-mark" aria-hidden="true"><Target size={31} /></span>
-          <p className="text-[13.5px] font-semibold text-ink">
+        <div className="plan-goals-empty">
+          <span className="empty-state-mark" aria-hidden="true"><Target size={28} /></span>
+          <p className="plan-empty__title">
             Начните копить на мечту
           </p>
-          <p className="text-[11.5px] text-muted max-w-[280px] mx-auto mt-1 leading-relaxed">
-            Отпуск, резервный фонд или крупная покупка. Листок поможет откладывать комфортными суммами.
+          <p className="plan-empty__copy">
+            Отпуск, резервный фонд или крупная покупка — прогресс всегда будет перед глазами.
           </p>
           <Button
             size="sm"
@@ -235,14 +240,14 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
               haptic(8)
               setOpenAddSheet(true)
             }}
-            className="mt-3.5 h-8.5 rounded-xl bg-sage px-4 text-[12px] font-semibold text-onsage hover:bg-sage-dark shadow-xs"
+            className="plan-empty__button"
           >
             <Plus size={14} className="mr-1.5" />
             Создать первую цель
           </Button>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="plan-goal-list">
           {goals.map((goal) => {
             const percent = Math.min(
               100,
@@ -258,22 +263,18 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  'receipt-card relative p-3.5 sm:p-4 transition-all',
-                  isDone ? 'border-emerald-500/30 bg-emerald-50/20' : '',
+                  'plan-goal-card',
+                  isDone ? 'is-done' : '',
                 )}
               >
-                <div className="goal-cover" aria-hidden="true">
-                  <img src={goalCover(goal.icon)} alt="" />
-                  <span>{getGoalIcon(goal.icon, 17)}</span>
-                </div>
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rule/40 border border-rule/60">
-                      {getGoalIcon(goal.icon, 18)}
+                    <div className="plan-goal-icon">
+                      {getGoalIcon(goal.icon, 20)}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-semibold text-ink truncate">
+                        <span className="plan-goal-title">
                           {goal.title}
                         </span>
                         {isDone ? (
@@ -282,7 +283,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
                           </span>
                         ) : null}
                       </div>
-                      <div className="flex items-baseline gap-1.5 text-[11px] font-medium text-muted mt-0.5">
+                      <div className="plan-goal-amounts">
                         <span className="t-num font-semibold text-ink">
                           {money(goal.collected)}
                         </span>
@@ -292,8 +293,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
                     </div>
                   </div>
 
-                  {/* Кнопка пополнения / меню */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="plan-goal-actions">
                     {!isDone ? (
                       <button
                         type="button"
@@ -302,17 +302,19 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
                           setDepositGoalTarget(goal)
                           setDepAmount('1000')
                         }}
-                        className="flex h-7 items-center gap-1 rounded-lg bg-sage/12 px-2 text-[11px] font-semibold text-sage hover:bg-sage/20 transition-colors"
+                        className="plan-goal-deposit"
                       >
                         <Plus size={12} />
                         <span>Пополнить</span>
                       </button>
                     ) : null}
 
+                    <button className="text-action" type="button" onClick={()=>openHistory(goal)}>История</button>
                     <button
                       type="button"
                       onClick={() => handleDelete(goal)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-muted/60 hover:text-stamp hover:bg-stamp/10 transition-colors"
+                      className="plan-goal-delete"
+                      aria-label={`Удалить цель «${goal.title}»`}
                       title="Удалить цель"
                     >
                       <Trash2 size={13} />
@@ -435,6 +437,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
               {createBusy ? 'Создаём...' : 'Создать копилку 🌿'}
             </Button>
           </div>
+          <label className="expense-form">Срок цели · необязательно<input type="date" value={newDate} onChange={e=>setNewDate(e.target.value)}/></label>{error&&<p role="alert" className="form-error">{error}</p>}
         </form>
       </BottomSheet>
 
@@ -444,6 +447,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
         onClose={() => setDepositGoalTarget(null)}
         title={depositGoalTarget ? `Пополнить «${depositGoalTarget.title}»` : 'Пополнить'}
       >
+        {error&&<p role="alert" className="form-error">{error}</p>}
         {depositGoalTarget && (
           <form onSubmit={handleDeposit} className="space-y-4 pt-1">
             {/* Текущий прогресс */}
@@ -537,6 +541,11 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
             </div>
           </form>
         )}
+      </BottomSheet>
+      <BottomSheet open={!!history} onClose={()=>setHistory(null)} title={history?'Взносы · '+history.title:'Взносы'}>
+        {error&&<p className="form-error" role="alert">{error}</p>}{historyBusy&&<p role="status">Загрузка…</p>}
+        {!historyBusy&&!deposits.length&&<p>Пополнений пока нет.</p>}
+        {deposits.map(d=><div key={d.id} className="goal-history-row"><div><strong>{money(Number(d.amount))}</strong><small>{new Date(d.created_at).toLocaleDateString('ru-RU')}{d.note?' · '+d.note:''}</small></div>{d.reversed_at?<span>Отменён</span>:<button className="text-action" disabled={historyBusy} onClick={()=>undoDeposit(d.id)}>Отменить взнос</button>}</div>)}
       </BottomSheet>
     </section>
   )

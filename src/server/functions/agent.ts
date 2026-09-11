@@ -25,12 +25,12 @@ async function buildContext(userId: string) {
   const [spent, byCat, houses] = await Promise.all([
     q<any>(
       `SELECT coalesce(sum(total), 0)::bigint AS total FROM receipts
-        WHERE user_id = $1 AND purchased_at >= $2::date`,
+        WHERE user_id = $1 AND deleted_at IS NULL AND coalesce(purchased_at,created_at::date) >= $2::date AND coalesce(purchased_at,created_at::date) < $2::date + interval '1 month'`,
       [userId, startOfMonth]
     ),
     q<any>(
       `SELECT category, coalesce(sum(total), 0)::bigint AS total FROM receipts
-        WHERE user_id = $1 AND purchased_at >= $2::date GROUP BY category ORDER BY total DESC`,
+        WHERE user_id = $1 AND deleted_at IS NULL AND coalesce(purchased_at,created_at::date) >= $2::date AND coalesce(purchased_at,created_at::date) < $2::date + interval '1 month' GROUP BY category ORDER BY total DESC`,
       [userId, startOfMonth]
     ),
     q<any>(

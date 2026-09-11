@@ -51,7 +51,7 @@ function putCookie(token: string) {
     secure: sec,
     // SameSite=None без Secure отвергается браузером. На http — Lax
     // (same-origin и так работает), на https — None (cross-origin iframe).
-    sameSite: sec ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 60,
   })
@@ -99,7 +99,7 @@ export const signIn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AuthResult> => {
     try {
       if (!data.login) return { ok: false, token: null, user: null, error: 'Впишите логин' }
-      if (data.password.length < 4) return { ok: false, token: null, user: null, error: 'Пароль — минимум 4 символа' }
+      if (data.password.length < 4) return { ok: false, token: null, user: null, error: 'Введите пароль' }
 
       const { namePart, appEmail, directEmail } = findUserCandidates(data.login)
 
@@ -128,22 +128,7 @@ export const signIn = createServerFn({ method: 'POST' })
         }
       }
 
-      // Если аккаунт не найден (например, после перезапуска сервера / сброса локальной БД):
-      // Автоматически регистрируем с введённым логином и паролем
-      try {
-        const regRes: any = await getAuth().api.signUpEmail({
-          body: {
-            email: directEmail,
-            password: data.password,
-            name: namePart || data.login,
-          },
-          headers: incomingHeaders(),
-        })
-        return await shape(regRes?.user, pickToken(regRes))
-      } catch (e: any) {
-        console.error('[auth] Auto-registration failed:', e)
-        return { ok: false, token: null, user: null, error: friendly(e) }
-      }
+      return { ok: false, token: null, user: null, error: 'Аккаунт не найден. Проверьте логин или выберите «Регистрация».' }
     } catch (e: any) {
       console.error('[auth] signIn failed:', e)
       return { ok: false, token: null, user: null, error: friendly(e) }
@@ -159,7 +144,7 @@ export const signUp = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AuthResult> => {
     try {
       if (!data.login) return { ok: false, token: null, user: null, error: 'Впишите логин' }
-      if (data.password.length < 4) return { ok: false, token: null, user: null, error: 'Пароль — минимум 4 символа' }
+      if (data.password.length < 8) return { ok: false, token: null, user: null, error: 'Для нового аккаунта используйте пароль от 8 символов' }
 
       const { namePart, appEmail, directEmail } = findUserCandidates(data.login)
 

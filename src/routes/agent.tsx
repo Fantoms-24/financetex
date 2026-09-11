@@ -1,3 +1,4 @@
+import { budgetNumbers } from '~/lib/finance'
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -520,7 +521,7 @@ function Agent() {
                     <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">
                       <span className="block text-[10px] uppercase font-medium text-muted">Норма в день</span>
                       <span className="t-num text-[13.5px] font-bold text-sage">
-                        ~{money(remaining ? Math.max(0, Math.round(remaining / 22)) : Math.round(spent / 8))}
+                        {money(budgetNumbers(monthlyBudget, spent, boot.bills).daily)}
                       </span>
                     </div>
                     <div className="rounded-[12px] bg-paper-sunken/60 p-2 text-center">

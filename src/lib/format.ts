@@ -1,3 +1,4 @@
+import { dueDay } from './finance'
 export interface CategoryMeta {
   id: string
   label: string
@@ -99,12 +100,12 @@ export function billDueLabel(dayOfMonth: number, now: Date = new Date()): {
   key: 'overdue' | 'today' | 'in-1' | 'in-2'
   label: string
 } {
-  const diff = dayOfMonth - now.getDate()
+  const diff = dueDay(dayOfMonth, now) - now.getDate()
   if (diff === 0) return { key: 'today', label: 'Сегодня' }
   if (diff === 1) return { key: 'in-1', label: 'Завтра' }
   if (diff === 2) return { key: 'in-2', label: 'Через 2 дня' }
   if (diff < 0) return { key: 'overdue', label: 'Просрочен' }
-  return { key: 'in-2', label: `${diff} ${plural(diff, 'день', 'дня', 'дней')}` }
+  return { key: 'in-2', label: `Через ${diff} ${plural(diff, 'день', 'дня', 'дней')}` }
 }
 
 export function prevMonthKey(d: Date = new Date()): string {
@@ -420,4 +421,3 @@ export function parseSmartCompoundSplit(text: string): CompoundSplitResult | nul
     title,
   }
 }
-

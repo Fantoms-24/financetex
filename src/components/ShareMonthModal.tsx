@@ -29,7 +29,7 @@ export function ShareMonthModal({
   // Расчёт метрик за период
   const stats = React.useMemo(() => {
     const totalCount = receipts.length
-    const saved = Math.max(0, budget - spent)
+    const saved = budget - spent
 
     // Дни с расходами и спокойные дни
     const expenseDays = new Set<string>()
@@ -74,8 +74,7 @@ export function ShareMonthModal({
   const shareText = `🌿 Мои финансовые итоги за ${monthLabel}:
 • Всего покупок: ${stats.totalCount} ${plural(stats.totalCount, 'чек', 'чека', 'чеков')} на сумму ${money(spent)}
 • Топ-расход: ${stats.topCatTitle} (${stats.topCatShare}% всех трат)
-• Сохранено в бюджете: ${money(stats.saved)}
-• Дней без лишних трат: ${stats.quietDaysCount} 🌿
+${budget > 0 && stats.totalCount > 0 ? '• Осталось от лимита: '+money(stats.saved) : ''}
 
 Веду бюджет легко в «Листке».`
 
@@ -116,13 +115,14 @@ export function ShareMonthModal({
     try {
       // Формируем CSV с разделителем ';' и BOM для Excel
       const headers = ['Дата', 'Магазин / Описание', 'Категория', 'Сумма (₽)', 'Заметка', 'Общий бюджет']
+      const cell=(value:string)=>'"'+(/^[\s]*[=+@\-]/.test(value)?"'"+value:value).replace(/"/g,'""')+'"'
       const rows = receipts.map((r) => {
         const d = (r.purchased_at || r.created_at || '').slice(0, 10)
-        const store = `"${(r.store || '').replace(/"/g, '""')}"`
+        const store = cell(r.store || '')
         const cat = `"${categoryLabel(r.category)}"`
         const amt = r.total
-        const note = `"${(r.note || '').replace(/"/g, '""')}"`
-        const house = `"${(r.house_name || 'Личный').replace(/"/g, '""')}"`
+        const note = cell(r.note || '')
+        const house = cell(r.house_name || 'Личный')
         return [d, store, cat, amt, note, house].join(';')
       })
 
@@ -138,7 +138,7 @@ export function ShareMonthModal({
       URL.revokeObjectURL(url)
 
       showInAppNotification({
-        title: 'Файл Excel скачан',
+        title: 'CSV подготовлен',
         body: 'Таблица расходов готова к открытию',
         icon: 'sparkles',
       })
@@ -208,12 +208,12 @@ export function ShareMonthModal({
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-[12px]">
-              <span className="text-muted">Сохранено в лимите</span>
+            {budget > 0 && stats.totalCount > 0 && <div className="flex items-center justify-between text-[12px]">
+              <span className="text-muted">Осталось от лимита</span>
               <span className="t-num font-semibold text-sage">
                 {money(stats.saved)}
               </span>
-            </div>
+            </div>}
 
             <div className="flex items-center justify-between text-[12px]">
               <span className="text-muted">Главный расход</span>
@@ -229,14 +229,7 @@ export function ShareMonthModal({
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-[12px] pt-1 border-t border-rule/50">
-              <span className="inline-flex items-center gap-1 text-sage font-medium">
-                <span>🌿 Дней спокойствия</span>
-              </span>
-              <span className="t-num font-semibold text-sage">
-                {stats.quietDaysCount} из 30
-              </span>
-            </div>
+
           </div>
 
           {/* Кнопки действий */}

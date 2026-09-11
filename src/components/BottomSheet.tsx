@@ -62,7 +62,7 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 350 }}
-            drag="y"
+            drag={false}
             dragConstraints={{ top: 0 }}
             dragElastic={0.2}
             onDragEnd={(_, info) => {
@@ -86,7 +86,7 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-cream hover:text-ink transition active:scale-95"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-cream hover:text-ink transition active:scale-95"
                   aria-label="Закрыть"
                 >
                   <X size={17} />

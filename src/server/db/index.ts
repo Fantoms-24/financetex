@@ -1,16 +1,19 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { APP_TABLES, AUTH_TABLES, HEAL_STATEMENTS } from './schema'
 
 export type Row = Record<string, any>
 
 export interface DB {
   query<T = Row>(sql: string, params?: Array<unknown>): Promise<Array<T>>
+  transaction<T>(fn: (db: Pick<DB, 'query'>) => Promise<T>): Promise<T>
   kind: 'pg' | 'pglite'
 }
 
+const transactionContext = new AsyncLocalStorage<Pick<DB, 'query'>>()
 let initPromise: Promise<DB> | null = null
 
 export function getDB(): Promise<DB> {
-  if (!initPromise) initPromise = create()
+  if (!initPromise) initPromise = create().catch(error => { initPromise = null; throw error })
   return initPromise
 }
 
@@ -28,40 +31,33 @@ async function create(): Promise<DB> {
         PoolClass = PoolClass.Pool
       }
       const isLocal = url.includes('localhost') || url.includes('127.0.0.1') || url.includes('sslmode=disable')
-      let pool: any = null
-      try {
-        pool = new PoolClass({
-          connectionString: url,
-          max: 6,
-          idleTimeoutMillis: 20_000,
-          connectionTimeoutMillis: 5_000,
-          ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
-        })
-        await pool.query('SELECT 1')
-      } catch (sslErr: any) {
-        if (!isLocal) {
-          console.warn('[db] Retrying Postgres connection without SSL (internal network):', sslErr?.message || sslErr)
-          pool = new PoolClass({
-            connectionString: url,
-            max: 6,
-            idleTimeoutMillis: 20_000,
-            connectionTimeoutMillis: 5_000,
-          })
-          await pool.query('SELECT 1')
-        } else {
-          throw sslErr
-        }
-      }
+      const pool = new PoolClass({
+        connectionString: url,
+        max: 6, idleTimeoutMillis: 20_000, connectionTimeoutMillis: 5_000,
+        ...(isLocal ? {} : { ssl: { rejectUnauthorized: true } }),
+      })
+      try { await pool.query('SELECT 1') }
+      catch(error){await pool.end().catch(()=>{});throw error}
       console.log('[db] Connected to remote Postgres successfully')
       db = {
         kind: 'pg',
+        async transaction(fn) {
+          const client = await pool.connect()
+          try {
+            await client.query('BEGIN')
+            const result = await fn({ query: async (sql, params = []) => (await client.query(sql, params)).rows })
+            await client.query('COMMIT')
+            return result
+          } catch (error) { await client.query('ROLLBACK'); throw error }
+          finally { client.release() }
+        },
         async query(sql, params = []) {
           const r = await pool.query(sql, params as Array<any>)
           return r.rows as Array<any>
         },
       }
     } catch (e) {
-      console.error('[db] Remote Postgres connection failed, falling back to local PGlite:', (e as Error)?.message || e)
+      throw new Error('Основное хранилище недоступно. Данные не переключены и не потеряны. Повторите позже.')
     }
   }
 
@@ -80,18 +76,15 @@ async function create(): Promise<DB> {
       pgliteInstance = new PGlite(process.env.PGLITE_DIR || '.pglite-data')
       await pgliteInstance.waitReady
     } catch (e) {
-      try {
-        pgliteInstance = new PGlite()
-        await pgliteInstance.waitReady
-      } catch (err) {
-        throw new Error(
-          `Не задана DATABASE_URL, а локальная БД (PGlite) не поднялась: ${(e as Error)?.message}. ` +
-            'Запускайте локально через npm run dev либо задайте DATABASE_URL.',
-        )
-      }
+      throw new Error('Не удалось открыть сохранённые данные. Проверьте доступность хранилища и повторите запуск.')
     }
     db = {
       kind: 'pglite',
+      async transaction(fn) {
+        return pgliteInstance.transaction(async (tx: any) => fn({
+          query: async (sql, params = []) => (await tx.query(sql, params)).rows || [],
+        }))
+      },
       async query(sql, params = []) {
         const r = await pgliteInstance.query(sql, params as Array<any>)
         return (r.rows || []) as Array<any>
@@ -118,6 +111,24 @@ export async function migrate(db: DB) {
     }
   }
   await heal(db)
+  // Additive, idempotent schema changes; never replace existing data.
+  for (const sql of [
+    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS recovery_code_hash text",
+    "CREATE UNIQUE INDEX IF NOT EXISTS recovery_code_hash_uq ON profiles(recovery_code_hash) WHERE recovery_code_hash IS NOT NULL",
+    "ALTER TABLE bill_pays ADD COLUMN IF NOT EXISTS receipt_id text",
+    "ALTER TABLE bill_pays ADD COLUMN IF NOT EXISTS receipt_created boolean NOT NULL DEFAULT false",
+    "CREATE UNIQUE INDEX IF NOT EXISTS bill_pays_receipt_uq ON bill_pays(receipt_id) WHERE receipt_id IS NOT NULL",
+    "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS source_key text",
+    "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS deleted_at timestamptz",
+    "CREATE UNIQUE INDEX IF NOT EXISTS receipts_source_key_uq ON receipts (user_id, source_key) WHERE source_key IS NOT NULL",
+    "ALTER TABLE recurring_bills ADD COLUMN IF NOT EXISTS paused boolean NOT NULL DEFAULT false",
+    "ALTER TABLE user_goal_deposits ADD COLUMN IF NOT EXISTS request_id text",
+    "ALTER TABLE user_goal_deposits ADD COLUMN IF NOT EXISTS reversed_at timestamptz",
+    "CREATE UNIQUE INDEX IF NOT EXISTS goal_deposit_request_uq ON user_goal_deposits (user_id, request_id) WHERE request_id IS NOT NULL",
+    "ALTER TABLE house_goal_deposits ADD COLUMN IF NOT EXISTS request_id text",
+    "CREATE UNIQUE INDEX IF NOT EXISTS house_deposit_request_uq ON house_goal_deposits (user_id, request_id) WHERE request_id IS NOT NULL",
+    "CREATE TABLE IF NOT EXISTS split_access (split_id text NOT NULL, member_id text NOT NULL, token_hash text NOT NULL, PRIMARY KEY (split_id, member_id))",
+  ]) await db.query(sql)
 }
 
 export async function heal(db: DB) {
@@ -160,7 +171,7 @@ if (typeof process !== 'undefined' && process.env?.DATABASE_URL) {
 }
 
 export async function q<T = Row>(sql: string, params: Array<unknown> = []): Promise<Array<T>> {
-  const db = await getDB()
+  const db = transactionContext.getStore() || await getDB()
   return db.query<T>(sql, params)
 }
 
@@ -175,4 +186,10 @@ export function newId(prefix = ''): string {
   const r = Math.random().toString(36).slice(2, 8)
   const r2 = Math.random().toString(36).slice(2, 8)
   return `${prefix}${prefix ? '_' : ''}${t}${r}${r2}`
+}
+
+export async function transaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (transactionContext.getStore()) return fn()
+  const db = await getDB()
+  return db.transaction(tx => transactionContext.run(tx, fn))
 }

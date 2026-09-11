@@ -9,10 +9,11 @@ export const saveSettings = createServerFn({ method: 'POST' })
     allocations: d.allocations,
   }))
   .handler(async ({ data }) => guarded(async (user) => {
+    for(const amount of [data.monthly_budget,data.monthly_income])if(amount!==undefined&&(!Number.isFinite(amount)||amount<0||amount>100000000))throw new Error('Проверьте сумму: от 0 до 100 000 000 ₽')
     if (data.monthly_budget !== undefined) {
       await q(
-        `INSERT INTO user_settings (user_id, monthly_budget) VALUES ($1, $2)
-         ON CONFLICT (user_id) DO UPDATE SET monthly_budget = EXCLUDED.monthly_budget, updated_at = now()`,
+        `INSERT INTO user_settings (user_id, monthly_budget, seen_welcome) VALUES ($1, $2, true)
+         ON CONFLICT (user_id) DO UPDATE SET monthly_budget = EXCLUDED.monthly_budget, seen_welcome = true, updated_at = now()`,
         [user.id, data.monthly_budget]
       )
     }

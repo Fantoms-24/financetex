@@ -1,3 +1,4 @@
+import { assertSaved } from '~/lib/finance'
 import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
@@ -69,6 +70,7 @@ function SplitScreen() {
       const res = await getSplitPublic({ data: { code } })
       if (res && res.data) {
         setData(res.data)
+        setCurrentMemberId(id=>res.data?.viewer_member_ids?.includes(id||'')?id:res.data?.viewer_member_ids?.[0]||null)
         setError(null)
       } else {
         setError('Счёт не найден или был удалён')
@@ -96,6 +98,7 @@ function SplitScreen() {
   }, [data, currentMemberId])
 
   const selectMember = (memberId: string) => {
+    if(!data?.viewer_member_ids?.includes(memberId))return
     haptic(6)
     setCurrentMemberId(memberId)
     try {
@@ -110,6 +113,7 @@ function SplitScreen() {
     setActionBusy(true)
     try {
       const res = await joinSplit({ data: { code, name: customName.trim() } })
+      assertSaved(res)
       if (res && res.ok && res.memberId) {
         setCurrentMemberId(res.memberId)
         try {
@@ -120,7 +124,7 @@ function SplitScreen() {
         await loadData()
         haptic(10)
       }
-    } finally {
+    } catch(e:any){setError(e.message||'Не удалось сохранить')} finally {
       setActionBusy(false)
     }
   }
@@ -146,18 +150,21 @@ function SplitScreen() {
       }
     })
 
-    await claimSplitItem({
+    try{
+    assertSaved(await claimSplitItem({
       data: {
         code,
         memberId: currentMemberId,
         itemId,
         claimed: !alreadyClaimed,
       },
-    })
+    }))
     await loadData()
+    }catch(e:any){await loadData();setError(e.message||'Не удалось сохранить')}
   }
 
   const handleToggleShared = async (itemId: string, currentShared: boolean) => {
+    if(!data?.viewer_is_owner){setError('Общие позиции меняет организатор');return}
     haptic(6)
     setData((prev) => {
       if (!prev) return prev
@@ -166,14 +173,16 @@ function SplitScreen() {
         items: prev.items.map((it) => (it.id === itemId ? { ...it, is_shared: !currentShared } : it)),
       }
     })
-    await toggleSplitShared({
+    try{
+    assertSaved(await toggleSplitShared({
       data: {
         code,
         itemId,
         isShared: !currentShared,
       },
-    })
+    }))
     await loadData()
+    }catch(e:any){await loadData();setError(e.message||'Не удалось сохранить')}
   }
 
   const handleTogglePaid = async () => {
@@ -187,14 +196,16 @@ function SplitScreen() {
         members: prev.members.map((m) => (m.id === currentMemberId ? { ...m, paid: nextPaid } : m)),
       }
     })
-    await markMemberPaid({
+    try{
+    assertSaved(await markMemberPaid({
       data: {
         code,
         memberId: currentMemberId,
         paid: nextPaid,
       },
-    })
+    }))
     await loadData()
+    }catch(e:any){await loadData();setError(e.message||'Не удалось сохранить')}
   }
 
   const handleAddDish = async (e: React.FormEvent) => {
@@ -203,21 +214,21 @@ function SplitScreen() {
     if (!dishName.trim() || p <= 0 || actionBusy) return
     setActionBusy(true)
     try {
-      await addSplitItem({
+      assertSaved(await addSplitItem({
         data: {
           code,
           name: dishName.trim(),
           price: p,
           isShared: dishShared,
         },
-      })
+      }))
       setDishName('')
       setDishPrice('')
       setDishShared(false)
       setOpenAddDishSheet(false)
       await loadData()
       haptic(10)
-    } finally {
+    } catch(e:any){setError(e.message||'Не удалось сохранить')} finally {
       setActionBusy(false)
     }
   }
@@ -255,7 +266,7 @@ function SplitScreen() {
     )
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center space-y-4 px-4 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stamp/10 text-stamp">
@@ -282,7 +293,8 @@ function SplitScreen() {
   return (
     <div className="min-h-screen bg-cream/40 pb-48 pt-3 text-ink">
       <div className="mx-auto max-w-[440px] space-y-4 px-4 sm:px-5">
-        {/* 1. Верхний бар: бренд и шеринг */}
+        {error&&<p className="form-error" role="alert">{error}</p>}
+      {/* 1. Верхний бар: бренд и шеринг */}
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span className="text-[17px]">🌿</span>
@@ -705,14 +717,14 @@ function SplitScreen() {
         onClose={() => setOpenJoinSheet(false)}
         title="Кто вы за этим столом?"
       >
-        <div className="space-y-4 pt-1">
+        <div className="space-y-4 pt-1">{error&&<p className="form-error" role="alert">{error}</p>}
           {members.length > 0 ? (
             <div className="space-y-2">
               <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted block">
                 Выберите ваше имя:
               </span>
               <div className="grid grid-cols-2 gap-2">
-                {members.map((m) => (
+                {members.filter(m=>data.viewer_member_ids?.includes(m.id)).map((m) => (
                   <button
                     key={m.id}
                     type="button"

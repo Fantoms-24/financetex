@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { newId, q, q1 } from './db'
 
 export interface SplitItemInput {
@@ -20,12 +21,7 @@ export interface CreateSplitParams {
 }
 
 function generateSplitCode(): string {
-  const chars = '23456789abcdefghjkmnpqrstuvwxyz'
-  let code = ''
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return code
+  return randomBytes(18).toString('base64url').toLowerCase()
 }
 
 export async function createSplitSession(params: CreateSplitParams): Promise<{ id: string; code: string }> {
@@ -131,6 +127,8 @@ export interface SplitMemberView {
 }
 
 export interface SplitPublicData {
+  viewer_member_ids?: string[]
+  viewer_is_owner?: boolean
   split: {
     id: string
     code: string

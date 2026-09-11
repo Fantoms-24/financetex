@@ -1,4 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
+import { createHash, randomBytes } from 'node:crypto'
+import { getCookie, setCookie } from '@tanstack/react-start/server'
+import { getSessionUser } from '../session'
+import { q, transaction } from '../db'
 import { guarded } from '../session'
 import { q1 } from '../db'
 import {
@@ -12,6 +16,20 @@ import {
   type SplitPublicData,
   type SplitItemInput,
 } from '../split'
+
+async function authorize(code:string,memberId?:string,itemId?:string) {
+ const split=await q1<any>('SELECT id,user_id FROM receipt_splits WHERE code=$1',[code])
+ if(!split)throw new Error('Счёт не найден')
+ if(itemId&&!await q1('SELECT id FROM receipt_split_items WHERE id=$1 AND split_id=$2',[itemId,split.id]))throw new Error('Позиция не найдена')
+ if(memberId&&!await q1('SELECT id FROM receipt_split_members WHERE id=$1 AND split_id=$2',[memberId,split.id]))throw new Error('Участник не найден')
+ const user=await getSessionUser()
+ if(user?.id===split.user_id)return
+ if(!memberId)throw new Error('Это действие доступно организатору')
+ const token=getCookie('listok-split-'+memberId)
+ const row=token&&await q1<any>('SELECT token_hash FROM split_access WHERE split_id=$1 AND member_id=$2',[split.id,memberId])
+ if(!row||createHash('sha256').update(token!).digest('hex')!==row.token_hash)throw new Error('Вы можете менять только свои позиции. Присоединитесь к счёту под своим именем.')
+}
+async function safePublic<T>(fn:()=>Promise<T>){try{return await fn()}catch(e:any){return {ok:false as const,error:e.message||'Не удалось сохранить'}}}
 
 export type { SplitPublicData, SplitItemInput }
 
@@ -42,6 +60,7 @@ export const createSplit = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) =>
     guarded(async (user) => {
+      if(data.receiptId&&!await q1('SELECT id FROM receipts WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',[data.receiptId,user.id]))throw new Error('Чек не найден')
       const res = await createSplitSession({
         ...data,
         userId: user.id,
@@ -60,6 +79,15 @@ export const getSplitPublic = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     if (!data.code) return { data: null }
     const res = await getSplitData(data.code)
+    if(res){
+      const split=await q1<any>('SELECT user_id FROM receipt_splits WHERE id=$1',[res.split.id])
+      const user=await getSessionUser()
+      res.viewer_is_owner=user?.id===split?.user_id
+      res.viewer_member_ids=[]
+      for(const member of res.members){
+        try{await authorize(data.code,member.id);res.viewer_member_ids.push(member.id)}catch{}
+      }
+    }
     return { data: res }
   })
 
@@ -72,8 +100,19 @@ export const joinSplit = createServerFn({ method: 'POST' })
     name: String(d.name || '').trim(),
   }))
   .handler(async ({ data }) => {
-    const res = await joinSplitMember(data.code, data.name)
-    return res
+    return safePublic(()=>transaction(async()=>{
+      const split=await q1<any>('SELECT id FROM receipt_splits WHERE code=$1 FOR UPDATE',[data.code])
+      if(!split)throw new Error('Счёт не найден')
+      const existing=await q1<any>('SELECT id FROM receipt_split_members WHERE split_id=$1 AND lower(name)=lower($2)',[split.id,data.name])
+      if(existing){await authorize(data.code,existing.id);return {ok:true,memberId:existing.id}}
+      const res=await joinSplitMember(data.code,data.name.slice(0,80))
+      if(res.memberId){
+        const token=randomBytes(32).toString('hex')
+        await q('INSERT INTO split_access (split_id,member_id,token_hash) VALUES ($1,$2,$3)',[split.id,res.memberId,createHash('sha256').update(token).digest('hex')])
+        setCookie('listok-split-'+res.memberId,token,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:60*60*24*30})
+      }
+      return res
+    }))
   })
 
 /**
@@ -87,8 +126,10 @@ export const claimSplitItem = createServerFn({ method: 'POST' })
     claimed: Boolean(d.claimed),
   }))
   .handler(async ({ data }) => {
+    return safePublic(async()=>{await authorize(data.code,data.memberId,data.itemId)
     const res = await toggleItemClaim(data.code, data.memberId, data.itemId, data.claimed)
     return res
+    })
   })
 
 /**
@@ -101,8 +142,10 @@ export const toggleSplitShared = createServerFn({ method: 'POST' })
     isShared: Boolean(d.isShared),
   }))
   .handler(async ({ data }) => {
+    return safePublic(async()=>{await authorize(data.code,undefined,data.itemId)
     const res = await toggleItemShared(data.code, data.itemId, data.isShared)
     return res
+    })
   })
 
 /**
@@ -115,8 +158,10 @@ export const markMemberPaid = createServerFn({ method: 'POST' })
     paid: Boolean(d.paid),
   }))
   .handler(async ({ data }) => {
+    return safePublic(async()=>{await authorize(data.code,data.memberId)
     const res = await setMemberPaidStatus(data.code, data.memberId, data.paid)
     return res
+    })
   })
 
 /**
@@ -130,8 +175,10 @@ export const addSplitItem = createServerFn({ method: 'POST' })
     isShared: Boolean(d.isShared),
   }))
   .handler(async ({ data }) => {
+    return safePublic(async()=>{await authorize(data.code)
     const res = await addCustomItemToSplit(data.code, data.name, data.price, data.isShared)
     return res
+    })
   })
 
 /**

@@ -83,8 +83,8 @@ export async function getSessionUserByToken(rawToken: string | null): Promise<Se
       phone: prof?.phone ?? null,
       bank: prof?.bank ?? null,
     }
-  } catch {
-    return null
+  } catch (error) {
+    throw error
   }
 }
 

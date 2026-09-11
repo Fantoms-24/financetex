@@ -1,10 +1,11 @@
 import { createServerFn } from '@tanstack/react-start'
+import { requireHouseMember } from '../access'
 import { guarded } from '../session'
 import { q, q1, newId } from '../db'
 import { getLlmConfig } from '../config'
 import { notifyHouseExcept } from '../push'
 
-const CATEGORIES = ['food', 'prepared', 'household', 'hygiene', 'health', 'drinks', 'snacks', 'other']
+const CATEGORIES = ['transport', 'food', 'prepared', 'household', 'hygiene', 'health', 'drinks', 'snacks', 'other']
 const VERDICTS = ['good', 'fair', 'overpriced', 'impulse']
 
 function extractJson(text: string): any {
@@ -56,18 +57,19 @@ export const scanReceipt = createServerFn({ method: 'POST' })
     houseId: d.houseId ? String(d.houseId).trim() : null,
   }))
   .handler(async ({ data }) => guarded(async (user) => {
+    await requireHouseMember(data.houseId, user.id)
     const { baseUrl, apiKey, model } = await getLlmConfig()
     if (!apiKey) {
-      return { error: 'Админ ещё не вставил ключ. Скан недоступен' }
+      return { error: 'Распознавание пока недоступно. Покупку можно записать вручную.' }
     }
-    if (!data.image.startsWith('data:image/')) {
+    if (!data.image.startsWith('data:image/') || data.image.length > 7000000) {
       return { error: 'Не получилось прочитать фото' }
     }
     const prompt = `Разбери чек на фото. Ответь ТОЛЬКО валидным JSON без пояснений и markdown:
 {"store":"название магазина","purchased_at":"YYYY-MM-DD","total":1234,"category":"food","verdict":"good","items":[{"name":"Молоко","qty":1,"price":89,"category":"food"}]}
 Правила:
 - total и price — целые рубли, без копеек и без символа валюты.
-- category одно из: food, prepared, household, hygiene, health, drinks, snacks, other.
+- category одно из: transport, food, prepared, household, hygiene, health, drinks, snacks, other.
 - verdict одно из: good, fair, overpriced, impulse.
 - purchased_at — дата с чека в формате YYYY-MM-DD. Если не видно, подставь сегодняшнюю.
 - Если что-то не читается, всё равно верни JSON с тем, что удалось понять.`
@@ -140,35 +142,9 @@ export const scanReceipt = createServerFn({ method: 'POST' })
     const verdictRaw = String(parsed.verdict || '').toLowerCase().trim()
     const verdict = VERDICTS.includes(verdictRaw) ? verdictRaw : null
 
-    const id = newId('r')
-    await q(
-      `INSERT INTO receipts (id, user_id, store, purchased_at, total, category, verdict, image, house_id)
-       VALUES ($1, $2, $3, coalesce($4::date, current_date), $5, $6, $7, $8, $9)`,
-      [id, user.id, store, purchasedAt, total, category, verdict, data.image, data.houseId]
-    )
-
-    for (const it of items) {
-      await q(
-        `INSERT INTO receipt_items (id, receipt_id, name, qty, price, category)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [newId('ri'), id, it.name, it.qty, it.price, it.category]
-      )
-    }
-
-    if (data.houseId) {
-      const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
-      const uName = user.displayName || user.name || 'Участник'
-      await notifyHouseExcept(data.houseId, user.id, {
-        title: house?.name || 'Касса',
-        body: `${uName} добавил чек: ${store} (${Number(total).toLocaleString('ru-RU')} ₽)`,
-        data: { url: `/groups/${data.houseId}`, type: 'house-receipt' },
-      }).catch(() => {})
-    }
-
     return {
       ok: true,
-      id,
-      receipt: { id, store, purchased_at: purchasedAt, total, category, verdict, house_id: data.houseId },
+      receipt: { store, purchased_at: purchasedAt, total, category, verdict, house_id: data.houseId },
       items,
     }
   }))

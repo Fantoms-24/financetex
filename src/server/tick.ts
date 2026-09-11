@@ -1,3 +1,4 @@
+import { dueDay } from '~/lib/finance'
 import { monthKey } from '~/lib/format'
 import { q, q1 } from './db'
 import { sendToUser, notifyHouseExcept } from './push'
@@ -51,13 +52,13 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
             p.cycle AS paid
        FROM recurring_bills b
        LEFT JOIN bill_pays p ON p.bill_id = b.id AND p.cycle = $1 AND p.user_id = b.user_id
-      WHERE b.notify = true`,
+      WHERE b.notify = true AND b.paused = false`,
     [cycle]
   )
 
   for (const b of personal ?? []) {
     result.checked++
-    const offset = dueOffset(Number(b.day_of_month), today)
+    const offset = dueOffset(dueDay(Number(b.day_of_month),now), today)
     if (offset === null) continue
     if (b.paid) continue
     const already = parseAlertKey(b.last_alert_key, cycle)
@@ -100,7 +101,7 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
 
   for (const b of houseBills ?? []) {
     result.checked++
-    const offset = dueOffset(Number(b.day_of_month), today)
+    const offset = dueOffset(dueDay(Number(b.day_of_month),now), today)
     if (offset === null) continue
     const already = parseAlertKey(b.last_alert_key, cycle)
     if (already !== null && already >= slotRank(offset)) continue
@@ -111,11 +112,13 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
       ? `Завтра спишется ${b.title} (${Number(b.amount).toLocaleString('ru-RU')} ₽)`
       : `${offsetLabel(offset)} платёж: ${b.title} (${Number(b.amount).toLocaleString('ru-RU')} ₽)`
 
-    const res = await notifyHouseExcept(b.house_id, null, {
+    const recipients=await q<{user_id:string}>(`SELECT m.user_id FROM house_members m WHERE m.house_id=$1 AND NOT EXISTS (SELECT 1 FROM house_bill_pays p WHERE p.bill_id=$2 AND p.cycle=$3 AND p.user_id=m.user_id)`,[b.house_id,b.id,cycle])
+    const delivery=await Promise.all(recipients.map(m=>sendToUser(m.user_id, {
       title: pushTitle,
       body: pushBody,
       data: { url: `/groups/${b.house_id}`, type: 'house-bill-reminder' },
-    })
+    })))
+    const res=delivery.reduce((sum,r)=>({sent:sum.sent+r.sent,failed:sum.failed+r.failed,error:r.error||sum.error}),{sent:0,failed:0,error:undefined as string|undefined})
     result.sent += res.sent
     result.failed += res.failed
     if (res.error) result.error = res.error
@@ -159,7 +162,7 @@ export async function runEveningCheckin(
     const spentRow = await q1<{ total: number }>(
       `SELECT coalesce(sum(total), 0)::bigint AS total
          FROM receipts
-        WHERE user_id = $1
+        WHERE user_id = $1 AND deleted_at IS NULL
           AND (purchased_at::date = $2::date OR (purchased_at IS NULL AND created_at::date = $2::date))`,
       [u.user_id, todayKey],
     ).catch(() => null)
@@ -226,4 +229,3 @@ export function startBackgroundScheduler(): void {
 
   console.log('[scheduler] Background push scheduler active (09:00 bills, 21:00 checkin MSK)')
 }
-

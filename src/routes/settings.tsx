@@ -1,3 +1,5 @@
+import { AccountSecurity } from '~/components/AccountSecurity'
+import { budgetNumbers, assertSaved } from '~/lib/finance'
 import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
@@ -80,6 +82,7 @@ function Settings() {
       const res: any = await saveBotSettings({
         data: isToken ? { botToken: val } : { botName: val.replace('@', '') },
       })
+      assertSaved(res)
       if (res?.ok) {
         setBotConfigInput('')
         setShowBotConfig(false)
@@ -90,7 +93,7 @@ function Settings() {
           icon: 'sparkles',
         })
       }
-    } finally {
+    } catch(e:any){setTestError(e.message||'Не удалось настроить бота')} finally {
       setBotConfigBusy(false)
     }
   }
@@ -100,7 +103,7 @@ function Settings() {
     haptic(8)
     setTgBusy(true)
     try {
-      await unlinkTelegram()
+      assertSaved(await unlinkTelegram())
       await loadTelegram()
       await refresh()
       showInAppNotification({
@@ -108,7 +111,7 @@ function Settings() {
         body: 'Бот успешно отвязан от вашего аккаунта',
         icon: 'sparkles',
       })
-    } finally {
+    } catch(e:any){setTestError(e.message||'Не удалось отключить Telegram')} finally {
       setTgBusy(false)
     }
   }
@@ -124,15 +127,15 @@ function Settings() {
   const now = new Date()
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   const daysLeft = Math.max(1, lastDay - now.getDate())
-  const currentBudgetNum = Math.round(Number(budget.replace(/[^\d]/g, '') || 45000))
-  const dailyNorm = Math.max(0, Math.round(currentBudgetNum / daysLeft))
+  const currentBudgetNum = Math.round(Number(budget.replace(/[^\d]/g, '') || 0))
+  const dailyNorm = budgetNumbers(currentBudgetNum, boot.month.spent, boot.bills).daily
 
   React.useEffect(() => {
     if (!user) return
     setName(user.displayName || '')
     setPhone(user.phone || '')
     setBank(user.bank || '')
-    setBudget(String(boot.settings.monthly_budget || 45000))
+    setBudget(String(boot.settings.monthly_budget ?? 0))
     setStandalone(isStandalone())
     setPerm(pushState())
 
@@ -149,31 +152,16 @@ function Settings() {
   }, [user, boot.settings.monthly_budget])
 
   async function save(e: React.FormEvent) {
-    e.preventDefault()
-    haptic(10)
-    setBusy(true)
-    await saveProfile({
-      data: {
-        display_name: name,
-        phone,
-        bank,
-      },
-    })
-    const b = Math.round(Number(budget.replace(/[^\d]/g, '') || 45000))
-    await saveSettings({
-      data: {
-        monthly_budget: b,
-      },
-    })
-    setSaved(true)
-    showInAppNotification({
-      title: '✓ Профиль сохранён',
-      body: `Лимит трат: ${money(b)} в месяц`,
-      icon: 'sparkles',
-    })
-    setTimeout(() => setSaved(false), 2000)
-    setBusy(false)
-    await refresh()
+    e.preventDefault();if(busy)return
+    setBusy(true);setTestError(null)
+    try {
+      assertSaved(await saveProfile({data:{display_name:name,phone,bank}}))
+      const amount=Number(budget.replace(/\s/g,''))
+      if(!Number.isFinite(amount)||amount<0)throw new Error('Проверьте месячный лимит')
+      assertSaved(await saveSettings({data:{monthly_budget:amount}}))
+      setSaved(true);setTimeout(()=>setSaved(false),2000);await refresh()
+    } catch(e:any){setTestError(e.message||'Не удалось сохранить. Ваши изменения остались в форме')}
+    finally{setBusy(false)}
   }
 
   async function onEnablePush() {
@@ -274,7 +262,7 @@ function Settings() {
   }
 
   return (
-    <div className="app-page settings-page">
+    <div className="app-page settings-page">{testError&&<p className="form-error" role="alert">{testError}</p>}
       {/* 1. Верхняя навигационная панель с кнопкой возврата */}
       <header className="page-heading settings-heading">
         <div>
@@ -302,7 +290,7 @@ function Settings() {
             <h1 className="t-display truncate text-[19px] font-semibold text-ink leading-snug">
               {user?.displayName || user?.name || 'Пользователь'}
             </h1>
-            <p className="truncate text-[12.5px] text-muted">{user?.email}</p>
+            <p className="truncate text-[12.5px] text-muted">{(user?.email?.endsWith('@chekagent.app') ? 'Личный аккаунт' : user?.email)}</p>
             {primaryHouse ? (
               <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-sage">
                 <Users size={12} />
@@ -679,8 +667,8 @@ function Settings() {
               </a>
             ) : null}
 
-            {/* Настройка бота: юзернейм или токен от BotFather */}
-            <div className="rounded-xl border border-rule/80 bg-cream/30 p-3 space-y-2 text-[12px]">
+            {/* Настройки сервиса доступны только администратору. */}
+            {isAdmin && <div className="rounded-xl border border-rule/80 bg-cream/30 p-3 space-y-2 text-[12px]">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-ink">
                   {tgState?.isBotConfigured ? `Бот: @${tgState.botName}` : '⚙️ Настройка Telegram-бота'}
@@ -703,7 +691,7 @@ function Settings() {
                     <Input
                       value={botConfigInput}
                       onChange={(e) => setBotConfigInput(e.target.value)}
-                      placeholder="Токен или @имя_бота"
+                      type="password" autoComplete="off" placeholder="Токен или @имя_бота"
                       className="h-9 rounded-xl text-[12.5px] flex-1 font-mono"
                     />
                     <Button
@@ -718,11 +706,12 @@ function Settings() {
                   </div>
                 </form>
               ) : null}
-            </div>
+            </div>}
           </div>
         )}
       </section>
 
+      <AccountSecurity/>
       {/* 6. Выход из аккаунта */}
       <div className="settings-signout overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
 

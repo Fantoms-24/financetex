@@ -38,14 +38,17 @@ export const getTelegramStatus = createServerFn({ method: 'GET' }).handler(async
       }
     }
 
-    // Создаём 6-значный одноразовый код привязки
-    const code = 'LST-' + Math.floor(1000 + Math.random() * 9000).toString()
+    // Reuse an unexpired code so visiting settings does not invalidate an invitation.
+    const existing = await q1<{ code: string }>('SELECT code FROM telegram_link_tokens WHERE user_id = $1 AND expires_at > now() LIMIT 1', [user.id])
+    const code = existing?.code || 'LST-' + crypto.randomUUID().replace(/-/g, '').slice(0, 20).toUpperCase()
+    if (!existing) {
     await q(`DELETE FROM telegram_link_tokens WHERE user_id = $1`, [user.id])
     await q(
       `INSERT INTO telegram_link_tokens (code, user_id, expires_at)
        VALUES ($1, $2, now() + interval '24 hours')`,
       [code, user.id],
     )
+    }
 
     return {
       connected: false,
@@ -68,7 +71,8 @@ export const saveBotSettings = createServerFn({ method: 'POST' })
     botName: d.botName !== undefined ? String(d.botName).trim() : undefined,
   }))
   .handler(async ({ data }) =>
-    guarded(async () => {
+    guarded(async (user) => {
+      if (user.role !== 'admin') return { ok: false, error: 'Настройки бота доступны только администратору' }
       const res = await saveTelegramConfig(data.botToken, data.botName)
       return res
     }),

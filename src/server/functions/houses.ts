@@ -1,3 +1,6 @@
+import { membersOf, computeShares, paidHouseTotals } from '../house-totals'
+import { transaction } from '../db'
+import { positiveAmount } from '../access'
 import { createServerFn } from '@tanstack/react-start'
 import { newId, q, q1 } from '../db'
 import { guarded } from '../session'
@@ -103,66 +106,6 @@ async function memberName(userId: string): Promise<string> {
   return u?.name || u?.email?.split('@')[0] || 'Человек'
 }
 
-async function membersOf(houseId: string): Promise<Array<Member>> {
-  const rows = await q<Member & { display_name: string | null; uname: string | null; email: string | null }>(
-    `SELECT m.id, m.user_id, m.salary_cents AS salary,
-            p.display_name,
-            u.name AS uname,
-            u.email AS email
-       FROM house_members m
-       LEFT JOIN profiles p ON p.user_id = m.user_id
-       LEFT JOIN "user" u ON u.id = m.user_id
-      WHERE m.house_id = $1
-      ORDER BY m.created_at`,
-    [houseId],
-  )
-  return (rows ?? []).map((r) => ({
-    id: r.id,
-    user_id: r.user_id,
-    name: r.display_name || r.uname || r.email?.split('@')[0] || 'Человек',
-    salary: Number(r.salary || 0),
-  }))
-}
-
-/** Доли: поровну / по доле зарплаты / платит один. Целые рубли, без копеек. */
-function computeShares(
-  bill: { amount: number; split: string; payer_id: string | null },
-  members: Array<Member>,
-): Record<string, number> {
-  const out: Record<string, number> = {}
-  const amount = Math.round(Number(bill.amount || 0))
-  if (!members.length) return out
-
-  if (bill.split === 'payer') {
-    for (const m of members) out[m.user_id] = 0
-    const target = bill.payer_id && out[bill.payer_id] !== undefined ? bill.payer_id : members[0].user_id
-    out[target] = amount
-    return out
-  }
-
-  if (bill.split === 'salary') {
-    const total = members.reduce((s, m) => s + Math.max(0, m.salary), 0)
-    if (total > 0) {
-      let given = 0
-      members.forEach((m, idx) => {
-        const share = idx === members.length - 1 ? amount - given : Math.round((amount * Math.max(0, m.salary)) / total)
-        out[m.user_id] = share
-        given += share
-      })
-      return out
-    }
-  }
-
-  const base = Math.floor(amount / members.length)
-  let given = 0
-  members.forEach((m, idx) => {
-    const share = idx === members.length - 1 ? amount - given : base
-    out[m.user_id] = share
-    given += share
-  })
-  return out
-}
-
 export const listHouses = createServerFn({ method: 'GET' }).handler(async () =>
   guarded(async (user) => {
     const rows = await q<{
@@ -178,15 +121,16 @@ export const listHouses = createServerFn({ method: 'GET' }).handler(async () =>
     }>(
       `SELECT h.id, h.name, h.code, h.owner_id, coalesce(h.monthly_budget, 0)::int AS monthly_budget,
               (SELECT count(*)::int FROM house_members m WHERE m.house_id = h.id) AS members,
-              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id AND r.purchased_at >= date_trunc('month', current_date)) AS total_spent,
-              (SELECT count(*)::int FROM receipts r WHERE r.house_id = h.id) AS receipts_count,
+              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id AND r.deleted_at IS NULL AND coalesce(r.purchased_at,r.created_at::date) >= date_trunc('month', current_date) AND coalesce(r.purchased_at,r.created_at::date) < date_trunc('month',current_date)+interval '1 month') AS total_spent,
+              (SELECT count(*)::int FROM receipts r WHERE r.house_id = h.id AND r.deleted_at IS NULL) AS receipts_count,
               (SELECT count(*)::int FROM house_bills b WHERE b.house_id = h.id) AS bills_count
          FROM houses h
          JOIN house_members me ON me.house_id = h.id AND me.user_id = $1
         ORDER BY h.created_at DESC`,
       [user.id],
     )
-    return { houses: rows ?? [] }
+    const paid=await paidHouseTotals(rows.map(h=>h.id))
+    return { houses: rows.map(h=>({...h,total_spent:Number(h.total_spent||0)+(paid[h.id]||0)})) }
   }),
 )
 
@@ -277,14 +221,14 @@ async function snapshot(houseId: string) {
       [houseId],
     ),
     q<HouseReceipt & { uname: string | null; email: string | null; display_name: string | null }>(
-      `SELECT r.id, r.user_id, r.store, r.purchased_at::text AS purchased_at, r.total, r.category, r.verdict, r.note, r.image, r.created_at,
+      `SELECT r.id, r.user_id, r.store, r.purchased_at::text AS purchased_at, r.total, r.category, r.verdict, r.note, NULL::text AS image, r.created_at,
               p.display_name, u.name AS uname, u.email AS email
          FROM receipts r
          LEFT JOIN profiles p ON p.user_id = r.user_id
          LEFT JOIN "user" u ON u.id = r.user_id
-        WHERE r.house_id = $1
+        WHERE r.house_id = $1 AND r.deleted_at IS NULL
         ORDER BY r.purchased_at DESC NULLS LAST, r.created_at DESC
-        LIMIT 100`,
+        `,
       [houseId],
     ),
     q<Msg & { uname: string | null; email: string | null; display_name: string | null }>(
@@ -314,12 +258,12 @@ async function snapshot(houseId: string) {
 
   // Счета, оплаченные в этом месяце
   const paidBillsList = (bills ?? []).filter((b) => relevantPays.some((p) => p.bill_id === b.id && p.cycle === cycle))
-  const paidBillsSum = paidBillsList.reduce((s, b) => s + Number(b.amount || 0), 0)
+  const paidBillsSum = paidBillsList.reduce((sum,b) => sum + Object.entries(computeShares(b,members)).reduce((n,[uid,amount])=>n+(relevantPays.some(p=>p.bill_id===b.id&&p.cycle===cycle&&p.user_id===uid)?amount:0),0),0)
 
   // Чеки кассы за текущий месяц
   const monthReceipts = (receipts ?? []).filter((r) => {
     const d = r.purchased_at ? String(r.purchased_at).slice(0, 10) : String(r.created_at).slice(0, 10)
-    return d >= startOfMonth
+    return d >= startOfMonth && d.slice(0,7) === cycle
   })
   const receiptsSum = monthReceipts.reduce((s, r) => s + Number(r.total || 0), 0)
   const totalSpent = paidBillsSum + receiptsSum
@@ -353,7 +297,7 @@ async function snapshot(houseId: string) {
   for (const b of paidBillsList) {
     const bShares = shares[b.id] || {}
     for (const [uid, amt] of Object.entries(bShares)) {
-      memberSums[uid] = (memberSums[uid] || 0) + amt
+      if(relevantPays.some(p=>p.bill_id===b.id&&p.cycle===cycle&&p.user_id===uid)) memberSums[uid] = (memberSums[uid] || 0) + amt
     }
   }
   for (const r of monthReceipts) {
@@ -500,25 +444,27 @@ export const setHouseBudget = createServerFn({ method: 'POST' })
   )
 
 export const depositGoal = createServerFn({ method: 'POST' })
-  .validator((d: { houseId: string; wishId: string; amount: number; note?: string }) => ({
+  .validator((d: { houseId: string; wishId: string; amount: number; note?: string; requestId?: string }) => ({
+    requestId: d.requestId || null,
     houseId: String(d.houseId),
     wishId: String(d.wishId),
-    amount: Math.round(Math.max(1, Number(d.amount || 0))),
+    amount: positiveAmount(d.amount),
     note: String(d.note || '').trim() || null,
   }))
   .handler(async ({ data }) =>
-    guarded(async (user) => {
+    guarded(async (user) => transaction(async () => {
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
       const wish = await q1<{ title: string; amount: number; collected: number; bought_at: string | null }>(
-        `SELECT title, amount, coalesce(collected, 0)::int AS collected, bought_at FROM house_wishes WHERE id = $1 AND house_id = $2`,
+        `SELECT title, amount, coalesce(collected, 0)::int AS collected, bought_at FROM house_wishes WHERE id = $1 AND house_id = $2 FOR UPDATE`,
         [data.wishId, data.houseId],
       )
       if (!wish) return { error: 'Цель не найдена' } as const
+      if(data.requestId && await q1('SELECT id FROM house_goal_deposits WHERE user_id=$1 AND request_id=$2',[user.id,data.requestId])) return {ok:true as const,collected:wish.collected,isComplete:wish.collected>=wish.amount}
       const depositId = newId('hgd')
       await q(
-        `INSERT INTO house_goal_deposits (id, house_id, wish_id, user_id, amount, note)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [depositId, data.houseId, data.wishId, user.id, data.amount, data.note],
+        `INSERT INTO house_goal_deposits (id, house_id, wish_id, user_id, amount, note, request_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [depositId, data.houseId, data.wishId, user.id, data.amount, data.note, data.requestId],
       )
       const nextCollected = wish.collected + data.amount
       const isComplete = nextCollected >= wish.amount && wish.amount > 0
@@ -535,7 +481,7 @@ export const depositGoal = createServerFn({ method: 'POST' })
         data: { url: `/groups/${data.houseId}`, type: 'house-deposit' },
       }).catch(() => {})
       return { ok: true as const, collected: nextCollected, isComplete }
-    }),
+    })),
   )
 
 export const addHouseGoal = createServerFn({ method: 'POST' })
@@ -689,6 +635,10 @@ export const linkReceiptToHouse = createServerFn({ method: 'POST' })
   .handler(async ({ data }) =>
     guarded(async (user) => {
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
+      const owned=await q1<any>('SELECT house_id,source_key FROM receipts WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',[data.receiptId,user.id])
+      if(!owned)throw new Error('Расход не найден')
+      if(/^(bill|goal):/.test(owned.source_key||''))throw new Error('Этот расход связан с планом')
+      if(!data.link&&owned.house_id!==data.houseId)throw new Error('Расход не относится к этому бюджету')
       const target = data.link ? data.houseId : null
       await q(`UPDATE receipts SET house_id = $1 WHERE id = $2 AND user_id = $3`, [
         target,
@@ -853,6 +803,8 @@ export const payHouseBill = createServerFn({ method: 'POST' })
   .handler(async ({ data }) =>
     guarded(async (user) => {
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
+      const ownedBill = await q1<any>('SELECT id FROM house_bills WHERE id=$1 AND house_id=$2',[data.billId,data.houseId])
+      if(!ownedBill)throw new Error('Счёт не найден в этом бюджете')
       const cycle = monthKey()
       if (data.paid) {
         await q(

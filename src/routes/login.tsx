@@ -1,3 +1,4 @@
+import { AccountSecurity } from '~/components/AccountSecurity'
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -44,7 +45,7 @@ function Login() {
     if (busy) return
     setError(null)
     if (!login.trim()) return setError('Впишите логин для аккаунта')
-    if (password.length < 4) return setError('Пароль должен содержать минимум 4 символа')
+    if (mode === 'up' && password.length < 8) return setError('Используйте пароль от 8 символов')
 
     setBusy(true)
     try {
@@ -66,7 +67,7 @@ function Login() {
       console.error('[login] submit error:', e)
       const msg = e?.message || ''
       if (/500|failed to load/i.test(msg)) {
-        setError('Серверная ошибка (500). Проверьте DATABASE_URL и логи сервера.')
+        setError('Сервис временно недоступен. Данные аккаунта не потеряны; попробуйте войти позже.')
       } else {
         setError(msg || 'Не удалось связаться с сервером')
       }
@@ -202,7 +203,7 @@ function Login() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Не менее 4 символов"
+                placeholder={mode === 'in' ? 'Ваш пароль' : 'Не менее 8 символов'}
                 autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
                 startIcon={<Lock size={18} />}
                 endIcon={
@@ -255,6 +256,7 @@ function Login() {
             </Button>
           </form>
 
+          {mode==='in'&&<AccountSecurity recovery/>}
           {/* Преимущества / гарантии под формой */}
           <div className="mt-5 border-t border-rule/60 pt-4 text-[12px] text-muted">
             <div className="flex items-center gap-2">

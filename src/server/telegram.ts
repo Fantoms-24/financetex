@@ -246,7 +246,7 @@ async function calculateBalance(userId: string) {
   const spentRow = await q1<any>(
     `SELECT coalesce(sum(total), 0)::bigint AS total
        FROM receipts
-      WHERE user_id = $1 AND purchased_at >= $2::date`,
+      WHERE user_id = $1 AND deleted_at IS NULL AND coalesce(purchased_at,created_at::date) >= $2::date AND coalesce(purchased_at,created_at::date) < $2::date + interval '1 month'`,
     [userId, startOfMonth],
   )
   const spent = Number(spentRow?.total || 0)

@@ -56,6 +56,7 @@ function writeCache(user: SessionUser | null, boot: Bootstrap | null) {
 }
 
 export interface AppStateValue {
+  syncError: string
   ready: boolean
   user: SessionUser | null
   boot: Bootstrap
@@ -72,7 +73,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = React.useState(false)
   const [user, setUser] = React.useState<SessionUser | null>(null)
   const [boot, setBoot] = React.useState<Bootstrap>(EMPTY_BOOT)
+  const [syncError, setSyncError] = React.useState('')
   const started = React.useRef(false)
+  const loadSeq = React.useRef(0)
 
   // 1. Мгновенное восстановление из кэша (0 мс) для уже авторизованных
   React.useEffect(() => {
@@ -86,29 +89,32 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const load = React.useCallback(async (): Promise<SessionUser | null> => {
-    let me: SessionUser | null = null
+    const ticket=++loadSeq.current
     try {
       const res = await getMe()
-      me = res?.user ?? null
-    } catch {
-      me = null
-    }
-
-    setUser(me)
-    if (!me) {
-      setBoot(EMPTY_BOOT)
-      writeCache(null, null)
-      return null
-    }
-
-    // Boot данных ≤ 2.5 с. Не дождались — остаёмся на кэшированном/пустом bootstrap
-    const timeout = new Promise<Bootstrap | null>((resolve) => setTimeout(() => resolve(null), 2500))
-    const data = await Promise.race([bootstrapApp().catch(() => null), timeout])
-    if (data && data.user) {
+      if(ticket!==loadSeq.current)return null
+      const me = res?.user ?? null
+      setUser(me)
+      if (!me) {
+        setBoot(EMPTY_BOOT)
+        writeCache(null, null)
+        setSyncError('')
+        return null
+      }
+      const data = await bootstrapApp()
+      if(ticket!==loadSeq.current)return null
+      if (!data?.user) throw new Error('Не удалось обновить данные')
       setBoot(data)
       writeCache(me, data)
+      setSyncError('')
+      return me
+    } catch {
+      if(ticket!==loadSeq.current)return null
+      setSyncError(typeof navigator !== 'undefined' && !navigator.onLine
+        ? 'Вы не в сети. Показаны последние данные; новый расход можно сохранить как черновик.'
+        : 'Не удалось обновить данные. Последние сохранённые данные остаются на экране.')
+      return readCachedUser()
     }
-    return me
   }, [])
 
   React.useEffect(() => {
@@ -124,9 +130,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [load])
 
+  React.useEffect(() => {
+    const retry = () => { void load() }
+    window.addEventListener('online', retry)
+    return () => window.removeEventListener('online', retry)
+  }, [load])
+
   const setSession = React.useCallback(
     (token: string, u: SessionUser | null) => {
       useLocal.getState().setToken(token, u?.id ?? null)
+      setBoot(EMPTY_BOOT)
+      writeCache(null,null)
       setUser(u)
       if (u) {
         load().catch(() => {})
@@ -136,6 +150,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   )
 
   const logout = React.useCallback(async () => {
+    loadSeq.current++
     try {
       await signOut()
     } catch {
@@ -152,8 +167,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [load])
 
   const value = React.useMemo<AppStateValue>(
-    () => ({ ready, user, boot, setSession, logout, refresh }),
-    [ready, user, boot, setSession, logout, refresh],
+    () => ({ ready, user, boot, setSession, logout, refresh, syncError }),
+    [ready, user, boot, setSession, logout, refresh, syncError],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

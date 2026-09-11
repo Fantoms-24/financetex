@@ -17,6 +17,7 @@ import { NotificationBanner } from '~/components/NotificationBanner'
 import { registerSW } from '~/lib/push-client'
 import '~/styles/app.css'
 import '~/styles/workspace.css'
+import '~/styles/everyday.css'
 
 export const Route = createRootRoute({
   head: () => ({

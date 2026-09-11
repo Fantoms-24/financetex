@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
-import { ArrowRight, Check, ChevronRight, Copy, Hash, KeyRound, MoreHorizontal, Plus, ReceiptText, Share2, Users } from 'lucide-react'
+import { ArrowRight, ChevronRight, Hash, KeyRound, Plus, ReceiptText, Users } from 'lucide-react'
 import { motion } from 'motion/react'
 import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
@@ -37,13 +37,11 @@ function houseCover(name: string) {
 function Groups() {
   const { user, boot, refresh } = useApp()
   const [houses, setHouses] = React.useState<Array<HouseRow>>((boot.houses as Array<HouseRow>) || [])
-  const [mode, setMode] = React.useState<'none' | 'actions' | 'create' | 'join' | 'invite'>('none')
-  const [inviteHouse, setInviteHouse] = React.useState<HouseRow | null>(null)
+  const [mode, setMode] = React.useState<'none' | 'actions' | 'create' | 'join'>('none')
   const [name, setName] = React.useState('Семья')
   const [code, setCode] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [copied, setCopied] = React.useState(false)
 
   React.useEffect(() => { setHouses((boot.houses as Array<HouseRow>) || []) }, [boot.houses])
   const reload = React.useCallback(async () => {
@@ -64,7 +62,7 @@ function Groups() {
       if ('error' in result) return setError(result.error || 'Не удалось присоединиться')
       showInAppNotification({ title: 'Пространство создано', body: `«${name.trim()}» готово`, icon: 'users' })
       setMode('none'); await reload(); await refresh()
-    } finally { setBusy(false) }
+    } catch(e:any){setError(e.message||'Не удалось сохранить. Попробуйте ещё раз')} finally { setBusy(false) }
   }
 
   async function join(e: React.FormEvent) {
@@ -76,23 +74,7 @@ function Groups() {
       if ('error' in result) return setError(result.error || 'Не удалось присоединиться')
       showInAppNotification({ title: 'Вы присоединились', body: 'Общий бюджет появился в вашем пространстве', icon: 'users' })
       setCode(''); setMode('none'); await reload(); await refresh()
-    } finally { setBusy(false) }
-  }
-
-  async function copyInvite(house: HouseRow) {
-    try {
-      await navigator.clipboard.writeText(house.code)
-      setCopied(true); haptic(8)
-      setTimeout(() => setCopied(false), 1800)
-    } catch { /* clipboard may be unavailable */ }
-  }
-
-  async function shareInvite(house: HouseRow) {
-    const text = `Присоединяйся к пространству «${house.name}» в Листке. Код: ${house.code}`
-    if (navigator.share) {
-      try { await navigator.share({ title: house.name, text }); return } catch { /* fallback */ }
-    }
-    await copyInvite(house)
+    } catch(e:any){setError(e.message||'Не удалось сохранить. Попробуйте ещё раз')} finally { setBusy(false) }
   }
 
   return <div className="together-index">
@@ -124,7 +106,6 @@ function Groups() {
             {budget > 0 ? <><div className="together-progress"><span style={{width:`${percent}%`}}/></div><div className="together-progress-labels"><span>Потрачено {money(spent)}</span><span>из {money(budget)}</span></div></> : <p className="together-no-limit">Лимит можно установить внутри пространства</p>}
             <div className="together-status"><span><ReceiptText size={15}/>{house.receipts_count || 0} {plural(house.receipts_count || 0,'чек','чека','чеков')}</span><span>{house.bills_count ? `${house.bills_count} ${plural(house.bills_count,'счёт','счёта','счетов')}` : 'Нет ближайших счетов'}</span></div>
           </Link>
-          <button className="together-card-menu" aria-label={`Пригласить в ${house.name}`} onClick={() => { setInviteHouse(house); setMode('invite'); setCopied(false) }}><MoreHorizontal size={19}/></button>
         </motion.article>
       })}
     </div>}
@@ -141,8 +122,5 @@ function Groups() {
       <form onSubmit={join} className="expense-form"><label>Код приглашения<Input value={code} onChange={e => setCode(e.target.value.toUpperCase().slice(0,7))} placeholder="A2B3C4D" autoCapitalize="characters" autoComplete="off" startIcon={<Hash size={18}/>} className="together-code-input" autoFocus required /></label><p className="together-form-help">Семь символов из приглашения вашего близкого.</p>{error && <p className="text-stamp">{error}</p>}<Button type="submit" variant="sage" size="lg" disabled={busy || code.length < 7}>{busy ? 'Проверяем…' : 'Присоединиться'}</Button></form>
     </BottomSheet>
 
-    <BottomSheet open={mode === 'invite'} onClose={() => setMode('none')} title="Пригласить близкого">
-      {inviteHouse && <div className="invite-panel"><p>Код пространства «{inviteHouse.name}»</p><button className="invite-code" onClick={() => copyInvite(inviteHouse)}><span>{inviteHouse.code}</span>{copied ? <Check size={20}/> : <Copy size={20}/>}</button><Button variant="sage" size="lg" onClick={() => shareInvite(inviteHouse)}><Share2 size={18}/>Поделиться приглашением</Button></div>}
-    </BottomSheet>
   </div>
 }

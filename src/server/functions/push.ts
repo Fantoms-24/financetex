@@ -82,7 +82,8 @@ export const pushTest = createServerFn({ method: 'POST' })
 
 export const tickBills = createServerFn({ method: 'POST' })
   .handler(async () =>
-    guarded(async () => {
+    guarded(async (user) => {
+      if(user.role!=='admin')throw new Error('Это действие доступно администратору')
       const res = await runTick()
       return {
         ok: true,

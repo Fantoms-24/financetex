@@ -1,3 +1,4 @@
+import { paidHouseTotals } from '../house-totals'
 import { createServerFn } from '@tanstack/react-start'
 import { getSessionUser, type SessionUser } from '../session'
 import { q, q1 } from '../db'
@@ -29,6 +30,7 @@ export interface UserSettings {
   currency: string
   monthly_budget: number
   monthly_income: number
+  seen_welcome?: boolean
   allocations: Record<string, number>
 }
 
@@ -47,6 +49,7 @@ export interface Bill {
   amount: number
   day_of_month: number
   notify: boolean
+  paused?: boolean
   paid_cycle?: string | null
 }
 
@@ -124,13 +127,15 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
     monthly_budget: number | null
     monthly_income: number | null
     allocations: any
+    seen_welcome: boolean
   }>(
-    `SELECT currency, monthly_budget, monthly_income, allocations
+    `SELECT currency, monthly_budget, monthly_income, allocations, seen_welcome
        FROM user_settings WHERE user_id = $1`,
     [user.id]
   )
 
   const settings: UserSettings = {
+    seen_welcome: Boolean(settingsRow?.seen_welcome),
     currency: settingsRow?.currency || 'RUB',
     monthly_budget: Number(settingsRow?.monthly_budget ?? 45000),
     monthly_income: Number(settingsRow?.monthly_income ?? 0),
@@ -142,7 +147,7 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
     q1<{ total: string | number; cnt: number }>(
       `SELECT coalesce(sum(total), 0)::bigint AS total, count(*)::int AS cnt
          FROM receipts
-        WHERE user_id = $1 AND purchased_at >= $2::date`,
+        WHERE user_id = $1 AND coalesce(purchased_at, created_at::date) >= $2::date AND coalesce(purchased_at, created_at::date) < ($2::date + interval '1 month') AND deleted_at IS NULL`,
       [user.id, startOfMonth]
     ),
     q<any>(
@@ -150,7 +155,7 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
               h.name AS house_name
          FROM receipts r
          LEFT JOIN houses h ON h.id = r.house_id
-        WHERE r.user_id = $1
+        WHERE r.user_id = $1 AND r.deleted_at IS NULL
         ORDER BY r.purchased_at DESC NULLS LAST, r.created_at DESC
         LIMIT 120`,
       [user.id]
@@ -158,13 +163,13 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
     q<{ category: string; total: string | number }>(
       `SELECT category, coalesce(sum(total), 0)::bigint AS total
          FROM receipts
-        WHERE user_id = $1 AND purchased_at >= $2::date
+        WHERE user_id = $1 AND coalesce(purchased_at, created_at::date) >= $2::date AND coalesce(purchased_at, created_at::date) < ($2::date + interval '1 month') AND deleted_at IS NULL
         GROUP BY category
         ORDER BY total DESC`,
       [user.id, startOfMonth]
     ),
     q<any>(
-      `SELECT b.id, b.title, b.amount, b.day_of_month, b.notify, p.cycle AS paid_cycle
+      `SELECT b.id, b.title, b.amount, b.day_of_month, b.notify, b.paused, p.cycle AS paid_cycle
          FROM recurring_bills b
          LEFT JOIN bill_pays p
                 ON p.bill_id = b.id AND p.cycle = $2 AND p.user_id = b.user_id
@@ -176,8 +181,8 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
       `SELECT h.id, h.name, h.code, h.owner_id,
               coalesce(h.monthly_budget, 0)::int AS monthly_budget,
               (SELECT count(*)::int FROM house_members m WHERE m.house_id = h.id) AS members,
-              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id AND r.purchased_at >= date_trunc('month', current_date)) AS total_spent,
-              (SELECT count(*)::int FROM receipts r WHERE r.house_id = h.id) AS receipts_count,
+              (SELECT coalesce(sum(r.total), 0)::int FROM receipts r WHERE r.house_id = h.id AND r.deleted_at IS NULL AND coalesce(r.purchased_at, r.created_at::date) >= date_trunc('month', current_date) AND coalesce(r.purchased_at, r.created_at::date) < date_trunc('month', current_date) + interval '1 month') AS total_spent,
+              (SELECT count(*)::int FROM receipts r WHERE r.house_id = h.id AND r.deleted_at IS NULL) AS receipts_count,
               (SELECT count(*)::int FROM house_bills b WHERE b.house_id = h.id) AS bills_count
          FROM houses h
          JOIN house_members me ON me.house_id = h.id AND me.user_id = $1
@@ -201,6 +206,7 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
   ])
 
   const spentNum = Number(spent?.total ?? 0)
+  const housePaid=await paidHouseTotals(houses.map(h=>h.id))
 
   return {
     user,
@@ -226,7 +232,7 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
       amount: Number(b.amount),
       day_of_month: Number(b.day_of_month),
     })),
-    houses: houses ?? [],
+    houses: houses.map(h=>({...h,total_spent:Number(h.total_spent||0)+(housePaid[h.id]||0)})),
     goals: (goals ?? []).map((g: any) => ({
       ...g,
       amount: Number(g.amount || 0),
