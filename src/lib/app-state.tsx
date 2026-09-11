@@ -77,14 +77,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const started = React.useRef(false)
   const loadSeq = React.useRef(0)
 
-  // 1. Мгновенное восстановление из кэша (0 мс) для уже авторизованных
+  // Кэш сохраняем, чтобы после подтверждения сессии быстро показать данные.
+  // Но `ready` здесь не выставляем: старый кэш не доказывает, что вход всё ещё
+  // действителен. Иначе при открытии Android-приложения успевает мигнуть обзор
+  // перед редиректом на авторизацию.
   React.useEffect(() => {
     const cachedUser = readCachedUser()
     const cachedBoot = readCachedBoot()
     if (cachedUser && cachedBoot) {
       setUser(cachedUser)
       setBoot(cachedBoot)
-      setReady(true)
     }
   }, [])
 
