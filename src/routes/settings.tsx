@@ -12,9 +12,6 @@ import {
   LogOut,
   Phone,
   Send,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  Sparkles,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -90,7 +87,7 @@ function Settings() {
         showInAppNotification({
           title: 'Бот успешно настроен 🌿',
           body: res.username ? `Бот @${res.username} подключен` : 'Настройки бота сохранены',
-          icon: 'sparkles',
+          icon: 'card',
         })
       }
     } catch(e:any){setTestError(e.message||'Не удалось настроить бота')} finally {
@@ -109,7 +106,7 @@ function Settings() {
       showInAppNotification({
         title: 'Telegram отключен',
         body: 'Бот успешно отвязан от вашего аккаунта',
-        icon: 'sparkles',
+        icon: 'card',
       })
     } catch(e:any){setTestError(e.message||'Не удалось отключить Telegram')} finally {
       setTgBusy(false)
@@ -203,7 +200,7 @@ function Settings() {
       showInAppNotification({
         title: '🌿 Листок · На связи',
         body: 'Системное уведомление отправлено! На экране блокировки появится баннер.',
-        icon: 'sparkles',
+        icon: 'card',
         url: '/settings',
       })
     } else {
@@ -224,7 +221,7 @@ function Settings() {
         showInAppNotification({
           title: '🌿 Листок · День экономии',
           body: 'День подошёл к концу. Листок сохранил 🌿 хороший день экономии!',
-          icon: 'sparkles',
+          icon: 'card',
           url: '/',
         })
       } else {
@@ -248,7 +245,7 @@ function Settings() {
         showInAppNotification({
           title: '🔔 Завтра платёж: Подписка Листок',
           body: 'Завтра списание 350 ₽. Проверьте баланс на карте 💳',
-          icon: 'sparkles',
+          icon: 'card',
           url: '/bills',
         })
       } else {
@@ -430,7 +427,7 @@ function Settings() {
           <div className="rounded-[18px] border border-rule/70 bg-cream/40 p-3.5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles size={14} className="text-sage" />
+                <Bell size={14} className="text-sage" />
                 <span className="text-[13px] font-semibold text-ink">Вечерний чекин и счета</span>
               </div>
               <span className="rounded-full bg-sage/12 px-2 py-0.2 text-[10.5px] font-semibold text-sage">
@@ -523,7 +520,7 @@ function Settings() {
             className="group flex items-start gap-3 rounded-[14px] border border-rule/80 bg-paper p-3 shadow-xs transition hover:border-sage/50 active:scale-[0.99] cursor-pointer"
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sage text-onsage shadow-xs">
-              <Sparkles size={15} />
+              <Bell size={15} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between">

@@ -108,10 +108,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       writeCache(me, data)
       setSyncError('')
       return me
-    } catch {
+    } catch (cause) {
       if(ticket!==loadSeq.current)return null
+      const message = cause instanceof Error ? cause.message : ''
+      const storageUnavailable = /хранилищ|database|DATABASE_URL|pglite|relation .* does not exist/i.test(message)
       setSyncError(typeof navigator !== 'undefined' && !navigator.onLine
         ? 'Вы не в сети. Показаны последние данные; новый расход можно сохранить как черновик.'
+        : storageUnavailable
+          ? 'Не удалось подключиться к хранилищу данных. Проверьте настройки базы в развёрнутом приложении.'
         : 'Не удалось обновить данные. Последние сохранённые данные остаются на экране.')
       return readCachedUser()
     }

@@ -34,6 +34,17 @@ export const saveSettings = createServerFn({ method: 'POST' })
     return { ok: true }
   }))
 
+/** Отмечает короткую стартовую настройку завершённой, даже если пользователь пропустил все поля. */
+export const completeOnboarding = createServerFn({ method: 'POST' })
+  .handler(async () => guarded(async (user) => {
+    await q(
+      `INSERT INTO user_settings (user_id, onboarding_completed) VALUES ($1, true)
+       ON CONFLICT (user_id) DO UPDATE SET onboarding_completed = true, updated_at = now()`,
+      [user.id],
+    )
+    return { ok: true }
+  }))
+
 export const saveProfile = createServerFn({ method: 'POST' })
   .validator((d: { display_name?: string; phone?: string; bank?: string }) => ({
     display_name: d.display_name === undefined ? undefined : String(d.display_name).trim(),

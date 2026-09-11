@@ -14,6 +14,7 @@ import { Nav } from '~/components/Nav'
 import { Workspace } from '~/components/Workspace'
 import { SplashScreen } from '~/components/SplashScreen'
 import { NotificationBanner } from '~/components/NotificationBanner'
+import { Onboarding } from '~/components/Onboarding'
 import { registerSW } from '~/lib/push-client'
 import '~/styles/app.css'
 import '~/styles/workspace.css'
@@ -102,7 +103,7 @@ function RootComponent() {
 }
 
 function Shell() {
-  const { ready, user } = useApp()
+  const { ready, user, boot, refresh } = useApp()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const navigate = useNavigate()
 
@@ -149,7 +150,7 @@ function Shell() {
     )
   }
 
-  if (!bare) return <Workspace><NotificationBanner /><Outlet /></Workspace>
+  if (!bare) return <Workspace><NotificationBanner /><Outlet /><Onboarding open={boot.settings.onboarding_completed === false} onCompleted={refresh} /></Workspace>
 
   return (
     <div className={`sheet safe-top public-shell ${pathname === '/login' ? 'login-shell' : ''}`}>

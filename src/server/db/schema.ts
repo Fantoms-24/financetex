@@ -60,6 +60,7 @@ export const APP_TABLES = [
      monthly_income integer NOT NULL DEFAULT 0,
      allocations jsonb NOT NULL DEFAULT '{}'::jsonb,
      seen_welcome boolean NOT NULL DEFAULT false,
+     onboarding_completed boolean,
      updated_at timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE TABLE IF NOT EXISTS receipts (
@@ -318,6 +319,7 @@ export const HEAL_STATEMENTS: Array<[string, string]> = [
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS monthly_income integer NOT NULL DEFAULT 0`],
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS allocations jsonb NOT NULL DEFAULT '{}'::jsonb`],
   ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS seen_welcome boolean NOT NULL DEFAULT false`],
+  ["user_settings", `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS onboarding_completed boolean`],
   ["recurring_bills", `ALTER TABLE recurring_bills ADD COLUMN IF NOT EXISTS last_alert_key text`],
   ["push_subs", `ALTER TABLE push_subs ADD COLUMN IF NOT EXISTS vapid_pub text`],
   ["push_subs", `ALTER TABLE push_subs ALTER COLUMN id SET DEFAULT gen_random_uuid()::text`],

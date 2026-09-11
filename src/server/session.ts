@@ -121,7 +121,7 @@ export async function ensureProfile(userId: string, name: string) {
     [userId, name]
   )
   await q(
-    `INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+    `INSERT INTO user_settings (user_id, onboarding_completed) VALUES ($1, false) ON CONFLICT (user_id) DO NOTHING`,
     [userId]
   )
 }

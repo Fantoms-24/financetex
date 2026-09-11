@@ -2183,3 +2183,99 @@ html[data-theme=dark] .scan-first-art { mix-blend-mode: normal; opacity: .9; }
   .overview-empty-history { grid-template-columns: auto minmax(0, 1fr); gap: 13px; }
   .overview-empty-history .primary-action { grid-column: 1 / -1; justify-self: start; margin-top: 2px; }
 }
+
+/* Настройки: один спокойный маршрут вместо панели из равных карточек. */
+.route-settings { max-width: 840px; }
+.settings-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  max-width: 760px;
+  margin-inline: auto;
+  padding-bottom: 40px;
+}
+.settings-heading,
+.settings-profile,
+.settings-profile-form,
+.settings-notifications,
+.settings-telegram,
+.settings-signout,
+.settings-version { grid-column: 1; }
+.settings-heading { align-items: center; }
+.settings-heading .page-description { display: none; }
+.settings-heading .secondary-action {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.settings-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 17px 18px;
+  border: 1px solid var(--color-rule);
+  border-radius: 20px;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-xs);
+}
+.settings-profile > div:first-child { width: 50px; height: 50px; border-radius: 17px; font-size: 16px; }
+.settings-profile h1 { font-size: 18px; }
+.settings-profile-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.settings-profile-form > section,
+.settings-notifications,
+.settings-telegram,
+.settings-signout,
+.settings-page .account-security {
+  border-color: var(--color-rule) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--shadow-xs) !important;
+}
+.settings-profile-form > section { padding: 18px !important; }
+.settings-profile-form h2,
+.settings-notifications h2,
+.settings-telegram h2 { font-size: 16px !important; }
+.settings-profile-form label { font-size: 12px !important; letter-spacing: .06em; }
+.settings-profile-form .field { min-height: 46px; }
+.settings-profile-form > section + section { padding-top: 16px !important; }
+.settings-profile-form > section + section > div:first-child { border-bottom: 0 !important; padding-bottom: 0 !important; }
+.settings-notifications,
+.settings-telegram { padding: 18px !important; }
+.settings-notifications > div:first-child,
+.settings-telegram > div:first-child { padding-bottom: 13px !important; }
+.settings-notifications p,
+.settings-telegram p { font-size: 13px !important; line-height: 1.5 !important; }
+/* Демо уведомления повторяет основную кнопку «Прислать тест» и перегружает экран. */
+.settings-notifications > div:last-child { display: none; }
+.settings-telegram .grid { grid-template-columns: 1fr 1fr; }
+.settings-page .account-security { margin: 0; padding: 0; overflow: hidden; background: var(--color-paper); }
+.settings-page .account-security > summary {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-page .account-security > summary::marker { color: var(--color-sage); }
+.settings-page .account-security .form-hint,
+.settings-page .account-security .expense-form,
+.settings-page .account-security .recovery-code { margin-inline: 18px; }
+.settings-signout { border: 1px solid color-mix(in srgb, var(--color-stamp) 32%, var(--color-rule)); border-radius: 17px; background: var(--color-paper); }
+.settings-signout button { border-radius: 17px; }
+.settings-version { padding: 2px 0 6px; }
+
+@media (max-width: 767px) {
+  .settings-page { gap: 12px; padding-bottom: calc(env(safe-area-inset-bottom) + 112px); }
+  .settings-heading { margin-bottom: 2px; }
+  .settings-heading .secondary-action span { display: none; }
+  .settings-heading .secondary-action { width: 40px; padding: 0; justify-content: center; }
+  .settings-profile { padding: 16px; }
+  .settings-profile-form { gap: 12px; }
+  .settings-profile-form > section,
+  .settings-notifications,
+  .settings-telegram { padding: 16px !important; }
+  .settings-notifications .grid { grid-template-columns: 1fr !important; }
+}

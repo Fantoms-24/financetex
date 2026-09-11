@@ -31,6 +31,7 @@ export interface UserSettings {
   monthly_budget: number
   monthly_income: number
   seen_welcome?: boolean
+  onboarding_completed?: boolean
   allocations: Record<string, number>
 }
 
@@ -128,14 +129,17 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
     monthly_income: number | null
     allocations: any
     seen_welcome: boolean
+    onboarding_completed: boolean | null
   }>(
-    `SELECT currency, monthly_budget, monthly_income, allocations, seen_welcome
+    `SELECT currency, monthly_budget, monthly_income, allocations, seen_welcome, onboarding_completed
        FROM user_settings WHERE user_id = $1`,
     [user.id]
   )
 
   const settings: UserSettings = {
     seen_welcome: Boolean(settingsRow?.seen_welcome),
+    // null означает старый аккаунт: обучение ему не навязываем.
+    onboarding_completed: settingsRow?.onboarding_completed !== false,
     currency: settingsRow?.currency || 'RUB',
     monthly_budget: Number(settingsRow?.monthly_budget ?? 45000),
     monthly_income: Number(settingsRow?.monthly_income ?? 0),
