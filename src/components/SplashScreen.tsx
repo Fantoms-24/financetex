@@ -10,7 +10,7 @@ export function SplashScreen({ message }: { message?: string }) {
       <div className="listok-splash-glow" aria-hidden="true" />
       <div className="listok-splash-content">
         <div className="listok-splash-mark" aria-hidden="true">
-          <img src="/brand-mark.svg" alt="" width="68" height="68" />
+          <img src="/logo.png" alt="" width="68" height="68" />
         </div>
         <div className="listok-splash-wordmark">Листок<span>.</span></div>
         <p>{message || 'Собираем ваш финансовый обзор'}</p>
