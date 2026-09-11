@@ -62,10 +62,14 @@ function Login() {
     if (oauthError || params.get('error_description')) {
       setError(
         oauthError === 'invalid_code'
-          ? 'VK ID не принял ключ приложения. Проверьте защищённый ключ VK_CLIENT_SECRET и адрес возврата в настройках VK.'
+          ? 'VK ID отклонил код входа. Проверьте защищённый ключ VK_CLIENT_SECRET и адрес возврата в настройках VK.'
           : oauthError === 'state_mismatch'
             ? 'Вход VK ID был прерван. Откройте VK ID ещё раз и завершите вход в этом же окне.'
-            : 'VK ID не подтвердил вход. Проверьте выбранный аккаунт и попробуйте ещё раз.',
+            : oauthError === 'unable_to_get_user_info' || oauthError === 'email_not_found'
+              ? 'VK ID не передал данные профиля. Попробуйте выбрать другой аккаунт VK или войдите с паролем.'
+              : oauthError === 'account_already_linked_to_different_user'
+                ? 'Этот VK ID уже привязан к другому аккаунту «Листка». Войдите в него с паролем.'
+                : 'VK ID не подтвердил вход. Попробуйте ещё раз или войдите с паролем.',
       )
       window.history.replaceState({}, '', '/login')
     }

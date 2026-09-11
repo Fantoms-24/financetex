@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.chekagent.financetex",
+      "sha256_cert_fingerprints": [
+        "06:48:0F:BF:27:50:37:2D:C0:E5:73:33:1E:9F:B5:5D:AD:E2:0D:D3:09:6B:61:A2:31:6D:70:E1:61:A0:7F:3E"
+      ]
+    }
+  }
+]

@@ -88,7 +88,24 @@ export function getAuth() {
     // действием из уже авторизованного аккаунта.
     account: { accountLinking: { disableImplicitLinking: true } },
     socialProviders: isVkAuthEnabled()
-      ? { vk: { clientId: vkClientId, clientSecret: vkClientSecret } }
+      ? {
+          vk: {
+            clientId: vkClientId,
+            clientSecret: vkClientSecret,
+            // VK ID не всегда возвращает email (например, если он не был
+            // предоставлен в профиле). Для «Листка» он не нужен: личность
+            // определяется постоянным VK user_id. Better Auth, напротив,
+            // требует email для первой записи пользователя — создаём
+            // технический, стабильный адрес только в этом редком случае.
+            // Реальный email, если VK его прислал, не заменяем.
+            mapProfileToUser: (profile) => {
+              const vkUserId = String(profile?.user?.user_id || '').trim()
+              return vkUserId
+                ? { email: profile.user.email || `vk-${vkUserId}@id.listok.local` }
+                : {}
+            },
+          },
+        }
       : undefined,
     trustedOrigins: trustedOrigins(),
     plugins: [tanstackStartCookies()],

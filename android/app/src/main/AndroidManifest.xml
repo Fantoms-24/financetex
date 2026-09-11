@@ -23,6 +23,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Возврат из VK ID открывает именно Листок, а не вкладку Chrome.
+                 Домен подтверждается файлом /.well-known/assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="financetex.relaxdev.ru"
+                    android:pathPrefix="/api/auth/callback/vk" />
+            </intent-filter>
+
         </activity>
 
         <provider
