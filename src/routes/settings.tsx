@@ -30,6 +30,7 @@ import {
   pushState,
   pushSupported,
 } from '~/lib/push-client'
+import { isNativeApp, sendNativeTestNotification, syncNativeBillReminders } from '~/lib/native'
 import { getAdminState } from '~/server/functions/admin'
 import { pushSubscribe, pushTest, triggerEveningCheckin, tickBills, vapidPublic } from '~/server/functions/push'
 import { saveProfile, saveSettings } from '~/server/functions/settings'
@@ -165,6 +166,7 @@ function Settings() {
     setBusy(true)
     setTestError(null)
     const res = await enablePush()
+    if (res.ok && isNativeApp()) await syncNativeBillReminders(boot.bills)
     setPerm(pushState())
     setBusy(false)
     if (!res.ok) setTestError(res.error || 'Не получилось')
@@ -174,6 +176,14 @@ function Settings() {
     setBusy(true)
     setTestResult(null)
     setTestError(null)
+
+    if (isNativeApp()) {
+      const shown = await sendNativeTestNotification()
+      setBusy(false)
+      if (shown) setTestResult('✓ Тестовое системное уведомление придёт через пару секунд — оно работает даже при свёрнутом Листке.')
+      else setTestError('Android не смог запланировать уведомление. Проверьте разрешение в настройках приложения.')
+      return
+    }
 
     // При выданном разрешении гарантируем актуальность подписки на сервере
     if (perm.granted) {
@@ -415,7 +425,9 @@ function Settings() {
           {!pushSupported()
             ? 'Ваш браузер не поддерживает Push-уведомления.'
             : perm.granted
-            ? standalone
+            ? isNativeApp()
+              ? 'На Android включены системные напоминания о счетах и вечерней проверке расходов.'
+              : standalone
               ? 'Уведомления активны и приходят даже с заблокированным экраном.'
               : isIos()
               ? 'Разрешение выдано. Для работы при закрытом окне добавьте Листок на экран «Домой».'
@@ -435,7 +447,7 @@ function Settings() {
               </span>
             </div>
             <p className="text-[12px] text-muted leading-relaxed">
-              В 21:00 Листок пришлёт: «День подошёл к концу. Листок сохранил 🌿 хороший день экономии!» (или сумму трат дня). А за 1 день до списания ЖКХ, аренды или подписок заранее напомнит о счёте.
+              В 21:00 Листок напомнит проверить траты за день. А за 1 день до списания ЖКХ, аренды или подписок заранее напомнит о счёте.
             </p>
           </div>
         )}

@@ -6,7 +6,7 @@ import { useApp } from '~/lib/app-state'
 import { ExpenseEditor } from './ExpenseEditor'
 import { addReceipt } from '~/server/functions/receipts'
 import { CATEGORIES } from '~/lib/format'
-import { applyNativeTheme } from '~/lib/native'
+import { applyNativeTheme, nativeNotificationWasGranted, syncNativeBillReminders } from '~/lib/native'
 
 export const sections = [
   { to: '/', label: 'Обзор', icon: LayoutDashboard },
@@ -27,6 +27,14 @@ export function Workspace({ children }: { children: React.ReactNode }) {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#20262c' : '#f4f6f8')
     void applyNativeTheme(dark)
   }, [dark])
+  React.useEffect(() => {
+    const sync = () => {
+      if (nativeNotificationWasGranted()) void syncNativeBillReminders(boot.bills)
+    }
+    sync()
+    window.addEventListener('listok:native-notifications-enabled', sync)
+    return () => window.removeEventListener('listok:native-notifications-enabled', sync)
+  }, [boot.bills])
   React.useEffect(() => {
     const open = () => setAdding(true)
     const key = (e: KeyboardEvent) => {

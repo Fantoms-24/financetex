@@ -1,5 +1,10 @@
 import { pushSubscribe, pushUnsubscribe, vapidPublic } from '~/server/functions/push'
-import { isNativeApp, nativeNotificationWasGranted, requestNativeNotificationPermission } from '~/lib/native'
+import {
+  disableNativeNotifications,
+  isNativeApp,
+  nativeNotificationWasGranted,
+  requestNativeNotificationPermission,
+} from '~/lib/native'
 
 export function isStandalone(): boolean {
   if (typeof window === 'undefined') return false
@@ -120,6 +125,10 @@ function matchesKey(sub: PushSubscription, publicKey: string): boolean {
 }
 
 export async function disablePush(): Promise<void> {
+  if (isNativeApp()) {
+    await disableNativeNotifications()
+    return
+  }
   try {
     const reg = (await navigator.serviceWorker.getRegistration('/')) || (await navigator.serviceWorker.ready)
     const sub = await reg?.pushManager.getSubscription()
