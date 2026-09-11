@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-labelledby="title">
+  <title id="title">Листок</title>
+  <rect width="108" height="108" rx="28" fill="#c4f18a"/>
+  <path d="M49.5 90C33.8 86.7 27.7 75.5 28.8 58.2c1-15 10-25.3 25.3-29.2 11.8-3.1 21.8-1.9 29.4 3.5-1.2 16.3-7.9 30.3-19.1 40.1C59.1 77.4 54.1 83.3 49.5 90Z" fill="none" stroke="#244830" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M19 91c7.4-15.3 20.5-25.7 39.1-31.6" fill="none" stroke="#244830" stroke-width="7" stroke-linecap="round"/>
+</svg>

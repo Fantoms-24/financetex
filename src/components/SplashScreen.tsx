@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { Leaf } from 'lucide-react'
 
 export function SplashScreen({ message }: { message?: string }) {
   React.useEffect(() => {
@@ -11,7 +10,7 @@ export function SplashScreen({ message }: { message?: string }) {
       <div className="listok-splash-glow" aria-hidden="true" />
       <div className="listok-splash-content">
         <div className="listok-splash-mark" aria-hidden="true">
-          <Leaf size={31} strokeWidth={2} />
+          <img src="/brand-mark.svg" alt="" width="68" height="68" />
         </div>
         <div className="listok-splash-wordmark">Листок<span>.</span></div>
         <p>{message || 'Собираем ваш финансовый обзор'}</p>

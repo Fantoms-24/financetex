@@ -30,14 +30,36 @@ async function create(): Promise<DB> {
       if (typeof PoolClass !== 'function' && PoolClass?.Pool) {
         PoolClass = PoolClass.Pool
       }
-      const isLocal = url.includes('localhost') || url.includes('127.0.0.1') || url.includes('sslmode=disable')
-      const pool = new PoolClass({
-        connectionString: url,
-        max: 6, idleTimeoutMillis: 20_000, connectionTimeoutMillis: 5_000,
-        ...(isLocal ? {} : { ssl: { rejectUnauthorized: true } }),
-      })
-      try { await pool.query('SELECT 1') }
-      catch(error){await pool.end().catch(()=>{});throw error}
+      const sslMode = new URL(url).searchParams.get('sslmode')?.toLowerCase()
+      const forcePlainConnection = sslMode === 'disable'
+      const preferSsl = ['require', 'verify-ca', 'verify-full'].includes(sslMode || '')
+      const openPool = async (useSsl: boolean) => {
+        const pool = new PoolClass({
+          connectionString: url,
+          max: 6, idleTimeoutMillis: 20_000, connectionTimeoutMillis: 5_000,
+          ...(useSsl ? { ssl: { rejectUnauthorized: true } } : {}),
+        })
+        try {
+          await pool.query('SELECT 1')
+          return pool
+        } catch (error) {
+          await pool.end().catch(() => {})
+          throw error
+        }
+      }
+
+      // Встроенная БД RelaxDev находится в приватной сети и обычно не требует
+      // TLS. Внешние БД с sslmode=require подключаются по TLS сразу, а для
+      // остальных серверов с обязательным TLS есть безопасная повторная попытка.
+      let pool: any
+      try {
+        pool = await openPool(preferSsl)
+      } catch (firstError) {
+        const details = firstError instanceof Error ? firstError.message : String(firstError)
+        const tlsRequired = /ssl|tls|encryption|pg_hba/i.test(details)
+        if (forcePlainConnection || preferSsl || !tlsRequired) throw firstError
+        pool = await openPool(true)
+      }
       console.log('[db] Connected to remote Postgres successfully')
       db = {
         kind: 'pg',
