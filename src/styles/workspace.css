@@ -2152,6 +2152,22 @@ html[data-theme=dark] .notification-permission { background: rgba(3, 8, 11, .58)
   line-height: 1.45;
   text-align: center;
 }
+.auth-vk-onetap {
+  display: grid;
+  min-height: 52px;
+  place-items: center;
+}
+.auth-vk-onetap__loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.auth-vk-onetap__host {
+  width: 100%;
+  min-height: 48px;
+}
 
 @media (min-width: 768px) {
   .notification-permission { align-items: center; }

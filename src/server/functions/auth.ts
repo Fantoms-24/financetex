@@ -205,6 +205,42 @@ export const getAvailableAuthMethods = createServerFn({ method: 'GET' }).handler
   vk: isVkAuthEnabled(),
 }))
 
+/**
+ * Better Auth уже создал одноразовые state и PKCE-проверку для OAuth.
+ * Отдаём их только в браузер, который запускает OneTap; секрет VK при этом
+ * остаётся на сервере, а callback всё равно проверит state и обменяет code.
+ */
+export const getVkOneTapConfig = createServerFn({ method: 'POST' })
+  .validator((d: { state?: string }) => ({ state: String(d?.state || '') }))
+  .handler(async ({ data }) => {
+    if (!isVkAuthEnabled() || !/^[A-Za-z0-9_-]{24,}$/.test(data.state)) return null
+
+    const row = await q1<{ value: string }>(
+      `SELECT value FROM "verification"
+        WHERE identifier = $1 AND "expiresAt" > now()
+        LIMIT 1`,
+      [data.state],
+    )
+    if (!row?.value) return null
+
+    try {
+      const value = JSON.parse(row.value) as { codeVerifier?: unknown; expiresAt?: unknown }
+      if (typeof value.codeVerifier !== 'string' || value.codeVerifier.length < 40) return null
+      if (typeof value.expiresAt === 'number' && value.expiresAt < Date.now()) return null
+      const baseUrl = (process.env.BETTER_AUTH_URL || process.env.APP_URL || '').trim().replace(/\/+$/, '')
+      const clientId = (process.env.VK_CLIENT_ID || '').trim()
+      if (!baseUrl || !clientId) return null
+      return {
+        clientId,
+        state: data.state,
+        codeVerifier: value.codeVerifier,
+        redirectUrl: `${baseUrl}/api/auth/callback/vk`,
+      }
+    } catch {
+      return null
+    }
+  })
+
 export const signOut = createServerFn({ method: 'POST' }).handler(async () => {
   try {
     await revokeCurrentSession()

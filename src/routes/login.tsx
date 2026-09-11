@@ -1,4 +1,5 @@
 import { AccountSecurity } from '~/components/AccountSecurity'
+import { VkOneTap } from '~/components/VkOneTap'
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -41,6 +42,7 @@ function Login() {
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [vkAvailable, setVkAvailable] = React.useState(false)
+  const [vkOneTapFallback, setVkOneTapFallback] = React.useState(false)
 
   React.useEffect(() => {
     let active = true
@@ -56,11 +58,20 @@ function Login() {
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('error') || params.get('error_description')) {
-      setError('VK ID не подтвердил вход. Проверьте выбранный аккаунт и попробуйте ещё раз.')
+    const oauthError = params.get('error')
+    if (oauthError || params.get('error_description')) {
+      setError(
+        oauthError === 'invalid_code'
+          ? 'VK ID не принял ключ приложения. Проверьте защищённый ключ VK_CLIENT_SECRET и адрес возврата в настройках VK.'
+          : oauthError === 'state_mismatch'
+            ? 'Вход VK ID был прерван. Откройте VK ID ещё раз и завершите вход в этом же окне.'
+            : 'VK ID не подтвердил вход. Проверьте выбранный аккаунт и попробуйте ещё раз.',
+      )
       window.history.replaceState({}, '', '/login')
     }
   }, [])
+
+  const showVkFallback = React.useCallback(() => setVkOneTapFallback(true), [])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -303,20 +314,22 @@ function Login() {
           {vkAvailable ? (
             <div className="auth-vk mt-5">
               <div className="auth-vk__divider" aria-hidden="true"><span /></div>
-              <Button
-                type="button"
-                variant="paper"
-                size="lg"
-                disabled={busy}
-                onClick={continueWithVk}
-                className="auth-vk__button w-full gap-3 rounded-xl text-[15px] font-semibold"
-              >
-                <span className="auth-vk__mark" aria-hidden="true">VK</span>
-                {mode === 'up' ? 'Продолжить с VK ID' : 'Войти с VK ID'}
-              </Button>
+              {!vkOneTapFallback ? <VkOneTap onFallback={showVkFallback} /> : (
+                <Button
+                  type="button"
+                  variant="paper"
+                  size="lg"
+                  disabled={busy}
+                  onClick={continueWithVk}
+                  className="auth-vk__button w-full gap-3 rounded-xl text-[15px] font-semibold"
+                >
+                  <span className="auth-vk__mark" aria-hidden="true">VK</span>
+                  {mode === 'up' ? 'Продолжить с VK ID' : 'Войти с VK ID'}
+                </Button>
+              )}
               <p className="auth-vk__note">
                 {mode === 'up'
-                  ? 'Новый аккаунт создастся за один шаг.'
+                  ? 'Новый аккаунт создастся за один шаг через VK ID.'
                   : 'Подходит для аккаунта, который уже был создан через VK ID.'}
               </p>
             </div>
