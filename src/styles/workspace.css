@@ -1900,6 +1900,13 @@ html[data-theme=dark] .settings-profile {
   .assistant-feed { padding: 15px 14px; }
 }
 
+/* В приложении Android содержимое спокойно уходит под системные панели,
+   а существующие safe-area отступы удерживают его на удобной высоте. */
+html.native-shell,
+html.native-shell body { overscroll-behavior: none; background: #f3eee4; }
+html.native-shell .workspace { min-height: 100dvh; }
+html.native-shell .workspace-content { -webkit-tap-highlight-color: transparent; }
+
 @media (max-width: 380px) {
   .plan-heading .page-description { max-width: 200px; }
   .plan-add-button { min-width: 96px; padding-inline: 12px; }

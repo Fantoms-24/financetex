@@ -16,6 +16,7 @@ import { SplashScreen } from '~/components/SplashScreen'
 import { NotificationBanner } from '~/components/NotificationBanner'
 import { Onboarding } from '~/components/Onboarding'
 import { registerSW } from '~/lib/push-client'
+import { prepareNativeShell } from '~/lib/native'
 import '~/styles/app.css'
 import '~/styles/workspace.css'
 import '~/styles/everyday.css'
@@ -108,7 +109,8 @@ function Shell() {
   const navigate = useNavigate()
 
   React.useEffect(() => {
-    registerSW()
+    void registerSW()
+    void prepareNativeShell()
   }, [])
 
   const isPublicRoute =
