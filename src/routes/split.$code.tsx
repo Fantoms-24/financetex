@@ -286,7 +286,7 @@ function SplitScreen() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span className="text-[17px]">🌿</span>
-            <span className="t-display text-[15px] font-semibold text-ink">Листок</span>
+            <span className="t-display text-[15px] font-semibold text-ink">Листок.</span>
             <span className="rounded-full bg-sage/12 px-2 py-0.2 text-[10.5px] font-semibold text-sage">
               Сплит счёта
             </span>

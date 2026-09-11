@@ -274,25 +274,22 @@ function Settings() {
   }
 
   return (
-    <div className="space-y-4 px-4 pb-36 pt-2 sm:px-5">
+    <div className="app-page settings-page">
       {/* 1. Верхняя навигационная панель с кнопкой возврата */}
-      <header className="flex items-center justify-between">
-        <Link
-          to="/"
-          onClick={() => haptic(8)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-[12px] border border-rule/80 bg-paper px-3 text-[13px] font-medium text-ink shadow-xs transition hover:bg-white active:scale-95"
-        >
-          <ArrowLeft size={15} />
-          <span>Главная</span>
-        </Link>
-        <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
-          <SettingsIcon size={14} className="text-sage" />
-          <span>Личный кабинет</span>
+      <header className="page-heading settings-heading">
+        <div>
+          <p className="eyebrow">ПРОФИЛЬ И ПРИЛОЖЕНИЕ</p>
+          <h1>Настройки<span>.</span></h1>
+          <p className="page-description">Бюджет, уведомления и способы быстро записывать расходы.</p>
         </div>
+        <Link to="/" onClick={() => haptic(8)} className="secondary-action">
+          <ArrowLeft size={16} />
+          <span>К обзору</span>
+        </Link>
       </header>
 
       {/* 2. Hero-карточка профиля */}
-      <section className="relative overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4.5 shadow-paper">
+      <section className="surface settings-profile">
         <div className="flex items-center gap-3.5">
           <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sage/20 to-sage/5 border border-sage/30 text-sage text-[18px] font-bold shadow-xs">
             {initials}
@@ -317,7 +314,7 @@ function Settings() {
       </section>
 
       {/* 3. Форма настроек: Бюджет и реквизиты */}
-      <form onSubmit={save} className="space-y-4">
+      <form onSubmit={save} className="settings-profile-form space-y-4">
         {/* Карточка: Личный бюджет и имя */}
         <section className="rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
           <div className="flex items-center gap-2 border-b border-rule/60 pb-2.5">
@@ -411,7 +408,7 @@ function Settings() {
       </form>
 
       {/* 4. Центр уведомлений */}
-      <section className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
+      <section className="settings-notifications overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
         <div className="flex items-center justify-between border-b border-rule/60 pb-2.5">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sage/12 text-sage">
@@ -557,7 +554,7 @@ function Settings() {
       </section>
 
       {/* 5. Telegram-бот для быстрой записи трат */}
-      <section className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
+      <section className="settings-telegram overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper space-y-3.5">
         <div className="flex items-center justify-between border-b border-rule/60 pb-2.5">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/12 text-sky-600">
@@ -727,7 +724,7 @@ function Settings() {
       </section>
 
       {/* 6. Выход из аккаунта */}
-      <div className="overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
+      <div className="settings-signout overflow-hidden rounded-[20px] border border-rule/80 bg-paper shadow-paper divide-y divide-rule-soft">
 
         <button
           type="button"
@@ -747,7 +744,7 @@ function Settings() {
         </button>
       </div>
 
-      <div className="text-center pt-1 pb-2">
+      <div className="settings-version text-center pt-1 pb-2">
         <p className="text-[11px] text-muted">Листок · Версия 7.0 (2026)</p>
       </div>
     </div>

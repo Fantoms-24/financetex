@@ -19,15 +19,14 @@ try {
   fs.mkdirSync('.design-qa',{recursive:true})
   for(const width of [390,768,1440]) {
     await br.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<768},br.sessionId)
-    for(const route of ['/','/receipts','/groups','/bills','/settings','/scan']) {
+    for(const route of ['/','/receipts','/groups','/bills','/settings','/scan','/agent']) {
       await br.goto(origin+route)
       const metrics=(await br.evalIn(`({width:innerWidth,scroll:document.documentElement.scrollWidth,text:document.body.innerText.slice(0,100)})`)).result.value
       console.log(width,route,JSON.stringify(metrics))
       if(metrics.scroll>width+1) failures.push(`Overflow ${width} ${route}: ${metrics.scroll}`)
-      if(route==='/') {
-        const shot=await br.send('Page.captureScreenshot',{format:'png'},br.sessionId)
-        fs.writeFileSync(`.design-qa/overview-${width}.png`,Buffer.from(shot.data,'base64'))
-      }
+      const shot=await br.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false},br.sessionId)
+      const slug=route==='/'?'overview':route.slice(1)
+      fs.writeFileSync(`.design-qa/${slug}-${width}.png`,Buffer.from(shot.data,'base64'))
     }
   }
   await br.goto(origin+'/')

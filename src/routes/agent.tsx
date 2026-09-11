@@ -351,9 +351,9 @@ function Agent() {
   const quickPrompts = selectedHouseId ? HOUSE_PROMPTS : PERSONAL_PROMPTS
 
   return (
-    <div className="flex h-full flex-1 flex-col min-h-0 overflow-hidden bg-cream">
+    <div className="assistant-page flex h-full flex-1 flex-col min-h-0 overflow-hidden bg-cream">
       {/* 1. Верхняя панель в стиле нативного мессенджера */}
-      <header className="sticky top-0 z-30 shrink-0 border-b border-rule/70 bg-paper/95 px-3 sm:px-4 pb-2 pt-1.5 backdrop-blur-xl shadow-xs">
+      <header className="assistant-header sticky top-0 z-30 shrink-0 border-b border-rule/70 bg-paper/95 px-3 sm:px-4 pb-2 pt-1.5 backdrop-blur-xl shadow-xs">
         <div className="flex items-center justify-between gap-2">
           {/* Кнопка назад с комфортным тач-таргетом 44×44pt */}
           <button
@@ -376,7 +376,7 @@ function Agent() {
             </div>
             <div className="text-left min-w-0">
               <p className="t-display text-[14.5px] font-semibold leading-tight text-ink truncate">
-                {selectedHouseId && activeHouse ? `Советник · «${activeHouse.name}»` : 'Листок'}
+                {selectedHouseId && activeHouse ? `Советник · «${activeHouse.name}»` : 'Листок.'}
               </p>
               <p className="flex items-center gap-1 text-[11px] font-medium text-muted leading-tight">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -464,10 +464,10 @@ function Agent() {
       </header>
 
       {/* 3. Основная лента сообщений диалога */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
+      <div className="assistant-feed flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
         {/* Приветственный экран с живым финансовым пульсом */}
         {messages.length === 0 ? (
-          <div className="space-y-3.5 pt-1">
+          <div className="assistant-welcome space-y-3.5 pt-1">
             {/* Hero-карточка финансового контекста */}
             <div className="overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
               <div className="flex items-center gap-2 text-sage">
@@ -649,7 +649,7 @@ function Agent() {
       </div>
 
       {/* 4. Закреплённая строка ввода сообщений (Composer) */}
-      <div className="sticky bottom-0 z-30 shrink-0 border-t border-rule/70 bg-paper/95 backdrop-blur-2xl px-3 sm:px-4 pt-2 pb-[max(env(safe-area-inset-bottom),14px)] shadow-[0_-4px_24px_rgba(28,25,21,0.04)]">
+      <div className="assistant-composer sticky bottom-0 z-30 shrink-0 border-t border-rule/70 bg-paper/95 backdrop-blur-2xl px-3 sm:px-4 pt-2 pb-[max(env(safe-area-inset-bottom),14px)] shadow-[0_-4px_24px_rgba(28,25,21,0.04)]">
         {/* Горизонтальные подсказки во время активного диалога */}
         {messages.length > 0 && !busy && (
           <div className="no-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-0.5">

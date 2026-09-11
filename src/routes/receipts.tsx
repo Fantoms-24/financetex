@@ -217,17 +217,13 @@ function Receipts() {
   const periodAvgCheck = periodItems.length > 0 ? Math.round(periodTotal / periodItems.length) : 0
 
   return (
-    <div className="space-y-5 px-4 pb-44 pt-3 sm:px-5">
+    <div className="app-page receipts-page">
       {/* 1. Шапка раздела: чистая и сбалансированная */}
-      <header className="flex items-center justify-between">
+      <header className="page-heading receipts-heading">
         <div>
-          <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
-            <ReceiptIcon size={14} className="text-sage" />
-            <span>Архив покупок</span>
-          </div>
-          <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
-            Чеки и расходы
-          </h1>
+          <p className="eyebrow">ИСТОРИЯ ПОКУПОК</p>
+          <h1>Расходы<span>.</span></h1>
+          <p className="page-description">Все покупки, категории и чеки в одном спокойном потоке.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -255,7 +251,7 @@ function Receipts() {
       </header>
 
       {/* 2. Панель периода и кнопка отчёта */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="page-toolbar receipts-toolbar">
         <div className="inline-flex rounded-full border border-rule/80 bg-paper/90 p-1 shadow-xs">
           {(
             [
@@ -306,7 +302,8 @@ function Receipts() {
       </div>
 
       {/* 3. Премиальная карточка сводки за выбранный период */}
-      <section className="relative overflow-hidden rounded-[24px] border border-rule/80 bg-paper p-5 shadow-paper space-y-3.5">
+      <div className="receipts-insights-grid">
+      <section className="surface receipts-summary">
         <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted">
           <span>
             {period === 'current'
@@ -341,9 +338,10 @@ function Receipts() {
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
       />
+      </div>
 
       {/* 4. Поиск и фильтрация по категориям */}
-      <div className="space-y-2.5">
+      <div className="receipts-filters space-y-2.5">
         {/* Поисковая строка с startIcon (исправлен наезд на текст) */}
         <div className="relative">
           <Input

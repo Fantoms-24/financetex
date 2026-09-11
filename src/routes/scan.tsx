@@ -142,38 +142,37 @@ function Scan() {
   }
 
   return (
-    <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
+    <div className="app-page scan-page">
       {/* 1. Навигация и заголовок */}
-      <header className="space-y-1.5">
-        <div className="flex items-center justify-between">
+      <header className="page-heading scan-heading">
+        <div>
+          <p className="eyebrow">УМНОЕ РАСПОЗНАВАНИЕ</p>
+          <h1>{result ? 'Чек готов' : 'Скан чека'}<span>.</span></h1>
+          <p className="page-description">
+            {result
+              ? 'Позиции и итог уже сохранены в вашем бюджете.'
+              : 'Сфотографируйте чек — всё остальное распознаем автоматически.'}
+          </p>
+        </div>
+        <div className="scan-heading-actions">
+          <div className="status-chip">
+            <Sparkles size={12} />
+            <span>Умный скан</span>
+          </div>
           <Link
-            to="/"
+            to="/receipts"
             onClick={() => haptic(8)}
-            className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink transition"
+            className="secondary-action"
           >
             <ArrowLeft size={16} />
-            <span>На главную</span>
+            <span>К расходам</span>
           </Link>
-
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-medium text-sage">
-            <Sparkles size={12} />
-            <span>ИИ-распознавание</span>
-          </div>
         </div>
-
-        <h1 className="t-display text-[26px] font-semibold leading-tight text-ink">
-          {result ? 'Чек разобран' : 'Скан чека'}
-        </h1>
-        <p className="text-[13px] text-muted">
-          {result
-            ? 'Все позиции и сумма сохранены в ваш бюджет'
-            : 'Сфотографируйте чек или выберите изображение из галереи'}
-        </p>
       </header>
 
       {/* 2. Селектор назначения: Личный расход или во «Вместе» */}
       {uniqueHouses.length > 0 && !result && (
-        <div className="rounded-[20px] border border-rule/70 bg-paper p-3.5 shadow-xs space-y-2">
+        <div className="surface scan-destination">
           <div className="flex items-center justify-between text-[11.5px] font-semibold uppercase tracking-wider text-muted">
             <span>Куда записать чек</span>
             <span className="text-sage font-medium">
@@ -258,8 +257,8 @@ function Scan() {
 
       {/* 3. Состояние 1: Видоискатель (фото еще нет) */}
       {!preview ? (
-        <div className="space-y-4">
-          <div className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-6 text-center shadow-paper">
+        <div className="scan-capture-flow space-y-4">
+          <div className="surface scan-capture-card">
             {/* Визуальная зона съемки с уголками видоискателя */}
             <div className="relative mx-auto flex min-h-[220px] flex-col items-center justify-center rounded-[20px] border border-dashed border-sage/30 bg-cream/40 p-6">
               {/* Угловые метки видоискателя */}

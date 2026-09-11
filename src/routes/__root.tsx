@@ -26,7 +26,7 @@ export const Route = createRootRoute({
         name: 'viewport',
         content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
-      { title: 'Листок — карманный финансист' },
+      { title: 'Листок. — карманный финансист' },
       {
         name: 'description',
         content: 'Карманный финансист. Чеки, дневной бюджет и общие накопления на одном листке.',
@@ -35,7 +35,7 @@ export const Route = createRootRoute({
       { name: 'color-scheme', content: 'light' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
-      { name: 'apple-mobile-web-app-title', content: 'Листок' },
+      { name: 'apple-mobile-web-app-title', content: 'Листок.' },
       { name: 'mobile-web-app-capable', content: 'yes' },
       { name: 'format-detection', content: 'telephone=no' },
     ],

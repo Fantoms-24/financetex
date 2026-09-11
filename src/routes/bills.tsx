@@ -127,17 +127,13 @@ function Bills() {
   }, [unpaidBills, paidBills])
 
   return (
-    <div className="space-y-6 px-4 pb-36 pt-3 sm:px-5">
+    <div className="app-page plan-page">
       {/* 1. Шапка с навигацией и добавлением */}
-      <header className="flex items-center justify-between">
+      <header className="page-heading plan-heading">
         <div>
-          <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
-            <CreditCard size={14} className="text-sage" />
-            <span>Регулярные платежи</span>
-          </div>
-          <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
-            План и накопления
-          </h1>
+          <p className="eyebrow">ПЛАТЕЖИ И НАКОПЛЕНИЯ</p>
+          <h1>План<span>.</span></h1>
+          <p className="page-description">Будущие списания и цели без неожиданностей.</p>
         </div>
 
         <Button
@@ -154,6 +150,8 @@ function Bills() {
         </Button>
       </header>
 
+      <div className="plan-layout">
+      <div className="plan-bills-column">
       {/* 2. Радар регулярных списаний на месяц */}
       {bills.length > 0 && (
         <section className="relative overflow-hidden rounded-[24px] border border-rule/70 bg-paper p-5 shadow-paper">
@@ -325,8 +323,10 @@ function Bills() {
           })}
         </div>
       )}
+      </div>
 
-      <PersonalGoals goals={boot.goals} onRefresh={refresh} />
+      <div className="plan-goals-column"><PersonalGoals goals={boot.goals} onRefresh={refresh} /></div>
+      </div>
       {/* 4. Шторка создания нового платежа (BottomSheet) */}
       <BottomSheet
         open={openSheet}
