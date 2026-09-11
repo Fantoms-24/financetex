@@ -41,6 +41,7 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: 'manifest', href: '/manifest.webmanifest' },
+      { rel: 'preload', as: 'image', href: '/assets/budget-growth-v1.webp', type: 'image/webp' },
       { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/icon-192.png' },
       { rel: 'icon', type: 'image/png', sizes: '512x512', href: '/icon-512.png' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },

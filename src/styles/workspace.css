@@ -236,13 +236,32 @@
                                                                                             letter-spacing:-.3px}
                                                                                             .section-heading a{
                                                                                               color:var(--color-muted)}
-                                                                                              .balance-panel{
-                                                                                                background:#222d2a;
+.balance-panel{
+                                                                                                background:#192a24;
                                                                                                 color:#fff;
                                                                                                 border-radius:20px;
                                                                                                 padding:25px 28px;
                                                                                                 position:relative;
-                                                                                                overflow:hidden}
+                                                                                                overflow:hidden;
+                                                                                                isolation:isolate}
+                                                                                                .balance-panel:before{
+                                                                                                  content:"";
+                                                                                                  position:absolute;
+                                                                                                  inset:0;
+                                                                                                  z-index:-2;
+                                                                                                  background:url('/assets/budget-growth-v1.webp') center right/cover no-repeat;
+                                                                                                  opacity:.78;
+                                                                                                  transform:scale(1.01);
+                                                                                                  transition:transform .7s cubic-bezier(.22,1,.36,1),opacity .5s ease}
+                                                                                                  .balance-panel:after{
+                                                                                                    content:"";
+                                                                                                    position:absolute;
+                                                                                                    inset:0;
+                                                                                                    z-index:-1;
+                                                                                                    background:linear-gradient(90deg,rgba(16,34,28,.94) 0%,rgba(16,34,28,.82) 42%,rgba(16,34,28,.34) 78%,rgba(16,34,28,.18) 100%)}
+                                                                                                    @media(hover:hover) and (pointer:fine){
+                                                                                                      .balance-panel:hover:before{transform:scale(1.035);opacity:.88}
+                                                                                                    }
                                                                                                 .panel-kicker{
                                                                                                   display:flex;
                                                                                                   justify-content:space-between;
@@ -1510,4 +1529,16 @@ html[data-theme=dark] .settings-profile {
 @media (prefers-reduced-motion: reduce) {
   .assistant-page *,
   .scan-page * { scroll-behavior: auto !important; }
+  .balance-panel:before { transition: none; transform: none; }
+}
+
+@media (max-width: 767px) {
+  .balance-panel:before {
+    background-position: 62% center;
+    opacity: .72;
+  }
+
+  .balance-panel:after {
+    background: linear-gradient(90deg, rgba(16,34,28,.96) 0%, rgba(16,34,28,.87) 52%, rgba(16,34,28,.36) 100%);
+  }
 }
