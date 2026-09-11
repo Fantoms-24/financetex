@@ -35,6 +35,20 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Android WebView сообщает env(safe-area-inset-bottom) не на всех моделях.
+   У нативной оболочки оставляем физический запас над жестовой полосой. */
+html.native-shell {
+  --listok-native-safe-top: 24px;
+  --listok-native-safe-bottom: 28px;
+}
+
+:root {
+  --listok-native-safe-top: 0px;
+  --listok-native-safe-bottom: 0px;
+  --listok-safe-top: max(env(safe-area-inset-top), var(--listok-native-safe-top));
+  --listok-safe-bottom: max(env(safe-area-inset-bottom), var(--listok-native-safe-bottom));
+}
+
 body {
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -85,11 +99,11 @@ button, input, textarea, select {
 }
 
 .safe-bottom {
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  padding-bottom: calc(96px + var(--listok-safe-bottom));
 }
 
 .safe-top {
-  padding-top: max(env(safe-area-inset-top), 18px);
+  padding-top: max(var(--listok-safe-top), 18px);
 }
 
 .tap-spring {

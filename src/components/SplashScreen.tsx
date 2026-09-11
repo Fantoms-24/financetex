@@ -1,12 +1,12 @@
 import * as React from 'react'
 
-export function SplashScreen({ message }: { message?: string }) {
+export function SplashScreen({ message, leaving = false }: { message?: string; leaving?: boolean }) {
   React.useEffect(() => {
     document.documentElement.dataset.theme = localStorage.getItem('listok-theme') === 'dark' ? 'dark' : 'light'
   }, [])
 
   return (
-    <div className="listok-splash" role="status" aria-live="polite">
+    <div className={`listok-splash${leaving ? ' is-leaving' : ''}`} role="status" aria-live="polite">
       <div className="listok-splash-glow" aria-hidden="true" />
       <div className="listok-splash-content">
         <div className="listok-splash-mark" aria-hidden="true">

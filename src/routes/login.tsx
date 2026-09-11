@@ -20,7 +20,8 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Logo } from '~/components/Logo'
 import { useApp } from '~/lib/app-state'
-import { signIn, signUp } from '~/server/functions/auth'
+import { authClient } from '~/lib/auth-client'
+import { getAvailableAuthMethods, signIn, signUp } from '~/server/functions/auth'
 import { cn } from '~/lib/utils'
 
 export const Route = createFileRoute('/login')({
@@ -39,6 +40,27 @@ function Login() {
   const [showPassword, setShowPassword] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [vkAvailable, setVkAvailable] = React.useState(false)
+
+  React.useEffect(() => {
+    let active = true
+    void getAvailableAuthMethods()
+      .then((methods) => {
+        if (active) setVkAvailable(Boolean(methods?.vk))
+      })
+      .catch(() => {
+        // Обычный вход не должен зависеть от дополнительного способа.
+      })
+    return () => { active = false }
+  }, [])
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('error') || params.get('error_description')) {
+      setError('VK ID не подтвердил вход. Проверьте выбранный аккаунт и попробуйте ещё раз.')
+      window.history.replaceState({}, '', '/login')
+    }
+  }, [])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -71,6 +93,28 @@ function Login() {
       } else {
         setError(msg || 'Не удалось связаться с сервером')
       }
+      setBusy(false)
+    }
+  }
+
+  async function continueWithVk() {
+    if (busy || !vkAvailable) return
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await authClient.signIn.social({
+        provider: 'vk',
+        callbackURL: '/',
+        errorCallbackURL: '/login',
+      })
+      if ((result as any)?.error) {
+        setError('VK ID не подтвердил вход. Попробуйте ещё раз или войдите с паролем.')
+        setBusy(false)
+      }
+      // При успехе Better Auth переводит браузер на VK ID. Состояние busy
+      // сохраняется только на короткий момент перед редиректом.
+    } catch {
+      setError('Не удалось открыть VK ID. Проверьте подключение и попробуйте ещё раз.')
       setBusy(false)
     }
   }
@@ -255,6 +299,28 @@ function Login() {
               )}
             </Button>
           </form>
+
+          {vkAvailable ? (
+            <div className="auth-vk mt-5">
+              <div className="auth-vk__divider" aria-hidden="true"><span /></div>
+              <Button
+                type="button"
+                variant="paper"
+                size="lg"
+                disabled={busy}
+                onClick={continueWithVk}
+                className="auth-vk__button w-full gap-3 rounded-xl text-[15px] font-semibold"
+              >
+                <span className="auth-vk__mark" aria-hidden="true">VK</span>
+                {mode === 'up' ? 'Продолжить с VK ID' : 'Войти с VK ID'}
+              </Button>
+              <p className="auth-vk__note">
+                {mode === 'up'
+                  ? 'Новый аккаунт создастся за один шаг.'
+                  : 'Подходит для аккаунта, который уже был создан через VK ID.'}
+              </p>
+            </div>
+          ) : null}
 
           {mode==='in'&&<AccountSecurity recovery/>}
           {/* Преимущества / гарантии под формой */}

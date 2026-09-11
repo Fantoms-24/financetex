@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { deleteCookie, getRequestHeader, setCookie } from '@tanstack/react-start/server'
-import { getAuth, normalizeEmail } from '../auth'
+import { getAuth, isVkAuthEnabled, normalizeEmail } from '../auth'
 import { q1 } from '../db'
 import { friendly, getSessionUser, getSessionUserByToken, revokeCurrentSession, type SessionUser } from '../session'
 
@@ -199,6 +199,11 @@ export const getMe = createServerFn({ method: 'GET' }).handler(
     return { user }
   },
 )
+
+/** В клиент передаём лишь факт включения входа, без ID и секретов VK. */
+export const getAvailableAuthMethods = createServerFn({ method: 'GET' }).handler(() => ({
+  vk: isVkAuthEnabled(),
+}))
 
 export const signOut = createServerFn({ method: 'POST' }).handler(async () => {
   try {

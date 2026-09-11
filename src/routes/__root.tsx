@@ -109,6 +109,7 @@ function Shell() {
   const { ready, user, boot, refresh } = useApp()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const navigate = useNavigate()
+  const [leavingForLogin, setLeavingForLogin] = React.useState(false)
 
   useSafeLayoutEffect(() => {
     void registerSW()
@@ -121,10 +122,17 @@ function Shell() {
   React.useEffect(() => {
     if (!ready) return
     if (!user && !isPublicRoute) {
-      navigate({ to: '/login', replace: true })
+      // Сначала остаёмся на фирменном экране загрузки, затем мягко открываем
+      // вход. Так «Обзор» никогда не успевает появиться между ними.
+      setLeavingForLogin(true)
+      const timer = window.setTimeout(() => {
+        navigate({ to: '/login', replace: true })
+      }, 180)
+      return () => window.clearTimeout(timer)
     } else if (user && pathname === '/login') {
       navigate({ to: '/', replace: true })
     }
+    setLeavingForLogin(false)
   }, [ready, user, pathname, navigate, isPublicRoute])
 
   React.useEffect(() => {
@@ -140,13 +148,15 @@ function Shell() {
   const hideNav = bare || isChat
 
   // Пока не знаем, вошли ли — стильный загрузочный экран с тактильной анимацией
-  if (!ready && !isPublicRoute) {
+  // Даже при прямом открытии /login сначала показываем фирменную загрузку.
+  // Исключения — только публичная страница общего счёта и отдельная админка.
+  if (!ready && (pathname === '/login' || !isPublicRoute)) {
     return <SplashScreen />
   }
 
   // Неавторизованным пользователям не рендерим <Outlet /> (главную), чтобы исключить мерцание
   if (!user && !isPublicRoute) {
-    return <SplashScreen message="Вход в Листок..." />
+    return <SplashScreen message="Открываем безопасный вход…" leaving={leavingForLogin} />
   }
 
   // Авторизованным пользователям на /login не показываем форму перед редиректом

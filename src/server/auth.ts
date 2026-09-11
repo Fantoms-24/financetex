@@ -2,6 +2,7 @@
 
 import { networkInterfaces } from 'node:os'
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
+import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { getKysely } from './db/kysely'
 
 const DEV_SECRET = 'chekagent-dev-secret-please-set-BETTER_AUTH_SECRET-32ch'
@@ -44,11 +45,21 @@ function trustedOrigins(): Array<string> {
 
 let instance: ReturnType<typeof betterAuth> | null = null
 
+/** VK ID включается только когда на сервере есть оба ключа. Никогда не отдаём их в браузер. */
+export function isVkAuthEnabled(): boolean {
+  return Boolean(
+    (process.env.VK_CLIENT_ID || '').trim() &&
+    (process.env.VK_CLIENT_SECRET || '').trim(),
+  )
+}
+
 export function getAuth() {
   if (instance) return instance
 
   const prodUrl = (process.env.BETTER_AUTH_URL || process.env.APP_URL || '').trim()
   const secure = prodUrl.startsWith('https://')
+  const vkClientId = (process.env.VK_CLIENT_ID || '').trim()
+  const vkClientSecret = (process.env.VK_CLIENT_SECRET || '').trim()
 
   if (process.env.NODE_ENV === 'production' && ((process.env.BETTER_AUTH_SECRET || '').trim().length < 32 || process.env.BETTER_AUTH_SECRET===DEV_SECRET)) {
     throw new Error('Для запуска сервера задайте отдельный секрет авторизации')
@@ -72,7 +83,15 @@ export function getAuth() {
       cookieCache: { enabled: false },
     },
     user: { changeEmail: { enabled: false }, deleteUser: { enabled: false } },
+    // Новая VK-личность не должна получать доступ к существующему бюджету
+    // только из-за совпадения строки email. Явную привязку добавим отдельным
+    // действием из уже авторизованного аккаунта.
+    account: { accountLinking: { disableImplicitLinking: true } },
+    socialProviders: isVkAuthEnabled()
+      ? { vk: { clientId: vkClientId, clientSecret: vkClientSecret } }
+      : undefined,
     trustedOrigins: trustedOrigins(),
+    plugins: [tanstackStartCookies()],
     advanced: {
       cookiePrefix: 'chekagent',
       useSecureCookies: secure,
