@@ -182,8 +182,8 @@ function Bills() {
       {/* 3. Список счетов */}
       {bills.length === 0 ? (
         <div className="rounded-[22px] border border-rule/70 bg-paper p-8 text-center shadow-paper">
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-sage/10 text-sage">
-            <CreditCard size={22} />
+          <div className="empty-state-mark empty-state-mark--plan" aria-hidden="true">
+            <CreditCard size={31} />
           </div>
           <p className="t-display mt-3 text-[17px] font-semibold text-ink">Пока нет регулярных платежей</p>
           <p className="mx-auto mt-1 max-w-[260px] text-[12.5px] leading-relaxed text-muted">

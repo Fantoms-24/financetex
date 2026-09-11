@@ -61,6 +61,12 @@ function getGoalIcon(icon: string, size = 18) {
   }
 }
 
+function goalCover(icon: string) {
+  if (icon === 'palmtree') return '/assets/visual-kit-v1/goal-trip.webp'
+  if (icon === 'home') return '/assets/visual-kit-v1/goal-home.webp'
+  return '/assets/visual-kit-v1/goal-dream.webp'
+}
+
 export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoalsProps) {
   const [openAddSheet, setOpenAddSheet] = React.useState(false)
   const [depositGoalTarget, setDepositGoalTarget] = React.useState<UserGoal | null>(null)
@@ -216,9 +222,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
       {/* Список целей */}
       {goals.length === 0 ? (
         <div className="receipt-card p-4.5 text-center sm:p-5">
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-sage/10 text-sage mb-2.5">
-            <Target size={22} strokeWidth={1.8} />
-          </div>
+          <span className="empty-state-mark" aria-hidden="true"><Target size={31} /></span>
           <p className="text-[13.5px] font-semibold text-ink">
             Начните копить на мечту
           </p>
@@ -258,6 +262,10 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
                   isDone ? 'border-emerald-500/30 bg-emerald-50/20' : '',
                 )}
               >
+                <div className="goal-cover" aria-hidden="true">
+                  <img src={goalCover(goal.icon)} alt="" />
+                  <span>{getGoalIcon(goal.icon, 17)}</span>
+                </div>
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rule/40 border border-rule/60">

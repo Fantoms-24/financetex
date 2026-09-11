@@ -27,6 +27,13 @@ interface HouseRow {
 
 const PRESET_NAMES = ['Семья', 'Квартира', 'Отпуск', 'Ремонт']
 
+function houseCover(name: string) {
+  const value = name.toLowerCase()
+  if (/отпуск|поезд|путеш|море|trip|travel/.test(value)) return '/assets/visual-kit-v1/together-trip.webp'
+  if (/празд|событ|проект|свадьб|день рожд/.test(value)) return '/assets/visual-kit-v1/together-event.webp'
+  return '/assets/visual-kit-v1/together-home.webp'
+}
+
 function Groups() {
   const { user, boot, refresh } = useApp()
   const [houses, setHouses] = React.useState<Array<HouseRow>>((boot.houses as Array<HouseRow>) || [])
@@ -97,7 +104,7 @@ function Groups() {
     {error && <p role="alert" className="together-error">{error}</p>}
 
     {houses.length === 0 ? <section className="together-empty">
-      <span className="together-empty-icon"><Users size={31}/></span>
+      <img className="empty-state-art empty-state-art--large" src="/assets/visual-kit-v1/empty-create.webp" alt="" aria-hidden="true" />
       <h2>Деньги, о которых легко договориться</h2>
       <p>Соберите домашние расходы, поездку или общий проект в одном спокойном пространстве.</p>
       <button className="primary-action" onClick={() => setMode('create')}><Plus size={18}/>Создать пространство</button>
@@ -111,6 +118,7 @@ function Groups() {
         const percent = budget > 0 ? Math.min(100, Math.round(spent / budget * 100)) : 0
         return <motion.article key={house.id} className="together-card" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:index*.04}}>
           <Link to="/groups/$id" params={{id:house.id}} className="together-card-main">
+            <img className="together-card-cover" src={houseCover(house.name)} alt="" aria-hidden="true" />
             <div className="together-card-top"><div className="together-avatar"><Users size={21}/></div><div><h3>{house.name}</h3><p>{house.members} {plural(house.members,'участник','участника','участников')}</p></div><ChevronRight size={20}/></div>
             <div className="together-amount"><span>{budget > 0 ? 'Осталось на месяц' : 'Потрачено за месяц'}</span><strong>{money(budget > 0 ? Math.max(0,left) : spent)}</strong></div>
             {budget > 0 ? <><div className="together-progress"><span style={{width:`${percent}%`}}/></div><div className="together-progress-labels"><span>Потрачено {money(spent)}</span><span>из {money(budget)}</span></div></> : <p className="together-no-limit">Лимит можно установить внутри пространства</p>}

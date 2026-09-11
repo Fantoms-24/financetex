@@ -469,7 +469,8 @@ function Agent() {
         {messages.length === 0 ? (
           <div className="assistant-welcome space-y-3.5 pt-1">
             {/* Hero-карточка финансового контекста */}
-            <div className="overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
+            <div className="assistant-welcome-card overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
+              <img className="assistant-welcome-art" src="/assets/visual-kit-v1/assistant-welcome.webp" alt="" aria-hidden="true" />
               <div className="flex items-center gap-2 text-sage">
                 <Sparkles size={19} />
                 <h2 className="t-display text-[16.5px] font-semibold text-ink">

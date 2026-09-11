@@ -267,9 +267,7 @@ function Scan() {
               <div className="absolute bottom-3 left-3 h-4 w-4 border-b-2 border-l-2 border-sage/60 rounded-bl-sm" />
               <div className="absolute bottom-3 right-3 h-4 w-4 border-b-2 border-r-2 border-sage/60 rounded-br-sm" />
 
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/12 text-sage mb-3">
-                <ScanLine size={24} strokeWidth={2.2} />
-              </div>
+              <img className="scan-first-art" src="/assets/visual-kit-v1/scan-first.webp" alt="" aria-hidden="true" />
 
               <p className="t-display text-[17px] font-semibold text-ink">Положите чек на ровную поверхность</p>
               <p className="mt-1 text-[12.5px] text-muted max-w-[240px] leading-relaxed">
