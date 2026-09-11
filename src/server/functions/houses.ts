@@ -277,7 +277,7 @@ async function snapshot(houseId: string) {
       [houseId],
     ),
     q<HouseReceipt & { uname: string | null; email: string | null; display_name: string | null }>(
-      `SELECT r.id, r.user_id, r.store, r.purchased_at, r.total, r.category, r.verdict, r.note, r.image, r.created_at,
+      `SELECT r.id, r.user_id, r.store, r.purchased_at::text AS purchased_at, r.total, r.category, r.verdict, r.note, r.image, r.created_at,
               p.display_name, u.name AS uname, u.email AS email
          FROM receipts r
          LEFT JOIN profiles p ON p.user_id = r.user_id

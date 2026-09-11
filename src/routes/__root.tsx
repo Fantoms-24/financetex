@@ -11,10 +11,12 @@ import {
 import { motion } from 'motion/react'
 import { AppStateProvider, useApp } from '~/lib/app-state'
 import { Nav } from '~/components/Nav'
+import { Workspace } from '~/components/Workspace'
 import { SplashScreen } from '~/components/SplashScreen'
 import { NotificationBanner } from '~/components/NotificationBanner'
 import { registerSW } from '~/lib/push-client'
 import '~/styles/app.css'
+import '~/styles/workspace.css'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -22,14 +24,14 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       { title: 'Листок — карманный финансист' },
       {
         name: 'description',
         content: 'Карманный финансист. Чеки, дневной бюджет и общие накопления на одном листке.',
       },
-      { name: 'theme-color', content: '#f3eee4' },
+      { name: 'theme-color', content: '#f5f6f8' },
       { name: 'color-scheme', content: 'light' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
@@ -46,7 +48,7 @@ export const Route = createRootRoute({
     styles: [
       {
         children:
-          'html,body{margin:0;padding:0}html{background:#f3eee4;color-scheme:light}',
+          'html,body{margin:0;padding:0}html{background:#f5f6f8}',
       },
     ],
   }),
@@ -145,8 +147,10 @@ function Shell() {
     )
   }
 
+  if (!bare) return <Workspace><NotificationBanner /><Outlet /></Workspace>
+
   return (
-    <div className="sheet safe-top">
+    <div className={`sheet safe-top public-shell ${pathname === '/login' ? 'login-shell' : ''}`}>
       <NotificationBanner />
       <main className={hideNav ? 'flex-1 flex flex-col min-h-0 overflow-hidden' : 'safe-bottom flex-1 flex flex-col min-h-0'}>
         <div className="flex-1 flex flex-col min-h-0">

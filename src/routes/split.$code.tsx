@@ -643,7 +643,7 @@ function SplitScreen() {
               {/* Статус оплаты текущего пользователя */}
               <Button
                 size="sm"
-                variant={currentMember.paid ? 'outline' : 'sage'}
+                variant={currentMember.paid ? 'paper' : 'sage'}
                 onClick={handleTogglePaid}
                 className="rounded-full gap-1 px-3.5 h-9"
               >

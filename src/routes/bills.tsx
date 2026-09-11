@@ -16,6 +16,7 @@ import { motion } from 'motion/react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { BottomSheet } from '~/components/BottomSheet'
+import { PersonalGoals } from '~/components/PersonalGoals'
 import { useApp } from '~/lib/app-state'
 import { billDueLabel, money, moneyShort, plural } from '~/lib/format'
 import { addBill, deleteBill, listBills, setBillPaid, toggleBillNotify } from '~/server/functions/bills'
@@ -135,7 +136,7 @@ function Bills() {
             <span>Регулярные платежи</span>
           </div>
           <h1 className="t-display mt-0.5 text-[26px] font-semibold leading-tight text-ink">
-            Счета и подписки
+            План и накопления
           </h1>
         </div>
 
@@ -325,6 +326,7 @@ function Bills() {
         </div>
       )}
 
+      <PersonalGoals goals={boot.goals} onRefresh={refresh} />
       {/* 4. Шторка создания нового платежа (BottomSheet) */}
       <BottomSheet
         open={openSheet}

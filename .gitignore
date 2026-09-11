@@ -22,3 +22,4 @@ dist/
 # прочее
 *.log
 .DS_Store
+.design-qa/

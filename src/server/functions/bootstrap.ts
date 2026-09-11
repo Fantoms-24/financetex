@@ -146,7 +146,7 @@ export const bootstrapApp = createServerFn({ method: 'GET' }).handler(async (): 
       [user.id, startOfMonth]
     ),
     q<any>(
-      `SELECT r.id, r.store, r.purchased_at, r.total, r.category, r.verdict, r.note, r.image, r.created_at, r.house_id,
+      `SELECT r.id, r.store, r.purchased_at::text AS purchased_at, r.total, r.category, r.verdict, r.note, r.image, r.created_at, r.house_id,
               h.name AS house_name
          FROM receipts r
          LEFT JOIN houses h ON h.id = r.house_id

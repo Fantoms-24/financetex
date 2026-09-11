@@ -64,7 +64,7 @@ export function SplitCreateModal({
       setCreatedCode(null)
       getOrganizerDefaults()
         .then((res) => {
-          if (res) {
+          if (res && !('error' in res)) {
             if (res.name) setOrganizerName(res.name)
             if (res.phone) setOrganizerPhone(res.phone)
             if (res.bank) setOrganizerBank(res.bank)
@@ -130,7 +130,7 @@ export function SplitCreateModal({
           items: splitItems,
         },
       })
-      if (res && res.code) {
+      if (res && 'code' in res && res.code) {
         setCreatedCode(res.code)
         haptic(12)
       }

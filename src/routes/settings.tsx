@@ -62,7 +62,7 @@ function Settings() {
 
   const loadTelegram = React.useCallback(async () => {
     const res = await getTelegramStatus().catch(() => null)
-    if (res) setTgState(res)
+    if (res && !('error' in res)) setTgState(res)
   }, [])
 
   React.useEffect(() => {
@@ -625,7 +625,7 @@ function Settings() {
             </div>
 
             <Button
-              variant="outline"
+              variant="paper"
               size="sm"
               disabled={tgBusy}
               onClick={handleUnlinkTg}

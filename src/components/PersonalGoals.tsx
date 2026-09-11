@@ -108,7 +108,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
           targetDate: newDate ? newDate : null,
         },
       })
-      if (res?.ok) {
+      if ('ok' in res && res.ok) {
         haptic(12)
         showInAppNotification({
           title: 'Копилка создана 🎯',
@@ -143,7 +143,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
         },
       })
 
-      if (res?.ok) {
+      if ('ok' in res && res.ok) {
         haptic(14)
         if (res.completed) {
           showInAppNotification({
@@ -155,7 +155,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
           showInAppNotification({
             title: 'Копилка пополнена 🌿',
             body: `+${money(amt)} в «${depositGoalTarget.title}»`,
-            icon: 'piggy-bank',
+            icon: 'sparkles',
           })
         }
         setDepositGoalTarget(null)
@@ -200,7 +200,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
         </div>
 
         <Button
-          variant="outline"
+          variant="paper"
           size="sm"
           onClick={() => {
             haptic(8)
