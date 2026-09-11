@@ -1,20 +1,19 @@
 import * as React from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
+  BarChart3,
   Calendar,
   ChevronDown,
   ChevronUp,
-  Package,
   Plus,
   Receipt as ReceiptIcon,
   ScanLine,
   Search,
   Share2,
-  Store,
+  SlidersHorizontal,
   Trash2,
   Users,
   Utensils,
-  Wallet,
   X,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
@@ -23,7 +22,6 @@ import { Input } from '~/components/ui/input'
 import { BottomSheet } from '~/components/BottomSheet'
 import { ShareMonthModal } from '~/components/ShareMonthModal'
 import { SplitCreateModal } from '~/components/SplitCreateModal'
-import { CategoryAnalytics } from '~/components/CategoryAnalytics'
 import { useApp } from '~/lib/app-state'
 import { CATEGORIES, categoryLabel, dateRu, money, moneyShort, monthKey, monthLabelRu, plural, prevMonthKey } from '~/lib/format'
 import { addReceipt, deleteReceipt, getReceipt, listReceipts, setReceiptHouse } from '~/server/functions/receipts'
@@ -62,6 +60,8 @@ function Receipts() {
   const [openAddSheet, setOpenAddSheet] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all')
+  const [filtersOpen, setFiltersOpen] = React.useState(false)
+  const [analyticsOpen, setAnalyticsOpen] = React.useState(false)
 
   // Поля формы добавления чека
   const [store, setStore] = React.useState('')
@@ -216,14 +216,25 @@ function Receipts() {
 
   const periodAvgCheck = periodItems.length > 0 ? Math.round(periodTotal / periodItems.length) : 0
 
+  const topCategory = React.useMemo(() => {
+    const totals = new Map<string, number>()
+    periodItems.forEach((item) => {
+      totals.set(item.category || 'other', (totals.get(item.category || 'other') || 0) + Number(item.total || 0))
+    })
+    const [id] = Array.from(totals.entries()).sort(([, a], [, b]) => b - a)[0] || []
+    return id ? CATEGORIES.find((item) => item.id === id) || null : null
+  }, [periodItems])
+
+  const hasActiveFilters = Boolean(search.trim()) || selectedCategory !== 'all'
+
   return (
     <div className="app-page receipts-page">
-      {/* 1. Шапка раздела: чистая и сбалансированная */}
       <header className="page-heading receipts-heading">
         <div>
-          <p className="eyebrow">ИСТОРИЯ ПОКУПОК</p>
           <h1>Расходы<span>.</span></h1>
-          <p className="page-description">Все покупки, категории и чеки в одном спокойном потоке.</p>
+          <p className="page-description">
+            {period === 'current' ? monthLabelRu(currentMonthKey) : period === 'prev' ? monthLabelRu(previousMonthKey) : 'Вся история'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -231,7 +242,7 @@ function Receipts() {
             to="/scan"
             onClick={() => haptic(8)}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-rule/80 bg-paper text-sage shadow-xs transition hover:border-sage/50 active:scale-95"
-            title="Сканировать чек"
+            aria-label="Сканировать чек"
           >
             <ScanLine size={19} strokeWidth={2.2} />
           </Link>
@@ -245,12 +256,11 @@ function Receipts() {
             className="gap-1.5 rounded-full px-4 h-10 shadow-paper"
           >
             <Plus size={16} strokeWidth={2.4} />
-            <span className="font-semibold text-[13.5px]">Вписать</span>
+            <span className="font-semibold text-[13.5px]">Добавить</span>
           </Button>
         </div>
       </header>
 
-      {/* 2. Панель периода и кнопка отчёта */}
       <div className="page-toolbar receipts-toolbar">
         <div className="inline-flex rounded-full border border-rule/80 bg-paper/90 p-1 shadow-xs">
           {(
@@ -287,62 +297,111 @@ function Receipts() {
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            haptic(8)
-            setOpenShareModal(true)
-          }}
-          className="inline-flex items-center gap-1.5 rounded-full border border-rule/80 bg-paper px-3.5 py-1.5 text-[12px] font-medium text-muted shadow-xs transition hover:border-sage/40 hover:text-ink active:scale-95 cursor-pointer"
-          title="Поделиться отчетом и скачать CSV"
-        >
-          <Share2 size={13} className="text-sage" />
-          <span>Отчёт</span>
-        </button>
+        <div className="receipts-quick-actions">
+          <button
+            type="button"
+            onClick={() => {
+              haptic(6)
+              setFiltersOpen((value) => !value)
+            }}
+            className={cn('receipt-icon-action', (filtersOpen || hasActiveFilters) && 'is-active')}
+            aria-label="Поиск и фильтры"
+            title="Поиск и фильтры"
+          >
+            {filtersOpen ? <X size={17} /> : <SlidersHorizontal size={17} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              haptic(6)
+              setAnalyticsOpen((value) => !value)
+            }}
+            className={cn('receipt-icon-action', analyticsOpen && 'is-active')}
+            aria-label="Статистика по категориям"
+            title="Статистика по категориям"
+          >
+            <BarChart3 size={17} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              haptic(8)
+              setOpenShareModal(true)
+            }}
+            className="receipt-icon-action"
+            aria-label="Поделиться отчётом или скачать CSV"
+            title="Отчёт и CSV"
+          >
+            <Share2 size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* 3. Премиальная карточка сводки за выбранный период */}
-      <div className="receipts-insights-grid">
-      <section className="surface receipts-summary">
-        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted">
-          <span>
-            {period === 'current'
-              ? monthLabelRu(currentMonthKey)
-              : period === 'prev'
-              ? monthLabelRu(previousMonthKey)
-              : 'Все покупки'}
-          </span>
-          <span className="rounded-full bg-sage/10 px-2.5 py-0.5 text-[11px] font-semibold text-sage">
-            {periodItems.length} {plural(periodItems.length, 'чек', 'чека', 'чеков')}
-          </span>
+      <section className="surface receipts-summary receipts-summary--compact">
+        <div className="receipts-summary-topline">
+          <span>Потрачено</span>
+          <span>{periodItems.length} {plural(periodItems.length, 'покупка', 'покупки', 'покупок')}</span>
         </div>
-
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="t-display t-num text-[36px] font-bold text-ink leading-none tracking-tight">
-            {money(periodTotal)}
-          </p>
-          <div className="text-right">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted block">
-              Средний чек
-            </span>
-            <span className="t-num text-[14.5px] font-semibold text-ink">
-              {money(periodAvgCheck)}
-            </span>
-          </div>
+        <p className="t-display t-num receipts-summary-amount">{money(periodTotal)}</p>
+        <div className="receipts-summary-details">
+          <span>Средняя покупка <strong className="t-num">{money(periodAvgCheck)}</strong></span>
+          {topCategory ? (
+            <button
+              type="button"
+              onClick={() => {
+                haptic(6)
+                setSelectedCategory(selectedCategory === topCategory.id ? 'all' : topCategory.id)
+                setFiltersOpen(true)
+              }}
+              className="receipt-top-category"
+            >
+              <span>{topCategory.icon}</span>
+              <span>{topCategory.shortLabel}</span>
+            </button>
+          ) : null}
         </div>
       </section>
 
-      {/* 3.1 Детальная интерактивная аналитика категорий трат (Кольцо + Полосы + Подсказка Листка) */}
-      <CategoryAnalytics
-        items={periodItems}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-      />
-      </div>
+      {analyticsOpen ? (
+        <section className="receipts-analytics surface" aria-label="Статистика по категориям">
+          <div className="receipts-section-heading">
+            <div>
+              <h2>Статистика по категориям</h2>
+              <p>Нажмите категорию, чтобы оставить её в истории.</p>
+            </div>
+            <button type="button" onClick={() => setAnalyticsOpen(false)} className="receipt-text-action">Скрыть</button>
+          </div>
+          <div className="receipts-category-bars">
+            {CATEGORIES.map((item) => {
+              const total = periodItems.filter((receipt) => receipt.category === item.id).reduce((sum, receipt) => sum + Number(receipt.total || 0), 0)
+              if (!total) return null
+              const share = periodTotal ? Math.round((total / periodTotal) * 100) : 0
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => {
+                    haptic(6)
+                    setSelectedCategory(selectedCategory === item.id ? 'all' : item.id)
+                    setFiltersOpen(true)
+                  }}
+                  className={cn('receipt-category-row', selectedCategory === item.id && 'is-active')}
+                >
+                  <span className="receipt-category-row__icon">{item.icon}</span>
+                  <span className="receipt-category-row__main">
+                    <span className="receipt-category-row__label">{item.shortLabel}</span>
+                    <span className="receipt-category-row__track"><span style={{ width: `${Math.max(share, 4)}%`, backgroundColor: item.hex }} /></span>
+                  </span>
+                  <span className="receipt-category-row__amount"><strong className="t-num">{money(total)}</strong><small>{share}%</small></span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
 
-      {/* 4. Поиск и фильтрация по категориям */}
-      <div className="receipts-filters space-y-2.5">
-        {/* Поисковая строка с startIcon (исправлен наезд на текст) */}
+      {filtersOpen || hasActiveFilters ? (
+        <section className="receipts-filters space-y-2.5" aria-label="Поиск и фильтры">
         <div className="relative">
           <Input
             value={search}
@@ -362,7 +421,6 @@ function Receipts() {
           )}
         </div>
 
-        {/* Чипы категорий */}
         <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5">
           <button
             type="button"
@@ -418,9 +476,28 @@ function Receipts() {
             )
           })}
         </div>
+        </section>
+      ) : null}
+
+      <div className="receipts-history-heading">
+        <div>
+          <h2>{hasActiveFilters ? 'Результаты' : 'Покупки'}</h2>
+          <p>{hasActiveFilters ? `${filtered.length} из ${periodItems.length}` : 'Нажмите покупку, чтобы посмотреть детали.'}</p>
+        </div>
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('')
+              setSelectedCategory('all')
+            }}
+            className="receipt-text-action"
+          >
+            Сбросить
+          </button>
+        ) : null}
       </div>
 
-      {/* 5. Список чеков или сбалансированное пустое состояние */}
       {grouped.length === 0 ? (
         <div className="rounded-[24px] border border-rule/70 bg-paper p-6 text-center shadow-paper space-y-3">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/10 text-sage">
@@ -668,19 +745,33 @@ function Receipts() {
         title="Вписать покупку вручную"
       >
         <form onSubmit={save} className="space-y-4 pt-1">
-          {/* Магазин / Сервис */}
+          {/* Сумма — первое поле: это единственное обязательное действие */}
           <div>
             <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-              Магазин или сервис
+              Сумма, ₽
+            </label>
+            <Input
+              value={total}
+              onChange={(e) => setTotal(e.target.value)}
+              placeholder="0"
+              inputMode="numeric"
+              autoFocus
+              className="h-12 rounded-[14px] text-[21px] font-bold t-num"
+              required
+            />
+          </div>
+
+          {/* Магазин / Сервис — можно оставить пустым для быстрой записи */}
+          <div>
+            <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+              Магазин или описание <span className="normal-case tracking-normal">(необязательно)</span>
             </label>
             <Input
               value={store}
               onChange={(e) => setStore(e.target.value)}
-              placeholder="Пятёрочка, ВкусВилл, Аптека…"
+              placeholder="Например, кофе или Пятёрочка"
               className="h-11 rounded-[14px]"
-              required
             />
-            {/* Быстрые подсказки магазинов */}
             <div className="mt-2 flex flex-wrap gap-1.5">
               {QUICK_STORES.map((s) => (
                 <button
@@ -701,21 +792,6 @@ function Receipts() {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Сумма */}
-          <div>
-            <label className="mb-1 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
-              Сумма покупки, ₽
-            </label>
-            <Input
-              value={total}
-              onChange={(e) => setTotal(e.target.value)}
-              placeholder="1 250"
-              inputMode="numeric"
-              className="h-12 text-[18px] font-bold rounded-[14px]"
-              required
-            />
           </div>
 
           {/* Категория */}
