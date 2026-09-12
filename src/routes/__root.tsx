@@ -15,7 +15,7 @@ import { SplashScreen } from '~/components/SplashScreen'
 import { NotificationBanner } from '~/components/NotificationBanner'
 import { Onboarding } from '~/components/Onboarding'
 import { PushNudge } from '~/components/PushNudge'
-import { registerSW } from '~/lib/push-client'
+import { enablePush, pushState, registerSW } from '~/lib/push-client'
 import { prepareNativeShell } from '~/lib/native'
 import '~/styles/app.css'
 import '~/styles/workspace.css'
@@ -142,6 +142,14 @@ function Shell() {
     window.addEventListener('listok:android-back-home', goHome)
     return () => window.removeEventListener('listok:android-back-home', goHome)
   }, [pathname, navigate])
+
+  React.useEffect(() => {
+    if (!user) return
+    const state = pushState()
+    if (state.granted) {
+      void enablePush().catch(() => {})
+    }
+  }, [user?.id])
 
   const bare = pathname === '/login' || pathname.startsWith('/split/') || pathname.startsWith('/fantms')
   const isChat = pathname === '/agent' || pathname.startsWith('/agent/')

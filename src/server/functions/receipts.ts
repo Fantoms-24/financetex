@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { guarded } from '../session'
 import { q, q1, newId, transaction } from '../db'
 import { requireHouseMember, positiveAmount, validDate } from '../access'
+import { notifyHouseExcept } from '../push'
 import { CATEGORIES } from '~/lib/format'
 
 type ReceiptInput = {
@@ -39,6 +40,16 @@ export const addReceipt = createServerFn({ method: 'POST' }).validator((data: Re
       await q('INSERT INTO receipt_items (id,receipt_id,name,qty,price,category) VALUES ($1,$2,$3,$4,$5,$6)',
         [newId('ri'),id,String(item.name).slice(0,200),Math.max(0.001,Number(item.qty) || 1),Math.round(price),categoryOf(item.category)])
     }
+    if (data.houseId) {
+      const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+      const uName = user.displayName || user.name || 'Участник'
+      const storeName = String(data.store || '').trim().slice(0, 200) || 'Покупка'
+      await notifyHouseExcept(data.houseId, user.id, {
+        title: house?.name || 'Вместе',
+        body: `${uName} добавил(а) чек: ${storeName} (${Number(amount).toLocaleString('ru-RU')} ₽)`,
+        data: { url: `/groups/${data.houseId}`, type: 'house-receipt' },
+      }).catch(() => {})
+    }
     return { ok: true, id }
   })))
 
@@ -58,15 +69,35 @@ export const setReceiptHouse = createServerFn({method:'POST'}).validator((d:{id:
  .handler(async({data})=>guarded(async user=>{
    await requireHouseMember(data.houseId,user.id)
    await q('UPDATE receipts SET house_id=$1 WHERE id=$2 AND user_id=$3 AND deleted_at IS NULL AND (source_key IS NULL OR source_key NOT LIKE $4 AND source_key NOT LIKE $5)',[data.houseId||null,data.id,user.id,'bill:%','goal:%'])
+   if (data.houseId) {
+     const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+     const r = await q1<{ store: string; total: number }>(`SELECT store, total FROM receipts WHERE id = $1`, [data.id])
+     const uName = user.displayName || user.name || 'Участник'
+     const amtStr = r?.total ? ` (${Number(r.total).toLocaleString('ru-RU')} ₽)` : ''
+     await notifyHouseExcept(data.houseId, user.id, {
+       title: house?.name || 'Вместе',
+       body: `${uName} прикрепил(а) чек: ${r?.store || 'Покупка'}${amtStr}`,
+       data: { url: `/groups/${data.houseId}`, type: 'house-receipt' },
+     }).catch(() => {})
+   }
    return {ok:true}
  }))
 
 export const deleteReceipt = createServerFn({method:'POST'}).validator((d:{id:string})=>d)
  .handler(async({data})=>guarded(async user=>{
-   const r=await q1<any>('SELECT source_key FROM receipts WHERE id=$1 AND user_id=$2',[data.id,user.id])
+   const r=await q1<any>('SELECT house_id, store, source_key FROM receipts WHERE id=$1 AND user_id=$2',[data.id,user.id])
    if(await q1('SELECT bill_id FROM bill_pays WHERE receipt_id=$1',[data.id]))throw new Error('Сначала отмените отметку оплаты в «Плане»')
    if (/^(bill|goal):/.test(r?.source_key || '')) throw new Error('Отмените платёж или взнос в разделе «План», чтобы сохранить правильный остаток.')
    await q('UPDATE receipts SET deleted_at=now() WHERE id=$1 AND user_id=$2',[data.id,user.id])
+   if (r?.house_id) {
+     const house = await q1<{ name: string }>('SELECT name FROM houses WHERE id = $1', [r.house_id])
+     const uName = user.displayName || user.name || 'Участник'
+     await notifyHouseExcept(r.house_id, user.id, {
+       title: house?.name || 'Вместе',
+       body: `${uName} удалил(а) чек «${r.store || 'Покупка'}»`,
+       data: { url: `/groups/${r.house_id}`, type: 'house-receipt' },
+     }).catch(() => {})
+   }
    return {ok:true}
  }))
 export const restoreReceipt = createServerFn({method:'POST'}).validator((d:{id:string})=>d)

@@ -31,10 +31,10 @@ export function pushSupported(): boolean {
 export function pushState(): { permission: NotificationPermission; granted: boolean } {
   if (isNativeApp()) {
     const granted = nativeNotificationWasGranted()
-    return { permission: granted ? 'granted' : 'default', granted }
+    if (granted) return { permission: 'granted', granted: true }
   }
   if (!pushSupported()) return { permission: 'default', granted: false }
-  const permission = Notification.permission
+  const permission = typeof Notification !== 'undefined' ? Notification.permission : 'default'
   return { permission, granted: permission === 'granted' }
 }
 
@@ -69,43 +69,65 @@ export interface PushResult {
 /** Запрашивает разрешение, подписывает и сохраняет подписку на сервере. */
 export async function enablePush(): Promise<PushResult> {
   if (!pushSupported()) return { ok: false, error: 'Браузер не умеет пуши' }
+
+  let nativeGranted = false
   if (isNativeApp()) {
-    const granted = await requestNativeNotificationPermission()
-    return granted ? { ok: true } : { ok: false, error: 'Разрешение не дано в настройках Android' }
+    nativeGranted = await requestNativeNotificationPermission()
   }
+
   if (isIos() && !isStandalone()) {
     return { ok: false, error: 'На iPhone сначала на Домой' }
   }
 
   try {
-    const permission = await Notification.requestPermission()
-    if (permission !== 'granted') return { ok: false, error: 'Разрешение не дано' }
+    let permission: NotificationPermission = 'default'
+    if (typeof Notification !== 'undefined') {
+      try {
+        permission = await Notification.requestPermission()
+      } catch {
+        /* ignore */
+      }
+      if (permission !== 'granted' && !nativeGranted) {
+        return { ok: false, error: 'Разрешение не дано' }
+      }
+    }
 
     const reg = (await registerSW()) || (await navigator.serviceWorker.ready)
-    if (!reg) return { ok: false, error: 'Не удалось включить фон' }
+    if (!reg) {
+      if (nativeGranted) return { ok: true }
+      return { ok: false, error: 'Не удалось включить фон' }
+    }
     await reg.update().catch(() => {})
 
     const { publicKey } = await vapidPublic()
-    if (!publicKey) return { ok: false, error: 'Ключ пушей не настроен' }
-
-    let sub = await reg.pushManager.getSubscription()
-    if (!sub || !matchesKey(sub, publicKey)) {
-      if (sub) await sub.unsubscribe().catch(() => {})
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as ArrayBuffer,
-      })
+    if (!publicKey) {
+      if (nativeGranted) return { ok: true }
+      return { ok: false, error: 'Ключ пушей не настроен' }
     }
 
-    const json = sub.toJSON()
-    const keys = (json as any)?.keys || {}
-    const res = await pushSubscribe({
-      data: { endpoint: json.endpoint!, p256dh: keys.p256dh || '', auth: keys.auth || '' },
-    })
+    if ('pushManager' in reg) {
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub || !matchesKey(sub, publicKey)) {
+        if (sub) await sub.unsubscribe().catch(() => {})
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as ArrayBuffer,
+        })
+      }
 
-    if ((res as any)?.error) return { ok: false, error: (res as any).error }
-    return { ok: true, endpoint: json.endpoint ?? undefined }
+      const json = sub.toJSON()
+      const keys = (json as any)?.keys || {}
+      const res = await pushSubscribe({
+        data: { endpoint: json.endpoint!, p256dh: keys.p256dh || '', auth: keys.auth || '' },
+      })
+
+      if ((res as any)?.error && !nativeGranted) return { ok: false, error: (res as any).error }
+      return { ok: true, endpoint: json.endpoint ?? undefined }
+    }
+
+    return { ok: nativeGranted }
   } catch (e: any) {
+    if (nativeGranted) return { ok: true }
     return { ok: false, error: e?.message || 'Не получилось включить пуши' }
   }
 }
@@ -127,7 +149,6 @@ function matchesKey(sub: PushSubscription, publicKey: string): boolean {
 export async function disablePush(): Promise<void> {
   if (isNativeApp()) {
     await disableNativeNotifications()
-    return
   }
   try {
     const reg = (await navigator.serviceWorker.getRegistration('/')) || (await navigator.serviceWorker.ready)

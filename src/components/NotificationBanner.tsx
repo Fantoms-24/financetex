@@ -1,14 +1,15 @@
 import * as React from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { Bell, ChevronRight, CreditCard, Sparkles, Users, X } from 'lucide-react'
+import { Bell, Check, ChevronRight, CreditCard, MessageSquare, Receipt, Sparkles, Target, Users, X } from 'lucide-react'
+import { sendNativeNotification } from '~/lib/native'
 
 export interface BannerPayload {
   id?: string
   title: string
   body: string
   url?: string
-  icon?: 'bell' | 'sparkles' | 'card' | 'users'
+  icon?: 'bell' | 'sparkles' | 'card' | 'users' | 'receipt' | 'check' | 'target' | 'message'
   duration?: number
 }
 
@@ -18,6 +19,7 @@ const NOTIFY_EVENT = 'listok:notification'
 export function showInAppNotification(payload: BannerPayload) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(NOTIFY_EVENT, { detail: payload }))
+    void sendNativeNotification(payload.title, payload.body, payload.url)
   }
 }
 
@@ -72,6 +74,14 @@ export function NotificationBanner() {
         return <CreditCard size={16} />
       case 'users':
         return <Users size={16} />
+      case 'receipt':
+        return <Receipt size={16} />
+      case 'check':
+        return <Check size={16} />
+      case 'target':
+        return <Target size={16} />
+      case 'message':
+        return <MessageSquare size={16} />
       default:
         return <Bell size={16} />
     }

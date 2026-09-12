@@ -169,6 +169,34 @@ export async function sendNativeTestNotification(
   }
 }
 
+/** Показывает системное Android-уведомление для оперативных действий (Вместе, чеки, счета). */
+export async function sendNativeNotification(
+  title: string,
+  body: string,
+  url = '/groups'
+) {
+  if (!isNativeApp() || !nativeNotificationWasGranted()) return false
+  try {
+    const id = notificationId(`act-${Date.now()}-${Math.floor(Math.random() * 1000)}`)
+    await LocalNotifications.schedule({
+      notifications: [{
+        id,
+        title,
+        body,
+        channelId: REMINDER_CHANNEL_ID,
+        group: 'listok-reminders',
+        schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
+        foreground: true,
+        isExactNotification: false,
+        extra: { source: 'listok-action', url },
+      }],
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function disableNativeNotifications() {
   if (!isNativeApp()) return
   localStorage.removeItem(NATIVE_NOTIFICATION_PERMISSION_KEY)

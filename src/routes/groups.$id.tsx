@@ -159,6 +159,7 @@ function HousePage() {
   const [showMembersDetail, setShowMembersDetail] = React.useState(false)
   const [openReceiptId, setOpenReceiptId] = React.useState<string | null>(null)
   const versionRef = React.useRef<string>('')
+  const prevSnapRef = React.useRef<Snap | null>(houseSnapCache.get(id) || null)
 
   const load = React.useCallback(async () => {
     const r: any = await getHouse({ data: { houseId: id } }).catch(() => null)
@@ -170,14 +171,17 @@ function HousePage() {
     versionRef.current = r.version ?? ''
     houseSnapCache.set(id, r)
     setSnap(r)
+    prevSnapRef.current = r
   }, [id])
 
   React.useEffect(() => {
     const cached = houseSnapCache.get(id)
     if (cached) {
       setSnap(cached)
+      prevSnapRef.current = cached
     } else {
       setSnap(null)
+      prevSnapRef.current = null
     }
     setError(null)
     load()
@@ -192,9 +196,99 @@ function HousePage() {
         const r: any = await liveHouse({ data: { houseId: id } })
         if (!alive || !r || r.error) return
         if (r.version && r.version !== versionRef.current) {
+          const prev = prevSnapRef.current
           versionRef.current = r.version
           houseSnapCache.set(id, r)
           setSnap(r)
+          prevSnapRef.current = r
+
+          // Оповещения в реальном времени о действиях других участников
+          if (prev && user?.id) {
+            // 1. Новые расходы / чеки
+            const prevReceiptIds = new Set((prev.receipts || []).map((x: any) => x.id))
+            const newReceipts = (r.receipts || []).filter(
+              (x: any) => !prevReceiptIds.has(x.id) && x.user_id !== user.id,
+            )
+            for (const nr of newReceipts) {
+              const author = nr.display_name || nr.uname || 'Партнёр'
+              const title = nr.store || 'Чек'
+              const amount = Number(nr.total || 0)
+              showInAppNotification({
+                title: 'Новый расход в бюджете',
+                body: `${author}: «${title}» на ${money(amount)}`,
+                icon: 'receipt',
+                duration: 4500,
+              })
+              haptic(15)
+            }
+
+            // 2. Оплаченные счета
+            const prevPaidKeys = new Set(
+              (prev.pays || []).map((p: any) => `${p.bill_id}:${p.cycle}:${p.user_id}`),
+            )
+            const newPays = (r.pays || []).filter(
+              (p: any) =>
+                !prevPaidKeys.has(`${p.bill_id}:${p.cycle}:${p.user_id}`) && p.user_id !== user.id,
+            )
+            for (const np of newPays) {
+              const bill = (r.bills || []).find((b: any) => b.id === np.bill_id)
+              const member = (r.members || []).find((m: any) => m.user_id === np.user_id)
+              const author = member?.display_name || member?.uname || 'Партнёр'
+              showInAppNotification({
+                title: 'Счёт оплачен',
+                body: `${author} оплатил(а) «${bill?.title || 'Счёт'}»`,
+                icon: 'check',
+                duration: 4000,
+              })
+              haptic(15)
+            }
+
+            // 3. Новые регулярные счета
+            const prevBillIds = new Set((prev.bills || []).map((b: any) => b.id))
+            const newBills = (r.bills || []).filter(
+              (b: any) => !prevBillIds.has(b.id) && (b as any).created_by !== user.id,
+            )
+            for (const nb of newBills) {
+              showInAppNotification({
+                title: 'Новый счёт в бюджете',
+                body: `Добавлен счёт «${nb.title}» (${money(nb.amount)})`,
+                icon: 'card',
+                duration: 4000,
+              })
+              haptic(15)
+            }
+
+            // 4. Новые цели накопления
+            const prevWishIds = new Set((prev.wishes || []).map((w: any) => w.id))
+            const newWishes = (r.wishes || []).filter(
+              (w: any) => !prevWishIds.has(w.id) && (w as any).created_by !== user.id,
+            )
+            for (const nw of newWishes) {
+              showInAppNotification({
+                title: 'Новая цель накопления',
+                body: `Добавлена цель «${nw.title}»`,
+                icon: 'target',
+                duration: 4000,
+              })
+              haptic(15)
+            }
+
+            // 5. Новые сообщения в чате кассы
+            const prevMsgIds = new Set((prev.messages || []).map((m: any) => m.id))
+            const newMsgs = (r.messages || []).filter(
+              (m: any) => !prevMsgIds.has(m.id) && m.user_id !== user.id,
+            )
+            for (const nm of newMsgs) {
+              const author = nm.display_name || nm.uname || 'Партнёр'
+              showInAppNotification({
+                title: author,
+                body: nm.text,
+                icon: 'message',
+                duration: 4000,
+              })
+              haptic(12)
+            }
+          }
         }
       } catch {
         /* сеть */
@@ -205,7 +299,7 @@ function HousePage() {
       alive = false
       clearInterval(t)
     }
-  }, [id])
+  }, [id, user?.id])
 
   const copyCode = async (code: string) => {
     try {

@@ -520,7 +520,17 @@ export const deleteHouseGoal = createServerFn({ method: 'POST' })
   .handler(async ({ data }) =>
     guarded(async (user) => {
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не состоите в этом бюджете' } as const
+      const wish = await q1<{ title: string }>(`SELECT title FROM house_wishes WHERE id = $1 AND house_id = $2`, [data.wishId, data.houseId])
       await q(`DELETE FROM house_wishes WHERE id = $1 AND house_id = $2`, [data.wishId, data.houseId])
+      if (wish) {
+        const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+        const uName = user.displayName || user.name || 'Участник'
+        await notifyHouseExcept(data.houseId, user.id, {
+          title: house?.name || 'Вместе',
+          body: `${uName} удалил(а) цель «${wish.title}»`,
+          data: { url: `/groups/${data.houseId}`, type: 'house-goal-delete' },
+        }).catch(() => {})
+      }
       return { ok: true as const }
     }),
   )
@@ -635,7 +645,7 @@ export const linkReceiptToHouse = createServerFn({ method: 'POST' })
   .handler(async ({ data }) =>
     guarded(async (user) => {
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
-      const owned=await q1<any>('SELECT house_id,source_key FROM receipts WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',[data.receiptId,user.id])
+      const owned=await q1<any>('SELECT house_id,source_key,store,total FROM receipts WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',[data.receiptId,user.id])
       if(!owned)throw new Error('Расход не найден')
       if(/^(bill|goal):/.test(owned.source_key||''))throw new Error('Этот расход связан с планом')
       if(!data.link&&owned.house_id!==data.houseId)throw new Error('Расход не относится к этому бюджету')
@@ -645,6 +655,23 @@ export const linkReceiptToHouse = createServerFn({ method: 'POST' })
         data.receiptId,
         user.id,
       ])
+      const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+      const uName = user.displayName || user.name || 'Участник'
+      const storeName = owned.store || 'Покупка'
+      const totalStr = owned.total ? ` (${Number(owned.total).toLocaleString('ru-RU')} ₽)` : ''
+      if (data.link) {
+        await notifyHouseExcept(data.houseId, user.id, {
+          title: house?.name || 'Вместе',
+          body: `${uName} прикрепил(а) чек: ${storeName}${totalStr}`,
+          data: { url: `/groups/${data.houseId}`, type: 'house-receipt' },
+        }).catch(() => {})
+      } else {
+        await notifyHouseExcept(data.houseId, user.id, {
+          title: house?.name || 'Вместе',
+          body: `${uName} отвязал(а) чек «${storeName}» от бюджета`,
+          data: { url: `/groups/${data.houseId}`, type: 'house-receipt' },
+        }).catch(() => {})
+      }
       return { ok: true as const }
     }),
   )
@@ -758,7 +785,17 @@ export const deleteWish = createServerFn({ method: 'POST' })
   .handler(async ({ data }) =>
     guarded(async (user) => {
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
+      const wish = await q1<{ title: string }>(`SELECT title FROM house_wishes WHERE id = $1 AND house_id = $2`, [data.wishId, data.houseId])
       await q(`DELETE FROM house_wishes WHERE id = $1 AND house_id = $2`, [data.wishId, data.houseId])
+      if (wish) {
+        const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+        const uName = user.displayName || user.name || 'Участник'
+        await notifyHouseExcept(data.houseId, user.id, {
+          title: house?.name || 'Вместе',
+          body: `${uName} удалил(а) цель «${wish.title}»`,
+          data: { url: `/groups/${data.houseId}`, type: 'house-wish' },
+        }).catch(() => {})
+      }
       return { ok: true as const }
     }),
   )
@@ -771,8 +808,18 @@ export const deleteHouseBill = createServerFn({ method: 'POST' })
   .handler(async ({ data }) =>
     guarded(async (user) => {
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
+      const bill = await q1<{ title: string }>(`SELECT title FROM house_bills WHERE id = $1 AND house_id = $2`, [data.billId, data.houseId])
       await q(`DELETE FROM house_bill_pays WHERE bill_id = $1`, [data.billId])
       await q(`DELETE FROM house_bills WHERE id = $1 AND house_id = $2`, [data.billId, data.houseId])
+      if (bill) {
+        const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+        const uName = user.displayName || user.name || 'Участник'
+        await notifyHouseExcept(data.houseId, user.id, {
+          title: house?.name || 'Вместе',
+          body: `${uName} удалил(а) платёж «${bill.title}»`,
+          data: { url: `/groups/${data.houseId}`, type: 'house-bill' },
+        }).catch(() => {})
+      }
       return { ok: true as const }
     }),
   )
