@@ -22,9 +22,9 @@ export async function getAllConfig(keys: string[]): Promise<Record<string, strin
 export async function getLlmConfig(): Promise<{ baseUrl: string; apiKey: string; model: string }> {
   const cfg = await getAllConfig(['llm_base_url', 'llm_api_key', 'llm_model'])
   return {
-    baseUrl: (cfg.llm_base_url || process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
+    baseUrl: (cfg.llm_base_url || process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai').replace(/\/+$/, ''),
     apiKey: cfg.llm_api_key || process.env.LLM_API_KEY || '',
-    model: cfg.llm_model || process.env.LLM_MODEL || 'gpt-4o-mini',
+    model: cfg.llm_model || process.env.LLM_MODEL || 'gemini-3.8-flash',
   }
 }
 

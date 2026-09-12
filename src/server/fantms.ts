@@ -227,7 +227,7 @@ export async function pingLlmService(): Promise<{ ok: boolean; pingMs?: number; 
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: 'Ответь словом "OK"' }],
-        max_tokens: 10,
+        max_tokens: 300,
         temperature: 0,
       }),
       signal: AbortSignal.timeout(15000),
