@@ -1,6 +1,7 @@
 import { newId, q, q1 } from './db'
 import { categoryLabel, money, monthKey, parseMagicExpense, parseSmartCompoundSplit, type CompoundSplitResult } from '~/lib/format'
 import { getLlmConfig } from './config'
+import { callChatLlm } from './llm'
 import { createSplitSession } from './split'
 
 export async function getBotToken(): Promise<string> {
@@ -670,37 +671,23 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
     let parsedReceipt: any = null
     try {
       const base64Image = `data:image/jpeg;base64,${imgBuf.toString('base64')}`
-      const resp = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: base64Image } },
-              ],
-            },
-          ],
-        }),
-        signal: AbortSignal.timeout(60000),
+      const res = await callChatLlm({
+        temperature: 0,
+        timeoutMs: 60000,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: base64Image } },
+            ],
+          },
+        ],
       })
-
-      if (resp.ok) {
-        const raw = await resp.json()
-        const content = raw?.choices?.[0]?.message?.content || ''
-        const match = content.match(/\{[\s\S]*\}/)
-        if (match) {
-          parsedReceipt = JSON.parse(match[0])
-        }
-      } else {
-        console.error('[telegram:scan] Vision error status:', resp.status, await resp.text().catch(() => ''))
+      const content = res.content || ''
+      const match = content.match(/\{[\s\S]*\}/)
+      if (match) {
+        parsedReceipt = JSON.parse(match[0])
       }
     } catch (e: any) {
       console.error('[telegram:scan] Vision API error:', e)
@@ -844,30 +831,17 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
 Правила:
 - amount: целое число рублей (слова переведи в цифры: "восемьсот пятьдесят" -> 850, "две тысячи" -> 2000).
 - category: выбери одно из: food (еда/продукты), prepared (кафе/рестораны), household (быт/дом), hygiene (гигиена), health (аптека/здоровье), drinks (напитки), snacks (снеки), other (прочее/авто/такси).
-- Если во фразе несколько покупок, верни отдельный объект для каждой.
-- Если во фразе нет трат, верни [].`
+- Если во фразе несколько покупок, верни отдельный объект для каждой.`
 
-      const parseResp = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          messages: [{ role: 'user', content: parsePrompt }],
-        }),
-        signal: AbortSignal.timeout(20000),
+      const res = await callChatLlm({
+        temperature: 0,
+        timeoutMs: 20000,
+        messages: [{ role: 'user', content: parsePrompt }],
       })
-
-      if (parseResp.ok) {
-        const data = await parseResp.json()
-        const content = data?.choices?.[0]?.message?.content || ''
-        const match = content.match(/\[\s*\{[\s\S]*\}\s*\]/) || content.match(/\[[\s\S]*\]/)
-        if (match) {
-          parsedItems = JSON.parse(match[0])
-        }
+      const content = res.content || ''
+      const match = content.match(/\[\s*\{[\s\S]*\}\s*\]/) || content.match(/\[[\s\S]*\]/)
+      if (match) {
+        parsedItems = JSON.parse(match[0])
       }
     } catch (e) {
       console.error('[telegram:voice] LLM parse error:', e)
@@ -891,7 +865,7 @@ export async function processTelegramWebhook(body: any): Promise<{ ok: boolean; 
         reply: makeReply(
           chatId,
           `🎙️ <i>«${escapeHtml(transcribedText)}»</i>\n\n` +
-          `🌿 Речь распознана, но сумму или название расхода найти не удалось. Попробуйте сказать конкретнее, например: <i>«Такси 450 рублей»</i> или <i>«Аптека 1200»</i>.`
+          '🌿 Речь распознана, но сумму или название расхода найти не удалось. Попробуйте сказать конкретнее, например: <i>«Такси 450 рублей»</i> или <i>«Аптека 1200»</i>.'
         )
       }
     }

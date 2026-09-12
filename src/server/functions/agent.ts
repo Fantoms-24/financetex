@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { guarded } from '../session'
 import { q, newId } from '../db'
-import { getLlmConfig } from '../config'
+import { callChatLlm } from '../llm'
 import { monthKey, categoryLabel } from '~/lib/format'
 
 export const agentHistory = createServerFn({ method: 'GET' })
@@ -63,15 +63,6 @@ export const agentSend = createServerFn({ method: 'POST' })
       `INSERT INTO agent_messages (id, user_id, role, text) VALUES ($1, $2, 'user', $3)`,
       [newId('am'), user.id, data.text.slice(0, 2000)]
     )
-    const { baseUrl, apiKey, model } = await getLlmConfig()
-    if (!apiKey) {
-      const text = 'Админ ещё не вставил ключ, поэтому я пока без связи с сервисом. Но по вашим чекам и кассам отвечу, как только ключ появится.'
-      await q(
-        `INSERT INTO agent_messages (id, user_id, role, text) VALUES ($1, $2, 'assistant', $3)`,
-        [newId('am'), user.id, text]
-      )
-      return { ok: true, reply: text }
-    }
     const context = await buildContext(user.id)
     const history = await q<any>(
       `SELECT role, text FROM agent_messages WHERE user_id = $1 ORDER BY created_at DESC LIMIT 12`,
@@ -80,29 +71,20 @@ export const agentSend = createServerFn({ method: 'POST' })
     const system = `Ты — Листок, карманный финансист. Говоришь по-русски, коротко и по-человечески, как запись в блокноте.Не используй слова «нейросеть», «AI», «smart insights». Без маркетинга и канцелярита.Данные человека: ${context}Отвечай 2–5 короткими фразами. Если не хватает данных — скажи прямо.`
     let reply = ''
     try {
-      const resp = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0.4,
-          messages: [
-            { role: 'system', content: system },
-            ...(history ?? []).reverse().map((h: any) => ({
-              role: h.role === 'assistant' ? 'assistant' : 'user',
-              content: h.text,
-            })),
-          ],
-        }),
-        signal: AbortSignal.timeout(60000),
+      const res = await callChatLlm({
+        temperature: 0.4,
+        timeoutMs: 60000,
+        messages: [
+          { role: 'system', content: system },
+          ...(history ?? []).reverse().map((h: any) => ({
+            role: (h.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+            content: String(h.text || ''),
+          })),
+        ],
       })
-      if (!resp.ok) throw new Error(`llm ${resp.status}`)
-      const json = await resp.json()
-      reply = String(json?.choices?.[0]?.message?.content || '').trim()
-    } catch {
+      reply = String(res.content || '').trim()
+    } catch (err) {
+      console.error('[agentMessage] error:', err)
       reply = 'Не дотянулся до сервиса. Попробуйте ещё раз через минутку'
     }
     if (!reply) reply = 'Не нашёл, что ответить. Задайте вопрос по-другому'

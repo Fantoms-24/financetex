@@ -19,6 +19,10 @@
           outline:2px solid var(--color-sage)}
           .workspace{
             min-height:100dvh;
+            width:100%;
+            max-width:100vw;
+            overflow-x:hidden;
+            box-sizing:border-box;
             color:var(--color-ink)}
             .workspace-sidebar{
               position:fixed;
@@ -673,22 +677,29 @@
                                                                                                                                                                                                                                                                                                                 display:none}
                                                                                                                                                                                                                                                                                                                 .workspace-body{
                                                                                                                                                                                                                                                                                                                   margin:0}
-                                                                                                                                                                                                                                                                                                                  .workspace-topbar{
-                                                                                                                                                                                                                                                                                                                    height:calc(66px + env(safe-area-inset-top));
-                                                                                                                                                                                                                                                                                                                    padding:env(safe-area-inset-top) 20px 0}
-                                                                                                                                                                                                                                                                                                                    .topbar-location{
-                                                                                                                                                                                                                                                                                                                      display:none}
-                                                                                                                                                                                                                                                                                                                      .mobile-brand{
-                                                                                                                                                                                                                                                                                                                        display:flex;
-                                                                                                                                                                                                                                                                                                                        align-items:center;
-                                                                                                                                                                                                                                                                                                                        gap:7px;
-                                                                                                                                                                                                                                                                                                                        font-weight:750;
-                                                                                                                                                                                                                                                                                                                        font-size:23px;
-                                                                                                                                                                                                                                                                                                                        letter-spacing:-1px}
-                                                                                                                                                                                                                                                                                                                        .topbar-actions{
-                                                                                                                                                                                                                                                                                                                          gap:8px}
-                                                                                                                                                                                                                                                                                                                          .workspace-content{
-                                                                                                                                                                                                                                                                                                                            padding:24px 18px calc(104px + env(safe-area-inset-bottom))}
+                                                                                                                                                                                                                                                                                                                   .workspace-topbar{
+                                                                                                                                                                                                                                                                                                                     height:calc(66px + max(env(safe-area-inset-top, 0px), var(--listok-safe-top, 0px)));
+                                                                                                                                                                                                                                                                                                                     padding:max(env(safe-area-inset-top, 0px), var(--listok-safe-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) 0 max(18px, env(safe-area-inset-left, 0px));
+                                                                                                                                                                                                                                                                                                                     box-sizing:border-box;
+                                                                                                                                                                                                                                                                                                                     width:100%;
+                                                                                                                                                                                                                                                                                                                     max-width:100vw}
+                                                                                                                                                                                                                                                                                                                     .topbar-location{
+                                                                                                                                                                                                                                                                                                                       display:none}
+                                                                                                                                                                                                                                                                                                                       .mobile-brand{
+                                                                                                                                                                                                                                                                                                                         display:flex;
+                                                                                                                                                                                                                                                                                                                         align-items:center;
+                                                                                                                                                                                                                                                                                                                         gap:7px;
+                                                                                                                                                                                                                                                                                                                         font-weight:750;
+                                                                                                                                                                                                                                                                                                                         font-size:23px;
+                                                                                                                                                                                                                                                                                                                         letter-spacing:-1px}
+                                                                                                                                                                                                                                                                                                                         .topbar-actions{
+                                                                                                                                                                                                                                                                                                                           gap:8px}
+                                                                                                                                                                                                                                                                                                                           .workspace-content{
+                                                                                                                                                                                                                                                                                                                             padding:24px max(16px, env(safe-area-inset-right, 0px)) calc(104px + max(env(safe-area-inset-bottom, 0px), var(--listok-safe-bottom, 0px))) max(16px, env(safe-area-inset-left, 0px));
+                                                                                                                                                                                                                                                                                                                             box-sizing:border-box;
+                                                                                                                                                                                                                                                                                                                             width:100%;
+                                                                                                                                                                                                                                                                                                                             max-width:100vw;
+                                                                                                                                                                                                                                                                                                                             overflow-x:hidden}
                                                                                                                                                                                                                                                                                                                             .page-heading{
                                                                                                                                                                                                                                                                                                                               margin-bottom:22px;
                                                                                                                                                                                                                                                                                                                               gap:13px;
@@ -753,8 +764,11 @@
                                                                                                                                                                                                                                                                                                                                                                           align-items:center;
                                                                                                                                                                                                                                                                                                                                                                           background:var(--color-paper);
                                                                                                                                                                                                                                                                                                                                                                           border-top:1px solid var(--color-rule);
-                                                                                                                                                                                                                                                                                                                                                                          height:calc(75px + env(safe-area-inset-bottom));
-                                                                                                                                                                                                                                                                                                                                                                          padding:6px 10px calc(6px + env(safe-area-inset-bottom));
+                                                                                                                                                                                                                                                                                                                                                                          height:calc(75px + max(env(safe-area-inset-bottom, 0px), var(--listok-safe-bottom, 0px)));
+                                                                                                                                                                                                                                                                                                                                                                          padding:6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + max(env(safe-area-inset-bottom, 0px), var(--listok-safe-bottom, 0px))) max(8px, env(safe-area-inset-left, 0px));
+                                                                                                                                                                                                                                                                                                                                                                          box-sizing:border-box;
+                                                                                                                                                                                                                                                                                                                                                                          width:100%;
+                                                                                                                                                                                                                                                                                                                                                                          max-width:100vw;
                                                                                                                                                                                                                                                                                                                                                                           z-index:40}
                                                                                                                                                                                                                                                                                                                                                                           .mobile-navigation a{
                                                                                                                                                                                                                                                                                                                                                                             display:flex;
@@ -2320,8 +2334,11 @@ html[data-theme=dark] .scan-first-art { mix-blend-mode: normal; opacity: .9; }
 @media (max-width: 767px) {
   .mobile-navigation {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    height: calc(82px + var(--listok-safe-bottom));
-    padding: 5px 4px calc(6px + var(--listok-safe-bottom));
+    height: calc(82px + max(env(safe-area-inset-bottom, 0px), var(--listok-safe-bottom, 0px)));
+    padding: 5px max(4px, env(safe-area-inset-right, 0px)) calc(6px + max(env(safe-area-inset-bottom, 0px), var(--listok-safe-bottom, 0px))) max(4px, env(safe-area-inset-left, 0px));
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100vw;
   }
   .mobile-navigation a {
     min-width: 0;
@@ -2353,7 +2370,13 @@ html[data-theme=dark] .scan-first-art { mix-blend-mode: normal; opacity: .9; }
     border-radius: 19px;
     box-shadow: 0 8px 18px rgba(78, 120, 49, .18);
   }
-  .workspace-content { padding-bottom: calc(112px + var(--listok-safe-bottom)); }
+  .workspace-content {
+    padding-bottom: calc(112px + max(env(safe-area-inset-bottom, 0px), var(--listok-safe-bottom, 0px)));
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
 }
 
 /* Focused overview — budget, today's priority, and recent activity only. */
@@ -2394,6 +2417,62 @@ html[data-theme=dark] .scan-first-art { mix-blend-mode: normal; opacity: .9; }
   font-weight: 700;
 }
 .today-panel-action:hover { color: var(--color-ink); }
+
+html[data-theme=dark] .today-panel {
+  background: linear-gradient(145deg, #20272e, #192025);
+  border: 1px solid var(--color-rule);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
+}
+html[data-theme=dark] .today-panel-icon {
+  background: rgba(121, 209, 168, 0.12);
+  color: var(--color-sage);
+  border: 1px solid rgba(121, 209, 168, 0.22);
+}
+html[data-theme=dark] .today-panel .eyebrow {
+  color: var(--color-sage);
+}
+html[data-theme=dark] .today-panel h2 {
+  color: var(--color-ink);
+}
+html[data-theme=dark] .today-panel > p:not(.eyebrow) {
+  color: var(--color-muted);
+}
+html[data-theme=dark] .today-panel-action {
+  color: var(--color-sage);
+}
+html[data-theme=dark] .today-panel-action:hover {
+  color: #a7edd1;
+}
+
+html[data-theme=dark] .transaction-icon {
+  background: #233127;
+  color: #8ed59d;
+}
+html[data-theme=dark] .transaction-icon.tone-1 {
+  background: #2a2538;
+  color: #b7a2e5;
+}
+html[data-theme=dark] .transaction-icon.tone-2 {
+  background: #342c1f;
+  color: #dfb271;
+}
+
+html[data-theme=dark] .empty-state-mark {
+  background: linear-gradient(145deg, #222a30, #1b2228);
+  border-color: var(--color-rule);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.05);
+  color: var(--color-sage);
+}
+html[data-theme=dark] .empty-state-mark--categories {
+  color: var(--color-sage);
+  background: linear-gradient(145deg, #1b2923, #16221d);
+  border-color: rgba(121, 209, 168, 0.2);
+}
+html[data-theme=dark] .empty-state-mark--plan {
+  color: #e5cf97;
+  background: linear-gradient(145deg, #29241b, #211c15);
+  border-color: rgba(229, 207, 151, 0.2);
+}
 .overview-empty-history {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

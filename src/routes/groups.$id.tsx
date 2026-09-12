@@ -132,7 +132,7 @@ function getBillIcon(title: string) {
   if (t.includes('интернет') || t.includes('wifi') || t.includes('вайфай') || t.includes('связь')) {
     return <Wifi size={16} />
   }
-  if (t.includes('жкх') || t.includes('свет') || t.includes('вод') || t.includes('газ') || t.includes('коммунал')) {
+  if (t.includes('жкх') || t.includes('жку') || t.includes('свет') || t.includes('вод') || t.includes('газ') || t.includes('коммунал')) {
     return <Zap size={16} />
   }
   if (t.includes('подписк') || t.includes('тв') || t.includes('кино') || t.includes('музык') || t.includes('янд')) {
@@ -890,8 +890,117 @@ function HousePage() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         >
-            {/* --- ВКЛАДКА 1: ПЛАТЕЖИ (BILLS) --- */}
-            {tab === 'bills' ? (
+          {/* --- ВКЛАДКА 0: ОБЗОР СЕМЕЙНОГО БЮДЖЕТА (OVERVIEW) --- */}
+          {tab === 'overview' ? (
+            <div className="space-y-3.5">
+              {/* Премиальный арт-баннер семейного бюджета */}
+              <div className="relative overflow-hidden rounded-[22px] border border-emerald-950/20 bg-[#07170f] p-4 sm:p-5 text-white shadow-paper transition-all">
+                <div
+                  className="absolute inset-0 bg-cover bg-right sm:bg-center opacity-75 pointer-events-none mix-blend-screen"
+                  style={{ backgroundImage: `url('/assets/family-hub-banner.png')` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#06140d]/95 via-[#06140d]/80 to-transparent pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col justify-between gap-3 min-h-[135px]">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-950/60 backdrop-blur-sm px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+                      <Users size={12} className="text-emerald-400" />
+                      <span>Семейный бюджет «{snap.house?.name}»</span>
+                    </div>
+                    <div className="mt-2.5">
+                      <p className="text-[11.5px] font-medium text-emerald-200/75">
+                        {snap.house?.monthly_budget && snap.house.monthly_budget > 0 ? 'Остаток общего бюджета' : 'Всего подтверждённых трат за месяц'}
+                      </p>
+                      <div className="t-display t-num text-[28px] sm:text-[32px] font-bold leading-tight text-white drop-shadow-sm">
+                        {money(snap.house?.monthly_budget && snap.house.monthly_budget > 0 ? monthLeft : monthSpent)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setTab('receipts')}
+                      className="inline-flex items-center gap-1.5 rounded-[12px] bg-[#22c55e] px-3.5 py-2 text-[12px] font-semibold text-[#052110] shadow-[0_4px_12px_rgba(34,197,94,0.3)] transition hover:brightness-105 active:scale-95 select-none"
+                    >
+                      <ReceiptText size={14} />
+                      <span>Чеки покупок ({snap.receipts.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTab('bills')}
+                      className="inline-flex items-center gap-1.5 rounded-[12px] border border-white/25 bg-white/10 backdrop-blur-md px-3 py-2 text-[12px] font-medium text-white transition hover:bg-white/20 active:scale-95 select-none"
+                    >
+                      <Receipt size={14} />
+                      <span>Счета ({snap.bills.length})</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Аналитика трат по категориям */}
+              <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper dark:bg-[#1a2228] dark:border-[#2f3b45]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[12px] font-semibold uppercase tracking-wider text-muted dark:text-[#9eaab3]">
+                    Расходы по категориям
+                  </span>
+                  <span className="t-num text-[12.5px] font-bold text-ink dark:text-[#eef2f3]">
+                    {money(receiptsSum)}
+                  </span>
+                </div>
+
+                {snap.analytics.byCategory.length === 0 ? (
+                  <p className="text-[12px] text-muted dark:text-[#9eaab3] py-2 text-center">
+                    В этом месяце пока нет распределённых трат
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {snap.analytics.byCategory.map((c) => (
+                      <div key={c.category}>
+                        <div className="flex items-center justify-between text-[12px] mb-1">
+                          <span className="font-medium text-ink dark:text-[#eef2f3]">{c.label}</span>
+                          <span className="t-num text-muted dark:text-[#9eaab3]">{money(c.total)} ({c.percent}%)</span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-rule-soft dark:bg-[#202930]">
+                          <div
+                            className="h-full rounded-full bg-sage"
+                            style={{ width: `${Math.min(100, Math.max(4, c.percent))}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Вклад участников в покупки */}
+              {snap.analytics.byMember && snap.analytics.byMember.length > 0 ? (
+                <div className="rounded-[18px] border border-rule bg-paper p-4 shadow-paper dark:bg-[#1a2228] dark:border-[#2f3b45]">
+                  <span className="text-[12px] font-semibold uppercase tracking-wider text-muted dark:text-[#9eaab3] block mb-3">
+                    Вклад участников в покупки
+                  </span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {snap.analytics.byMember.map((m) => (
+                      <div key={m.user_id} className="rounded-[12px] border border-rule/70 bg-cream/50 p-2.5 dark:bg-[#202930] dark:border-[#2f3b45]">
+                        <span className="truncate text-[12.5px] font-semibold text-ink dark:text-[#eef2f3] block">
+                          {m.name}
+                        </span>
+                        <span className="t-num text-[14px] font-bold text-sage dark:text-[#79d1a8] block mt-0.5">
+                          {money(m.total)}
+                        </span>
+                        <span className="text-[11px] text-muted dark:text-[#9eaab3]">
+                          {m.percent}% от всех трат
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* --- ВКЛАДКА 1: ПЛАТЕЖИ (BILLS) --- */}
+          {tab === 'bills' ? (
           <div className="space-y-3">
             {snap.bills.length === 0 ? (
               <div className="rounded-[18px] border border-rule bg-paper p-6 text-center shadow-paper">
@@ -937,36 +1046,50 @@ function HousePage() {
                       key={b.id}
                       className={cn(
                         'rounded-[16px] border p-3.5 transition-all shadow-paper',
-                        paid ? 'border-sage/30 bg-[#fafcf9]' : 'border-rule bg-paper',
+                        paid
+                          ? 'border-sage/40 bg-[#f4f8f5] dark:border-sage/35 dark:bg-[#15231e]'
+                          : 'border-rule bg-paper dark:border-[#2f3b45] dark:bg-[#1a2228]',
                       )}
                     >
                       <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-start gap-2.5 min-w-0">
                           <div
                             className={cn(
-                              'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border',
+                              'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border transition-colors',
                               paid
-                                ? 'border-sage/40 bg-sage/10 text-sage'
-                                : 'border-rule/80 bg-white text-ink shadow-xs',
+                                ? 'border-sage/40 bg-sage/15 text-sage dark:border-sage/40 dark:bg-sage/20 dark:text-[#79d1a8]'
+                                : 'border-rule/80 bg-paper text-ink shadow-xs dark:border-[#2f3b45] dark:bg-[#202930] dark:text-[#eef2f3]',
                             )}
                           >
                             {paid ? <CheckCircle2 size={18} /> : getBillIcon(b.title)}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <h4 className="t-display text-[15.5px] font-semibold text-ink leading-snug">
+                              <h4 className="t-display text-[15.5px] font-semibold text-ink dark:text-[#eef2f3] leading-snug">
                                 {b.title}
                               </h4>
                               {paid ? (
-                                <span className="rounded-[5px] bg-sage/15 px-1.5 py-0.5 text-[10.5px] font-bold text-sage leading-none">
+                                <span className="rounded-[6px] bg-sage/15 px-2 py-0.5 text-[10.5px] font-bold text-sage dark:bg-sage/25 dark:text-[#79d1a8] leading-none">
                                   оплачен
                                 </span>
                               ) : null}
                             </div>
-                            <div className="mt-1 flex items-center gap-2 text-[12px] text-muted flex-wrap">
-                              <span className={cn(due.key === 'today' || due.key === 'overdue' ? 'text-stamp font-medium' : '')}>
-                                {due.label}
-                              </span>
+                            <div className="mt-1 flex items-center gap-2 text-[12px] text-muted dark:text-[#9eaab3] flex-wrap">
+                              {paid ? (
+                                <span className="font-medium text-sage dark:text-[#79d1a8]">
+                                  Оплачен в этом месяце
+                                </span>
+                              ) : (
+                                <span
+                                  className={cn(
+                                    due.key === 'today' || due.key === 'overdue'
+                                      ? 'font-medium text-stamp dark:text-[#f87171]'
+                                      : 'text-muted dark:text-[#9eaab3]',
+                                  )}
+                                >
+                                  {due.label}
+                                </span>
+                              )}
                               <span>·</span>
                               <span>
                                 {b.split === 'payer' && payerMember
@@ -978,17 +1101,17 @@ function HousePage() {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <p className="t-num text-[17px] font-bold text-ink leading-tight">
+                          <p className="t-num text-[17px] font-bold text-ink dark:text-[#eef2f3] leading-tight">
                             {moneyShort(b.amount)}
                           </p>
-                          <p className="mt-0.5 text-[11.5px] text-sage font-medium leading-tight">
+                          <p className="mt-0.5 text-[11.5px] font-medium text-sage dark:text-[#79d1a8] leading-tight">
                             ваша доля: {moneyShort(share)}
                           </p>
                         </div>
                       </div>
 
                       {/* Доли всех участников */}
-                      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-rule/50 pt-2.5">
+                      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-rule/50 dark:border-[#2a343c] pt-2.5">
                         {snap.members.map((m) => {
                           const mShare = snap.shares?.[b.id]?.[m.user_id] ?? 0
                           const isM = m.user_id === user?.id
@@ -996,8 +1119,10 @@ function HousePage() {
                             <span
                               key={m.user_id}
                               className={cn(
-                                'rounded-[7px] px-2 py-0.5 text-[11px] font-medium leading-none',
-                                isM ? 'bg-sage/12 text-sage font-semibold' : 'bg-cream text-muted',
+                                'rounded-[7px] px-2 py-1 text-[11px] font-medium leading-none transition-colors',
+                                isM
+                                  ? 'bg-sage/15 text-sage dark:bg-sage/20 dark:text-[#79d1a8] font-semibold'
+                                  : 'bg-cream text-muted dark:bg-[#202930] dark:text-[#a5afb7]',
                               )}
                             >
                               {m.name}: {moneyShort(mShare)}
@@ -1007,7 +1132,7 @@ function HousePage() {
                       </div>
 
                       {/* Кнопка отметки об оплате и удаление */}
-                      <div className="mt-3 flex items-center justify-between border-t border-rule/40 pt-2.5">
+                      <div className="mt-3 flex items-center justify-between border-t border-rule/40 dark:border-[#2a343c] pt-2.5">
                         <button
                           onClick={async () => {
                             haptic(10)
@@ -1023,10 +1148,10 @@ function HousePage() {
                             await load()
                           }}
                           className={cn(
-                            'inline-flex items-center gap-1.5 rounded-[10px] border px-3 py-1.5 text-[12.5px] font-medium transition active:scale-95 shadow-xs',
+                            'inline-flex items-center gap-1.5 rounded-[10px] border px-3 py-1.5 text-[12.5px] font-medium transition active:scale-95 shadow-xs select-none',
                             paid
-                              ? 'border-sage/40 bg-white text-sage hover:bg-sage/5'
-                              : 'border-sage bg-sage text-onsage hover:bg-sage/95',
+                              ? 'border-sage/40 bg-paper text-sage hover:bg-sage/10 dark:border-sage/40 dark:bg-[#182823] dark:text-[#79d1a8] dark:hover:bg-[#1f332c]'
+                              : 'border-sage bg-sage text-onsage hover:bg-sage/95 font-semibold',
                           )}
                         >
                           <Check size={14} />
@@ -1039,7 +1164,7 @@ function HousePage() {
                             assertSaved(await deleteHouseBill({ data: { houseId: id, billId: b.id } }))
                             await load()
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted/50 transition hover:bg-stamp/10 hover:text-stamp"
+                          className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted/50 transition hover:bg-stamp/10 hover:text-stamp dark:hover:bg-stamp/20"
                           title="Удалить платёж"
                         >
                           <Trash2 size={14} />
@@ -1063,48 +1188,77 @@ function HousePage() {
 
         {/* --- ВКЛАДКА 2: ЧЕКИ КАССЫ (RECEIPTS) --- */}
         {tab === 'receipts' ? (
-          <div className="space-y-3">
-            {/* Панель действий с чеками */}
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <span className="text-[12px] uppercase tracking-wider text-muted font-semibold">Общие чеки</span>
-                <p className="t-num text-[17px] font-bold text-ink leading-tight">
-                  {money(receiptsSum)}
-                </p>
-              </div>
-              <div className="flex gap-1.5">
-                <Link to="/scan" search={{houseId:id}}>
-                  <Button size="sm" variant="sage" className="gap-1 rounded-[10px] text-[12px]">
-                    <ScanLine size={14} /> Скан чека
-                  </Button>
-                </Link>
-                <AttachReceiptModal
-                  houseId={id}
-                  onAttached={async () => {
-                    await load()
-                  }}
-                />
+          <div className="space-y-3.5">
+            {/* Премиальный фирменный баннер семейных трат и покупок */}
+            <div className="relative overflow-hidden rounded-[22px] border border-emerald-950/20 bg-[#07170f] p-4 sm:p-5 text-white shadow-paper transition-all">
+              {/* Художественная иллюстрация связей семьи, дома и покупок */}
+              <div
+                className="absolute inset-0 bg-cover bg-right sm:bg-center opacity-75 pointer-events-none mix-blend-screen"
+                style={{ backgroundImage: `url('/assets/family-hub-banner.png')` }}
+              />
+              {/* Градиент затемнения слева для читаемости цифр */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#06140d]/95 via-[#06140d]/80 to-transparent pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col justify-between gap-4 min-h-[140px]">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-950/60 backdrop-blur-sm px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+                    <Sparkles size={12} className="text-emerald-400" />
+                    <span>Семейные покупки и чеки</span>
+                  </div>
+                  <div className="mt-2.5">
+                    <p className="text-[11.5px] font-medium text-emerald-200/75">
+                      Подтверждённые траты по чекам
+                    </p>
+                    <div className="t-display t-num text-[28px] sm:text-[32px] font-bold leading-tight text-white drop-shadow-sm">
+                      {money(receiptsSum)}
+                    </div>
+                  </div>
+                  <p className="mt-0.5 text-[11.5px] text-emerald-100/70">
+                    {snap.receipts.length > 0
+                      ? `${snap.receipts.length} ${plural(snap.receipts.length, 'чек', 'чека', 'чеков')} от всех участников`
+                      : 'Все чеки супермаркетов и аптек на общем листке'}
+                  </p>
+                </div>
+
+                {/* Кнопки действий: Скан чека и Привязать из личных */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Link to="/scan" search={{ houseId: id }}>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-[12px] bg-[#22c55e] px-3.5 py-2 text-[12.5px] font-semibold text-[#052110] shadow-[0_4px_14px_rgba(34,197,94,0.35)] transition hover:brightness-105 active:scale-95 select-none"
+                    >
+                      <ScanLine size={15} />
+                      <span>Сканировать чек</span>
+                    </button>
+                  </Link>
+                  <AttachReceiptModal
+                    houseId={id}
+                    onAttached={async () => {
+                      await load()
+                    }}
+                    trigger={(open) => (
+                      <button
+                        type="button"
+                        onClick={open}
+                        className="inline-flex items-center gap-1.5 rounded-[12px] border border-white/25 bg-white/10 backdrop-blur-md px-3 py-2 text-[12.5px] font-medium text-white transition hover:bg-white/20 active:scale-95 select-none"
+                      >
+                        <Plus size={15} />
+                        <span>Прикрепить из моих</span>
+                      </button>
+                    )}
+                  />
+                </div>
               </div>
             </div>
 
             {snap.receipts.length === 0 ? (
-              <div className="rounded-[18px] border border-rule bg-paper p-6 text-center shadow-paper">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cream text-amber-800">
-                  <ReceiptText size={22} />
-                </div>
-                <h3 className="t-display text-[16.5px] font-semibold text-ink leading-tight">
+              <div className="rounded-[18px] border border-rule bg-paper p-5 text-center shadow-paper dark:bg-[#1a2228] dark:border-[#2f3b45]">
+                <p className="text-[13.5px] font-semibold text-ink dark:text-[#eef2f3]">
                   Общих чеков пока нет
-                </h3>
-                <p className="mx-auto mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-muted">
-                  Сканируйте покупки в магазине или привязывайте чеки из личного ящика к общему бюджету
                 </p>
-                <div className="mt-4 flex justify-center gap-2">
-                  <Link to="/scan" search={{houseId:id}}>
-                    <Button variant="sage" size="md" className="gap-1.5 rounded-[12px] px-4 text-[13.5px]">
-                      <ScanLine size={16} /> Сканировать чек
-                    </Button>
-                  </Link>
-                </div>
+                <p className="mx-auto mt-1 max-w-[280px] text-[12px] leading-relaxed text-muted dark:text-[#9eaab3]">
+                  Сканируйте покупки в магазине или привязывайте чеки из личного ящика к общему бюджету.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1226,7 +1380,9 @@ function HousePage() {
                         key={w.id}
                         className={cn(
                           'rounded-[16px] border p-4 transition-all shadow-paper',
-                          isComplete ? 'border-sage/40 bg-[#fafcf9]' : 'border-rule bg-paper',
+                          isComplete
+                            ? 'border-sage/40 bg-[#f4f8f5] dark:border-sage/35 dark:bg-[#15231e]'
+                            : 'border-rule bg-paper dark:border-[#2f3b45] dark:bg-[#1a2228]',
                         )}
                       >
                         <div className="flex items-start justify-between gap-2.5">
@@ -1343,7 +1499,7 @@ function HousePage() {
                                 }
                                 await load()
                               }}
-                              className="rounded-[10px] border border-rule bg-white px-2.5 py-1.5 text-[12px] font-medium text-muted hover:text-ink shadow-xs transition"
+                              className="rounded-[10px] border border-rule/80 bg-paper px-2.5 py-1.5 text-[12px] font-medium text-muted hover:text-ink shadow-xs transition dark:bg-[#1a2228] dark:border-[#2f3b45] dark:text-[#dce4e9] dark:hover:text-white"
                             >
                               {isComplete ? 'В процесс' : 'Куплено'}
                             </button>
@@ -1423,7 +1579,7 @@ function SalaryWidget({
     return (
       <button
         onClick={() => setEditing(true)}
-        className="inline-flex h-8 shrink-0 items-center justify-center rounded-[8px] border border-rule bg-white px-2.5 text-[12px] font-medium text-ink shadow-xs transition hover:border-sage hover:text-sage active:scale-95 leading-none"
+        className="inline-flex h-8 shrink-0 items-center justify-center rounded-[8px] border border-rule/80 bg-paper px-2.5 text-[12px] font-medium text-ink shadow-xs transition hover:border-sage hover:text-sage active:scale-95 leading-none dark:bg-[#1a2228] dark:border-[#2f3b45] dark:text-[#dce4e9]"
       >
         <span>{initialSalary ? moneyShort(initialSalary) : '+ доход'}</span>
       </button>
@@ -1628,7 +1784,7 @@ function DepositModal({
                     'h-9 rounded-[10px] border text-[12.5px] font-semibold transition active:scale-95',
                     amount === String(p)
                       ? 'border-sage bg-sage text-onsage shadow-xs'
-                      : 'border-rule bg-white text-muted hover:border-rule-soft',
+                      : 'border-rule/80 bg-paper text-muted hover:text-ink hover:border-rule-soft dark:border-[#2f3b45] dark:bg-[#1a2228] dark:text-[#9eaab3] dark:hover:text-[#eef2f3] dark:hover:bg-[#222c34]',
                   )}
                 >
                   +{p}
@@ -1647,7 +1803,7 @@ function DepositModal({
               placeholder="Сумма взноса в ₽"
               inputMode="numeric"
               autoFocus
-              className="h-11 rounded-[12px] bg-white text-[15px] font-semibold text-ink"
+              className="h-11 rounded-[12px] bg-paper text-[15px] font-semibold text-ink dark:bg-[#1a2228] dark:border-[#2f3b45] dark:text-[#eef2f3]"
               required
             />
           </div>
@@ -1660,7 +1816,7 @@ function DepositModal({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Например: остаток с аванса"
-              className="h-10 rounded-[12px] bg-white text-[13px] text-ink"
+              className="h-10 rounded-[12px] bg-paper text-[13px] text-ink dark:bg-[#1a2228] dark:border-[#2f3b45] dark:text-[#eef2f3]"
             />
           </div>
 
@@ -1698,9 +1854,11 @@ function AddHouseExpenseModal({houseId,onSaved,trigger}:{houseId:string;houseNam
 function AttachReceiptModal({
   houseId,
   onAttached,
+  trigger,
 }: {
   houseId: string
   onAttached: () => Promise<void>
+  trigger?: (open: () => void) => React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
   const [myReceipts, setMyReceipts] = React.useState<Array<any>>([])
@@ -1720,14 +1878,18 @@ function AttachReceiptModal({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="paper"
-        onClick={openModal}
-        className="gap-1 rounded-[10px] text-[12px]"
-      >
-        <Plus size={14} /> Прикрепить
-      </Button>
+      {trigger ? (
+        trigger(openModal)
+      ) : (
+        <Button
+          size="sm"
+          variant="paper"
+          onClick={openModal}
+          className="gap-1 rounded-[10px] text-[12px]"
+        >
+          <Plus size={14} /> Прикрепить
+        </Button>
+      )}
 
       <BottomSheet
         open={open}
@@ -1818,21 +1980,27 @@ function AddBillModal({
   const [busy, setBusy] = React.useState(false)
   const [formError,setFormError]=React.useState('')
 
-  const PRESETS = ['Аренда', 'Интернет', 'ЖКУ', 'Подписки', 'Продукты']
+  const PRESETS = [
+    { label: 'Аренда', icon: Home, defaultDay: '1', iconColor: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Интернет', icon: Wifi, defaultDay: '15', iconColor: 'text-sky-600 dark:text-sky-400' },
+    { label: 'ЖКУ', icon: Zap, defaultDay: '10', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+    { label: 'Подписки', icon: Tv, defaultDay: '5', iconColor: 'text-purple-600 dark:text-purple-400' },
+    { label: 'Продукты', icon: ShoppingBag, defaultDay: '10', iconColor: 'text-rose-600 dark:text-rose-400' },
+  ]
 
   return (
     <>
       {trigger ? (
         trigger(() => setOpen(true))
       ) : (
-        <Button
-          variant="paper"
-          size="md"
-          className="w-full gap-2 rounded-[14px] border border-dashed border-rule-soft bg-paper/60 hover:bg-white text-[13.5px]"
+        <button
+          type="button"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-rule bg-paper px-4 text-[13px] font-medium text-ink shadow-xs transition hover:border-sage/60 hover:bg-cream/50 active:scale-[0.99] select-none dark:border-[#2f3b45] dark:bg-[#1a2228] dark:text-[#dce4e9] dark:hover:border-sage/50 dark:hover:bg-[#222c34]"
           onClick={() => setOpen(true)}
         >
-          <Plus size={16} /> Добавить регулярный платёж
-        </Button>
+          <Plus size={16} className="text-sage" />
+          <span>Добавить регулярный платёж</span>
+        </button>
       )}
 
       <BottomSheet
@@ -1865,20 +2033,42 @@ function AddBillModal({
           className="space-y-3.5 pt-1"
         >{formError&&<p className="form-error" role="alert">{formError}</p>}
           <div>
-            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+            <label className="mb-2 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
               Быстрый шаблон
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {PRESETS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setTitle(p)}
-                  className="rounded-[8px] border border-rule bg-white px-2.5 py-1 text-[12px] text-muted transition hover:border-sage hover:text-sage active:scale-95 leading-none"
-                >
-                  {p}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-2">
+              {PRESETS.map((p) => {
+                const Icon = p.icon
+                const isSelected = title.trim() === p.label
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      setTitle(p.label)
+                      if (!day || day === '10' || day === '1') {
+                        setDay(p.defaultDay)
+                      }
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-[10px] border px-2.5 py-1.5 text-[12px] font-medium transition-all duration-150 active:scale-95 leading-none select-none',
+                      isSelected
+                        ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                        : 'border-rule/80 bg-paper text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-sage/50 hover:bg-cream/50 dark:border-[#2f3b45] dark:bg-[#1a2228] dark:text-[#dce4e9] dark:hover:border-sage/50 dark:hover:bg-[#222c34]',
+                    )}
+                  >
+                    <Icon
+                      size={14}
+                      className={cn(
+                        'shrink-0 transition-colors',
+                        isSelected ? 'text-onsage' : p.iconColor,
+                      )}
+                    />
+                    <span>{p.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -1890,7 +2080,7 @@ function AddBillModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Название (например: Интернет)"
-              className="h-10 rounded-[12px] bg-white text-[13.5px]"
+              className="h-10 rounded-[12px] bg-paper text-[13.5px] text-ink dark:bg-[#1a2228] dark:border-[#2f3b45] dark:text-[#eef2f3]"
               required
             />
           </div>
@@ -1905,7 +2095,7 @@ function AddBillModal({
                 onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
                 placeholder="Сумма в ₽"
                 inputMode="numeric"
-                className="h-10 rounded-[12px] bg-white text-[13.5px]"
+                className="h-10 rounded-[12px] bg-paper text-[13.5px] text-ink dark:bg-[#1a2228] dark:border-[#2f3b45] dark:text-[#eef2f3]"
                 required
               />
             </div>
@@ -1918,14 +2108,14 @@ function AddBillModal({
                 onChange={(e) => setDay(e.target.value.replace(/[^\d]/g, ''))}
                 placeholder="Число (1–31)"
                 inputMode="numeric"
-                className="h-10 rounded-[12px] bg-white text-[13.5px]"
+                className="h-10 rounded-[12px] bg-paper text-[13.5px] text-ink dark:bg-[#1a2228] dark:border-[#2f3b45] dark:text-[#eef2f3]"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[11.5px] font-medium uppercase tracking-wider text-muted">
+            <label className="mb-2 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
               Как делим
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -1933,21 +2123,27 @@ function AddBillModal({
                 { val: 'equal', label: 'Поровну' },
                 { val: 'salary', label: 'По доходу' },
                 { val: 'payer', label: 'Один платит' },
-              ].map(({ val, label }) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setSplit(val)}
-                  className={cn(
-                    'min-h-[38px] rounded-[10px] border text-[12px] font-medium transition active:scale-95 leading-none',
-                    split === val
-                      ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
-                      : 'border-rule bg-white text-muted hover:border-rule-soft',
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+              ].map(({ val, label }) => {
+                const isSelected = split === val
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => {
+                      haptic(4)
+                      setSplit(val)
+                    }}
+                    className={cn(
+                      'min-h-[38px] rounded-[10px] border text-[12px] font-medium transition active:scale-95 leading-none select-none',
+                      isSelected
+                        ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                        : 'border-rule/80 bg-paper text-muted hover:text-ink hover:border-rule-soft dark:border-[#2f3b45] dark:bg-[#1a2228] dark:text-[#9eaab3] dark:hover:text-[#eef2f3] dark:hover:bg-[#222c34]',
+                    )}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -1959,10 +2155,10 @@ function AddBillModal({
               <select
                 value={payer}
                 onChange={(e) => setPayer(e.target.value)}
-                className="field h-10 w-full rounded-[10px] border border-rule bg-white px-3 text-[13px] text-ink outline-none"
+                className="field h-10 w-full rounded-[10px] border border-rule bg-paper px-3 text-[13px] text-ink outline-none dark:border-[#2f3b45] dark:bg-[#1a2228] dark:text-[#eef2f3]"
               >
                 {members.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
+                  <option key={m.user_id} value={m.user_id} className="dark:bg-[#1a2228] dark:text-[#eef2f3]">
                     {m.name}
                   </option>
                 ))}

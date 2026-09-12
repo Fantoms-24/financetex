@@ -10,8 +10,13 @@ import {
   Check,
   CheckCircle2,
   CreditCard,
+  Home,
   Plus,
+  Smartphone,
   Trash2,
+  Tv,
+  Wifi,
+  Zap,
 } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -38,11 +43,11 @@ interface BillRow {
 }
 
 const TEMPLATES = [
-  { title: 'ЖКХ и квартплата', day: 10 },
-  { title: 'Интернет и ТВ', day: 15 },
-  { title: 'Мобильная связь', day: 20 },
-  { title: 'Аренда жилья', day: 1 },
-  { title: 'Яндекс Плюс', day: 25 },
+  { title: 'ЖКХ и квартплата', day: 10, icon: Zap, iconColor: 'text-emerald-600 dark:text-emerald-400' },
+  { title: 'Интернет и ТВ', day: 15, icon: Wifi, iconColor: 'text-sky-600 dark:text-sky-400' },
+  { title: 'Мобильная связь', day: 20, icon: Smartphone, iconColor: 'text-blue-600 dark:text-blue-400' },
+  { title: 'Аренда жилья', day: 1, icon: Home, iconColor: 'text-amber-600 dark:text-amber-400' },
+  { title: 'Яндекс Плюс', day: 25, icon: Tv, iconColor: 'text-purple-600 dark:text-purple-400' },
 ]
 
 function Bills() {
@@ -353,24 +358,40 @@ function Bills() {
         <form onSubmit={create} className="space-y-4 pt-1">
           {/* Шаблоны популярных платежей */}
           <div>
-            <label className="mb-1.5 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
+            <label className="mb-2 block text-[11.5px] font-semibold uppercase tracking-wider text-muted">
               Быстрый шаблон
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {TEMPLATES.map((tpl) => (
-                <button
-                  key={tpl.title}
-                  type="button"
-                  onClick={() => {
-                    haptic(6)
-                    setTitle(tpl.title)
-                    setDay(String(tpl.day))
-                  }}
-                  className="rounded-full border border-rule/70 bg-cream/40 px-2.5 py-0.5 text-[11.5px] text-muted transition hover:border-sage hover:text-ink active:scale-95"
-                >
-                  {tpl.title}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-2">
+              {TEMPLATES.map((tpl) => {
+                const Icon = tpl.icon
+                const isSelected = title.trim() === tpl.title
+                return (
+                  <button
+                    key={tpl.title}
+                    type="button"
+                    onClick={() => {
+                      haptic(6)
+                      setTitle(tpl.title)
+                      setDay(String(tpl.day))
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-[10px] border px-2.5 py-1.5 text-[12px] font-medium transition-all duration-150 active:scale-95 leading-none select-none',
+                      isSelected
+                        ? 'border-sage bg-sage text-onsage shadow-xs font-semibold'
+                        : 'border-rule/80 bg-paper text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-sage/50 hover:bg-cream/50 dark:border-[#2f3b45] dark:bg-[#1a2228] dark:text-[#dce4e9] dark:hover:border-sage/50 dark:hover:bg-[#222c34]',
+                    )}
+                  >
+                    <Icon
+                      size={14}
+                      className={cn(
+                        'shrink-0 transition-colors',
+                        isSelected ? 'text-onsage' : tpl.iconColor,
+                      )}
+                    />
+                    <span>{tpl.title}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 

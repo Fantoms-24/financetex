@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import { X } from 'lucide-react'
-import { cn } from '~/lib/utils'
+import { cn, haptic } from '~/lib/utils'
 
 interface BottomSheetProps {
   open: boolean
@@ -15,6 +15,8 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
   const panelRef = React.useRef<HTMLDivElement>(null)
   const closeRef = React.useRef(onClose)
   closeRef.current = onClose
+  const dragControls = useDragControls()
+
   React.useEffect(() => {
     if (!open) return
     const previous = document.activeElement as HTMLElement | null
@@ -52,7 +54,7 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs"
           />
 
           {/* Выезжающая шторка с пружинной физикой и возможностью свайпа вниз */}
@@ -61,31 +63,50 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
             ref={panelRef}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 32, stiffness: 350 }}
-            drag={false}
+            transition={{ type: 'spring', damping: 30, stiffness: 350 }}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
             dragConstraints={{ top: 0 }}
-            dragElastic={0.2}
+            dragElastic={{ top: 0, bottom: 0.55 }}
             onDragEnd={(_, info) => {
-              if (info.offset.y > 100 || info.velocity.y > 500) {
+              if (info.offset.y > 70 || info.velocity.y > 300) {
+                haptic(10)
                 onClose()
               }
             }}
             className={cn(
-              'sheet-dialog-panel relative z-10 mx-auto w-full max-w-[440px] max-h-[90dvh] overflow-y-auto rounded-t-[26px] border-t border-rule bg-paper p-5 pb-[calc(env(safe-area-inset-bottom)+24px)] shadow-paper-lg no-scrollbar',
+              'sheet-dialog-panel relative z-10 mx-auto w-full max-w-[440px] max-h-[90dvh] overflow-y-auto rounded-t-[26px] border-t border-rule bg-paper p-5 pb-[calc(max(env(safe-area-inset-bottom,0px),16px)+20px)] shadow-paper-lg no-scrollbar',
               className,
             )}
           >
-            {/* Полоска-хэндл для перетаскивания */}
-            <div className="mx-auto mb-3 h-1.5 w-11 rounded-full bg-rule cursor-grab active:cursor-grabbing" />
+            {/* Полоска-хэндл для перетаскивания (с широкой областью захвата) */}
+            <div
+              className="sheet-handle-zone flex flex-col items-center justify-center pt-1 pb-3 -mt-2 -mx-5 px-5 cursor-grab active:cursor-grabbing touch-none select-none"
+              onPointerDown={(e) => dragControls.start(e)}
+              role="button"
+              tabIndex={-1}
+              aria-label="Потяните вниз, чтобы закрыть"
+            >
+              <div className="h-1.5 w-12 rounded-full bg-rule/90 hover:bg-muted/70 transition-colors pointer-events-none" />
+            </div>
 
             {title ? (
-              <div className="mb-4 flex items-center justify-between border-b border-rule/60 pb-2.5">
-                <h3 className="t-display text-[17px] font-semibold text-ink leading-tight">
+              <div
+                className="mb-4 flex items-center justify-between border-b border-rule/60 pb-2.5 cursor-grab active:cursor-grabbing select-none"
+                onPointerDown={(e) => {
+                  const target = e.target as HTMLElement
+                  if (target.tagName !== 'BUTTON' && !target.closest('button')) {
+                    dragControls.start(e)
+                  }
+                }}
+              >
+                <h3 className="t-display text-[17px] font-semibold text-ink leading-tight pointer-events-none">
                   {title}
                 </h3>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => { haptic(6); onClose() }}
                   className="flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-cream hover:text-ink transition active:scale-95"
                   aria-label="Закрыть"
                 >

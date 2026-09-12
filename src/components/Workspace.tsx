@@ -24,6 +24,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
   const [error, setError] = React.useState('')
   React.useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+    document.documentElement.classList.toggle('dark', dark)
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#20262c' : '#f4f6f8')
     void applyNativeTheme(dark)
   }, [dark])

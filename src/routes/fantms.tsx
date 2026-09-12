@@ -81,8 +81,13 @@ function FantmsAdminScreen() {
   const [llmModel, setLlmModel] = React.useState('')
   const [llmApiKey, setLlmApiKey] = React.useState('')
   const [hasLlmKey, setHasLlmKey] = React.useState(false)
+  const [llmFallbackBaseUrl, setLlmFallbackBaseUrl] = React.useState('')
+  const [llmFallbackModel, setLlmFallbackModel] = React.useState('')
+  const [llmFallbackApiKey, setLlmFallbackApiKey] = React.useState('')
+  const [hasLlmFallbackKey, setHasLlmFallbackKey] = React.useState(false)
   const [llmBusy, setLlmBusy] = React.useState(false)
   const [llmTestResult, setLlmTestResult] = React.useState<{ ok: boolean; pingMs?: number; reply?: string; error?: string } | null>(null)
+  const [llmFallbackTestResult, setLlmFallbackTestResult] = React.useState<{ ok: boolean; pingMs?: number; reply?: string; error?: string } | null>(null)
 
   // Настройки Telegram
   const [tgToken, setTgToken] = React.useState('')
@@ -137,6 +142,9 @@ function FantmsAdminScreen() {
           setLlmBaseUrl(res.services.llmBaseUrl || '')
           setLlmModel(res.services.llmModel || '')
           setHasLlmKey(Boolean(res.services.llmConfigured))
+          setLlmFallbackBaseUrl(res.services.llmFallbackBaseUrl || '')
+          setLlmFallbackModel(res.services.llmFallbackModel || '')
+          setHasLlmFallbackKey(Boolean(res.services.llmFallbackConfigured))
           setTgName(res.services.telegramBotName || '')
           if (res.services.telegramApiUrl) setTgApiUrl(res.services.telegramApiUrl)
         }
@@ -241,12 +249,19 @@ function FantmsAdminScreen() {
           baseUrl: llmBaseUrl,
           model: llmModel,
           apiKey: llmApiKey ? llmApiKey : undefined,
+          fallbackBaseUrl: llmFallbackBaseUrl,
+          fallbackModel: llmFallbackModel,
+          fallbackApiKey: llmFallbackApiKey ? llmFallbackApiKey : undefined,
         },
       })
       if (res?.ok) {
         setHasLlmKey(res.hasKey)
         setLlmApiKey('')
-        setActionNotice('Настройки ИИ сохранены ✓')
+        if (res.hasFallbackKey !== undefined) {
+          setHasLlmFallbackKey(res.hasFallbackKey)
+          setLlmFallbackApiKey('')
+        }
+        setActionNotice('Настройки ИИ и резервного провайдера сохранены ✓')
         setTimeout(() => setActionNotice(null), 3000)
         haptic(10)
       }
@@ -255,15 +270,20 @@ function FantmsAdminScreen() {
     }
   }
 
-  // 5. Тест LLM
-  const handleTestLlm = async () => {
+  // 5. Тест LLM (Основной или Резервный)
+  const handleTestLlm = async (target: 'primary' | 'fallback' = 'primary') => {
     if (!token) return
     setLlmBusy(true)
-    setLlmTestResult(null)
+    if (target === 'primary') setLlmTestResult(null)
+    else setLlmFallbackTestResult(null)
     haptic(6)
     try {
-      const res: any = await testFantmsLlm({ data: { token } })
-      setLlmTestResult(res)
+      const res: any = await testFantmsLlm({ data: { token, target } })
+      if (target === 'primary') {
+        setLlmTestResult(res)
+      } else {
+        setLlmFallbackTestResult(res)
+      }
       haptic(res.ok ? 10 : 4)
     } finally {
       setLlmBusy(false)
@@ -925,84 +945,246 @@ function FantmsAdminScreen() {
               </span>
             </div>
 
-            <form onSubmit={handleSaveLlm} className="space-y-3">
-              <div>
-                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
-                  Base URL API
-                </label>
-                <input
-                  value={llmBaseUrl}
-                  onChange={(e) => setLlmBaseUrl(e.target.value)}
-                  placeholder="https://openrouter.ai/api/v1"
-                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
-                />
+            {/* Быстрые 1-Click пресеты */}
+            <div className="space-y-1.5 border-b border-zinc-800/80 pb-3">
+              <label className="text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                1-Click пресеты для основного или резервного провайдера
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setLlmFallbackBaseUrl('https://api.z.ai/api/paas/v4')
+                    setLlmFallbackModel('GLM-4.6V-Flash')
+                  }}
+                  className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11.5px] font-medium text-emerald-300 hover:bg-emerald-500/20 transition"
+                  title="Подставить Z.AI в резервный провайдер"
+                >
+                  ⚡ Z.AI (GLM-4.6V-Flash)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setLlmBaseUrl('https://openrouter.ai/api/v1')
+                    setLlmModel('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free')
+                  }}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-[11.5px] text-zinc-300 hover:bg-zinc-700 transition"
+                >
+                  OpenRouter (Nemotron)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setLlmBaseUrl('https://generativelanguage.googleapis.com/v1beta/openai')
+                    setLlmModel('gemini-2.5-flash')
+                  }}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-[11.5px] text-zinc-300 hover:bg-zinc-700 transition"
+                >
+                  Google Gemini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic(6)
+                    setLlmBaseUrl('https://api.proxyapi.ru/openai/v1')
+                    setLlmModel('gemini-2.0-flash')
+                  }}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-[11.5px] text-zinc-300 hover:bg-zinc-700 transition"
+                >
+                  ProxyAPI (РФ)
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveLlm} className="space-y-4">
+              {/* СЕКЦИЯ 1: ОСНОВНОЙ ПРОВАЙДЕР */}
+              <div className="rounded-xl border border-zinc-800 bg-black/30 p-3.5 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
+                  <span className="text-[12.5px] font-semibold text-white">1. Основной провайдер ИИ</span>
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      hasLlmKey ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/15 text-red-400 border border-red-500/30',
+                    )}
+                  >
+                    {hasLlmKey ? 'Ключ задан ✓' : 'Ключ не задан'}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    Base URL API
+                  </label>
+                  <input
+                    value={llmBaseUrl}
+                    onChange={(e) => setLlmBaseUrl(e.target.value)}
+                    placeholder="https://openrouter.ai/api/v1"
+                    className="h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    Модель нейросети (Vision / Текст)
+                  </label>
+                  <input
+                    value={llmModel}
+                    onChange={(e) => setLlmModel(e.target.value)}
+                    placeholder="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+                    className="h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    API-ключ
+                  </label>
+                  <input
+                    type="password"
+                    value={llmApiKey}
+                    onChange={(e) => setLlmApiKey(e.target.value)}
+                    placeholder={hasLlmKey ? '•••••••••••••••• (ключ сохранён)' : 'sk-...'}
+                    className="h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleTestLlm('primary')}
+                    disabled={llmBusy || !hasLlmKey}
+                    className="inline-flex items-center justify-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50"
+                  >
+                    <Zap size={12} className="text-amber-400" />
+                    <span>Проверить Ping основного</span>
+                  </button>
+                </div>
+
+                {llmTestResult && (
+                  <div
+                    className={cn(
+                      'rounded-lg border p-2.5 text-[11.5px] space-y-1',
+                      llmTestResult.ok
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                        : 'border-red-500/40 bg-red-500/10 text-red-300',
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      {llmTestResult.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                      <span>{llmTestResult.ok ? 'Основной провайдер в сети' : 'Сбой основного провайдера'}</span>
+                      {llmTestResult.pingMs ? <span className="font-mono font-normal">({llmTestResult.pingMs} мс)</span> : null}
+                    </div>
+                    {llmTestResult.reply && <p className="text-zinc-300">«{llmTestResult.reply}»</p>}
+                    {llmTestResult.error && <p className="text-red-400">{llmTestResult.error}</p>}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
-                  Модель нейросети (Vision)
-                </label>
-                <input
-                  value={llmModel}
-                  onChange={(e) => setLlmModel(e.target.value)}
-                  placeholder="google/gemini-2.5-flash"
-                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
-                />
+              {/* СЕКЦИЯ 2: РЕЗЕРВНЫЙ ПРОВАЙДЕР (FAILOVER) */}
+              <div className="rounded-xl border border-zinc-800 bg-black/30 p-3.5 space-y-3">
+                <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[12.5px] font-semibold text-white">2. Резервный провайдер (Failover)</span>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-500/30 font-mono">
+                      авто-переключение
+                    </span>
+                  </div>
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      hasLlmFallbackKey ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400',
+                    )}
+                  >
+                    {hasLlmFallbackKey ? 'Ключ задан ✓' : 'Ключ не задан'}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-zinc-400">
+                  Если основной провайдер вернёт ошибку (403 Cloudflare, 429 лимит или таймаут), приложение автоматически обратится к резервному без сбоя для пользователя.
+                </p>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    Резервный Base URL
+                  </label>
+                  <input
+                    value={llmFallbackBaseUrl}
+                    onChange={(e) => setLlmFallbackBaseUrl(e.target.value)}
+                    placeholder="https://api.z.ai/api/paas/v4"
+                    className="h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    Резервная модель
+                  </label>
+                  <input
+                    value={llmFallbackModel}
+                    onChange={(e) => setLlmFallbackModel(e.target.value)}
+                    placeholder="GLM-4.6V-Flash"
+                    className="h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
+                    Резервный API-ключ (Z.AI)
+                  </label>
+                  <input
+                    type="password"
+                    value={llmFallbackApiKey}
+                    onChange={(e) => setLlmFallbackApiKey(e.target.value)}
+                    placeholder={hasLlmFallbackKey ? '•••••••••••••••• (ключ сохранён)' : 'c5cf2fac...'}
+                    className="h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleTestLlm('fallback')}
+                    disabled={llmBusy || !hasLlmFallbackKey}
+                    className="inline-flex items-center justify-center gap-1.5 h-8 px-3 text-[12px] font-medium rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50"
+                  >
+                    <Zap size={12} className="text-amber-400" />
+                    <span>Проверить Ping резервного (Z.AI)</span>
+                  </button>
+                </div>
+
+                {llmFallbackTestResult && (
+                  <div
+                    className={cn(
+                      'rounded-lg border p-2.5 text-[11.5px] space-y-1',
+                      llmFallbackTestResult.ok
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                        : 'border-red-500/40 bg-red-500/10 text-red-300',
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      {llmFallbackTestResult.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                      <span>{llmFallbackTestResult.ok ? 'Резервный провайдер в сети' : 'Сбой резервного провайдера'}</span>
+                      {llmFallbackTestResult.pingMs ? <span className="font-mono font-normal">({llmFallbackTestResult.pingMs} мс)</span> : null}
+                    </div>
+                    {llmFallbackTestResult.reply && <p className="text-zinc-300">«{llmFallbackTestResult.reply}»</p>}
+                    {llmFallbackTestResult.error && <p className="text-red-400">{llmFallbackTestResult.error}</p>}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="mb-1 block text-[10.5px] font-medium uppercase tracking-wider text-zinc-400">
-                  API-ключ
-                </label>
-                <input
-                  type="password"
-                  value={llmApiKey}
-                  onChange={(e) => setLlmApiKey(e.target.value)}
-                  placeholder={hasLlmKey ? '•••••••••••••••• (ключ сохранён)' : 'sk-or-v1-…'}
-                  className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={llmBusy}
-                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-4 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50 touch-manipulation shadow-xs"
+                  className="inline-flex items-center justify-center gap-1.5 h-10 px-5 text-[13px] font-medium rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition active:scale-95 disabled:opacity-50 shadow-sm"
                 >
-                  {llmBusy ? 'Сохраняем…' : 'Сохранить настройки'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleTestLlm}
-                  disabled={llmBusy || !hasLlmKey}
-                  className="inline-flex items-center justify-center gap-1.5 h-10 sm:h-8 px-3.5 text-[13px] sm:text-[12px] font-medium rounded-xl sm:rounded-lg border border-zinc-700/70 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-200 transition active:scale-95 disabled:opacity-50 touch-manipulation"
-                >
-                  <Zap size={12} className="text-amber-400" />
-                  <span>Проверить Ping</span>
+                  {llmBusy ? 'Сохраняем…' : 'Сохранить все настройки ИИ'}
                 </button>
               </div>
             </form>
-
-            {/* Результат теста ИИ */}
-            {llmTestResult && (
-              <div
-                className={cn(
-                  'rounded-lg border p-3 text-[12px] space-y-1',
-                  llmTestResult.ok
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                    : 'border-red-500/40 bg-red-500/10 text-red-300',
-                )}
-              >
-                <div className="flex items-center gap-1.5 font-semibold">
-                  {llmTestResult.ok ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
-                  <span>{llmTestResult.ok ? 'Связь с ИИ работает штатно' : 'Ошибка подключения'}</span>
-                  {llmTestResult.pingMs ? <span className="font-mono font-normal">({llmTestResult.pingMs} мс)</span> : null}
-                </div>
-                {llmTestResult.reply && <p className="text-zinc-300">Ответ модели: «{llmTestResult.reply}»</p>}
-                {llmTestResult.error && <p className="text-red-400">{llmTestResult.error}</p>}
-              </div>
-            )}
           </div>
         )}
 

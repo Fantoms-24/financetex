@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { q, q1 } from './db'
 import { HEAL_STATEMENTS } from './db/schema'
-import { getAllConfig, setConfig, getLlmConfig, saveLlmConfig } from './config'
+import { getAllConfig, setConfig, getLlmConfig, getFullLlmConfig, saveLlmConfig } from './config'
+import { callChatLlm } from './llm'
 import { getBotInfo, getBotToken, getTelegramApiBase, saveTelegramConfig } from './telegram'
 import { runTick, runEveningCheckin } from './tick'
 import { countSubscriptions, getVapidPublic } from './push'
@@ -173,7 +174,7 @@ export async function getFantmsOverviewData() {
       ),
     ])
 
-  const llm = await getLlmConfig()
+  const fullLlm = await getFullLlmConfig()
   const tgInfo = await getBotInfo()
   const vapid = await getVapidPublic()
 
@@ -195,9 +196,12 @@ export async function getFantmsOverviewData() {
       spentTotal: Number(u.spent_total || 0),
     })),
     services: {
-      llmConfigured: Boolean(llm.apiKey),
-      llmModel: llm.model,
-      llmBaseUrl: llm.baseUrl,
+      llmConfigured: Boolean(fullLlm.primary.apiKey),
+      llmModel: fullLlm.primary.model,
+      llmBaseUrl: fullLlm.primary.baseUrl,
+      llmFallbackConfigured: Boolean(fullLlm.fallback.apiKey),
+      llmFallbackModel: fullLlm.fallback.model,
+      llmFallbackBaseUrl: fullLlm.fallback.baseUrl,
       telegramConfigured: Boolean(tgInfo.username),
       telegramBotName: tgInfo.username,
       telegramBotTokenConfigured: Boolean(await getBotToken()),
@@ -208,46 +212,84 @@ export async function getFantmsOverviewData() {
 }
 
 /**
- * Пинг-тест подключения к ИИ
+ * Пинг-тест подключения к ИИ (целевой или авто-проверка с failover)
  */
-export async function pingLlmService(): Promise<{ ok: boolean; pingMs?: number; reply?: string; error?: string }> {
-  const { baseUrl, apiKey, model } = await getLlmConfig()
-  if (!apiKey) {
-    return { ok: false, error: 'API-ключ не заполнен. Вставьте ключ и сохраните.' }
+export async function pingLlmService(target: 'primary' | 'fallback' | 'auto' = 'auto'): Promise<{
+  ok: boolean
+  pingMs?: number
+  reply?: string
+  provider?: string
+  model?: string
+  error?: string
+}> {
+  const full = await getFullLlmConfig()
+
+  if (target === 'primary' || target === 'fallback') {
+    const cfg = target === 'primary' ? full.primary : full.fallback
+    if (!cfg.apiKey) {
+      return { ok: false, error: `${target === 'primary' ? 'Основной' : 'Резервный'} API-ключ не заполнен.` }
+    }
+    const start = Date.now()
+    try {
+      const endpoint = cfg.baseUrl.endsWith('/chat/completions') ? cfg.baseUrl : `${cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${cfg.apiKey}`,
+          'HTTP-Referer': 'https://financetex.relaxdev.ru',
+          'X-Title': 'Listok Finance',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        },
+        body: JSON.stringify({
+          model: cfg.model,
+          messages: [{ role: 'user', content: 'Ответь словом "OK"' }],
+          max_tokens: 300,
+          temperature: 0,
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+      const duration = Date.now() - start
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        let parsed = errText
+        try {
+          const j = JSON.parse(errText)
+          parsed = j?.error?.message || j?.error || j?.message || errText
+        } catch {}
+        return {
+          ok: false,
+          pingMs: duration,
+          model: cfg.model,
+          provider: target,
+          error: `Ошибка сервиса (${res.status}): ${String(parsed).slice(0, 180)}`,
+        }
+      }
+      const data = await res.json()
+      const reply = data?.choices?.[0]?.message?.content?.trim() || 'OK'
+      return { ok: true, pingMs: duration, reply, model: cfg.model, provider: target }
+    } catch (err: any) {
+      return { ok: false, pingMs: Date.now() - start, model: cfg.model, provider: target, error: err?.message || 'Таймаут подключения' }
+    }
   }
 
+  // target === 'auto' (выполняем через callChatLlm с автоматическим переключением)
   const start = Date.now()
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: 'Ответь словом "OK"' }],
-        max_tokens: 300,
-        temperature: 0,
-      }),
-      signal: AbortSignal.timeout(15000),
+    const res = await callChatLlm({
+      temperature: 0,
+      timeoutMs: 20000,
+      messages: [{ role: 'user', content: 'Ответь словом "OK"' }],
     })
-
-    const duration = Date.now() - start
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      return {
-        ok: false,
-        pingMs: duration,
-        error: `Ошибка сервиса (${res.status}): ${errText.slice(0, 160)}`,
-      }
+    return {
+      ok: true,
+      pingMs: Date.now() - start,
+      reply: res.content.trim(),
+      provider: res.provider,
+      model: res.model,
     }
-
-    const data = await res.json()
-    const reply = data?.choices?.[0]?.message?.content?.trim() || 'OK'
-    return { ok: true, pingMs: duration, reply }
   } catch (err: any) {
-    return { ok: false, pingMs: Date.now() - start, error: err?.message || 'Таймаут подключения к LLM' }
+    return { ok: false, pingMs: Date.now() - start, error: err?.message || 'Не удалось связаться с ИИ' }
   }
 }
 

@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { requireHouseMember } from '../access'
 import { guarded } from '../session'
 import { q, q1, newId } from '../db'
-import { getLlmConfig } from '../config'
+import { callChatLlm } from '../llm'
 import { notifyHouseExcept } from '../push'
 
 const CATEGORIES = ['transport', 'food', 'prepared', 'household', 'hygiene', 'health', 'drinks', 'snacks', 'other']
@@ -58,10 +58,6 @@ export const scanReceipt = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) => guarded(async (user) => {
     await requireHouseMember(data.houseId, user.id)
-    const { baseUrl, apiKey, model } = await getLlmConfig()
-    if (!apiKey) {
-      return { error: 'Распознавание пока недоступно. Покупку можно записать вручную.' }
-    }
     if (!data.image.startsWith('data:image/') || data.image.length > 7000000) {
       return { error: 'Не получилось прочитать фото' }
     }
@@ -76,34 +72,23 @@ export const scanReceipt = createServerFn({ method: 'POST' })
 
     let content = ''
     try {
-      const resp = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: data.image } },
-              ],
-            },
-          ],
-        }),
-        signal: AbortSignal.timeout(60000),
+      const result = await callChatLlm({
+        temperature: 0,
+        timeoutMs: 60000,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: data.image } },
+            ],
+          },
+        ],
       })
-      if (!resp.ok) {
-        return { error: `Сервис распознавания не ответил (${resp.status})` }
-      }
-      const json = await resp.json()
-      content = json?.choices?.[0]?.message?.content || ''
-    } catch {
-      return { error: 'Сервис распознавания недоступен. Попробуйте ещё раз' }
+      content = result.content
+    } catch (err: any) {
+      console.error('[scanReceipt] error:', err)
+      return { error: err?.message || 'Сервис распознавания недоступен. Попробуйте ещё раз' }
     }
 
     const parsed = extractJson(content)

@@ -5,7 +5,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { newId, q, q1 } from '../db'
 import { guarded } from '../session'
 import { notifyHouseExcept } from '../push'
-import { getLlmConfig } from '../config'
+import { callChatLlm } from '../llm'
 import { monthKey, categoryLabel } from '~/lib/format'
 
 export interface Member {
@@ -554,16 +554,6 @@ export const askHouseAgent = createServerFn({ method: 'POST' })
         )
       }
 
-      const { baseUrl, apiKey, model } = await getLlmConfig()
-      if (!apiKey) {
-        const text = 'Админ ещё не указал API-ключ в настройках, поэтому я пока не могу проанализировать финансы кассы.'
-        await q(
-          `INSERT INTO house_messages (id, house_id, user_id, text) VALUES ($1, $2, 'agent', $3)`,
-          [newId('hm'), data.houseId, text],
-        )
-        return { ok: true as const, reply: text }
-      }
-
       // Собираем контекст кассы
       const mems = snap.members.map((m) => `${m.name} (зарплата ${m.salary.toLocaleString('ru-RU')} ₽)`).join(', ')
       const cats = snap.analytics.byCategory.map((c) => `${c.label}: ${c.total.toLocaleString('ru-RU')} ₽ (${c.percent}%)`).join(', ')
@@ -595,26 +585,17 @@ export const askHouseAgent = createServerFn({ method: 'POST' })
 
       let reply = ''
       try {
-        const resp = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            temperature: 0.4,
-            messages: [
-              { role: 'system', content: system },
-              ...(data.prompt ? [{ role: 'user', content: data.prompt }] : [{ role: 'user', content: 'Подведи финансовые итоги кассы за этот месяц и дай краткий совет.' }]),
-            ],
-          }),
-          signal: AbortSignal.timeout(60000),
+        const res = await callChatLlm({
+          temperature: 0.4,
+          timeoutMs: 60000,
+          messages: [
+            { role: 'system', content: system },
+            ...(data.prompt ? [{ role: 'user' as const, content: data.prompt }] : [{ role: 'user' as const, content: 'Подведи финансовые итоги кассы за этот месяц и дай краткий совет.' }]),
+          ],
         })
-        if (!resp.ok) throw new Error(`llm ${resp.status}`)
-        const json = await resp.json()
-        reply = String(json?.choices?.[0]?.message?.content || '').trim()
-      } catch {
+        reply = String(res.content || '').trim()
+      } catch (err) {
+        console.error('[houseAgentAsk] error:', err)
         reply = 'Не получилось связаться с сервисом. Попробуйте ещё раз чуть позже.'
       }
 

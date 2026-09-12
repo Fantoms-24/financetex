@@ -2,7 +2,9 @@ import * as React from 'react'
 
 export function SplashScreen({ message, leaving = false }: { message?: string; leaving?: boolean }) {
   React.useEffect(() => {
-    document.documentElement.dataset.theme = localStorage.getItem('listok-theme') === 'dark' ? 'dark' : 'light'
+    const isDark = localStorage.getItem('listok-theme') === 'dark'
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light'
+    document.documentElement.classList.toggle('dark', isDark)
   }, [])
 
   return (

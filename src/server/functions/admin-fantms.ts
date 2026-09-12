@@ -12,7 +12,7 @@ import {
   setTelegramWebhookAuto,
   runDatabaseHealing,
 } from '../fantms'
-import { getLlmConfig, saveLlmConfig } from '../config'
+import { getLlmConfig, getFullLlmConfig, saveLlmConfig } from '../config'
 import { saveTelegramConfig } from '../telegram'
 import { runTick, runEveningCheckin } from '../tick'
 
@@ -109,11 +109,22 @@ export const getFantmsOverview = createServerFn({ method: 'GET' })
  * Сохранение параметров ИИ
  */
 export const saveFantmsLlm = createServerFn({ method: 'POST' })
-  .validator((d: { token: string; baseUrl?: string; apiKey?: string; model?: string }) => ({
+  .validator((d: {
+    token: string
+    baseUrl?: string
+    apiKey?: string
+    model?: string
+    fallbackBaseUrl?: string
+    fallbackApiKey?: string
+    fallbackModel?: string
+  }) => ({
     token: String(d.token || '').trim(),
     baseUrl: d.baseUrl !== undefined ? String(d.baseUrl).trim() : undefined,
     apiKey: d.apiKey !== undefined ? String(d.apiKey).trim() : undefined,
     model: d.model !== undefined ? String(d.model).trim() : undefined,
+    fallbackBaseUrl: d.fallbackBaseUrl !== undefined ? String(d.fallbackBaseUrl).trim() : undefined,
+    fallbackApiKey: d.fallbackApiKey !== undefined ? String(d.fallbackApiKey).trim() : undefined,
+    fallbackModel: d.fallbackModel !== undefined ? String(d.fallbackModel).trim() : undefined,
   }))
   .handler(async ({ data }) => {
     await assertAdminToken(data.token)
@@ -121,21 +132,33 @@ export const saveFantmsLlm = createServerFn({ method: 'POST' })
       baseUrl: data.baseUrl,
       apiKey: data.apiKey,
       model: data.model,
+      fallbackBaseUrl: data.fallbackBaseUrl,
+      fallbackApiKey: data.fallbackApiKey,
+      fallbackModel: data.fallbackModel,
     })
-    const cfg = await getLlmConfig()
-    return { ok: true, hasKey: Boolean(cfg.apiKey), model: cfg.model, baseUrl: cfg.baseUrl }
+    const full = await getFullLlmConfig()
+    return {
+      ok: true,
+      hasKey: Boolean(full.primary.apiKey),
+      model: full.primary.model,
+      baseUrl: full.primary.baseUrl,
+      hasFallbackKey: Boolean(full.fallback.apiKey),
+      fallbackModel: full.fallback.model,
+      fallbackBaseUrl: full.fallback.baseUrl,
+    }
   })
 
 /**
  * Тестирование связи с ИИ
  */
 export const testFantmsLlm = createServerFn({ method: 'POST' })
-  .validator((d: { token: string }) => ({
+  .validator((d: { token: string; target?: 'primary' | 'fallback' | 'auto' }) => ({
     token: String(d.token || '').trim(),
+    target: d.target || 'auto',
   }))
   .handler(async ({ data }) => {
     await assertAdminToken(data.token)
-    const res = await pingLlmService()
+    const res = await pingLlmService(data.target)
     return res
   })
 

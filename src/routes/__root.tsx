@@ -29,7 +29,7 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+        content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover',
       },
       { title: 'Листок. — карманный финансист' },
       {
@@ -37,9 +37,9 @@ export const Route = createRootRoute({
         content: 'Карманный финансист. Чеки, дневной бюджет и общие накопления на одном листке.',
       },
       { name: 'theme-color', content: '#f4f6f8' },
-      { name: 'color-scheme', content: 'light' },
+      { name: 'color-scheme', content: 'light dark' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
-      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
       { name: 'apple-mobile-web-app-title', content: 'Листок.' },
       { name: 'mobile-web-app-capable', content: 'yes' },
       { name: 'format-detection', content: 'telephone=no' },
@@ -54,7 +54,7 @@ export const Route = createRootRoute({
     styles: [
       {
         children:
-          'html,body{margin:0;padding:0}html{background:#f4f6f8}',
+          '*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;overflow-x:hidden;width:100%;max-width:100%}html{background:#f4f6f8}',
       },
     ],
   }),
@@ -87,6 +87,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var d=localStorage.getItem('listok-theme')==='dark';document.documentElement.dataset.theme=d?'dark':'light';if(d){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})()`,
+          }}
+        />
         <HeadContent />
       </head>
       <body>
