@@ -192,7 +192,10 @@ function HousePage() {
   React.useEffect(() => {
     if (!id) return
     let alive = true
+    let syncing = false
     const tick = async () => {
+      if (syncing) return
+      syncing = true
       try {
         const r: any = await liveHouse({ data: { houseId: id } })
         if (!alive || !r || r.error) return
@@ -293,12 +296,23 @@ function HousePage() {
         }
       } catch {
         /* сеть */
+      } finally {
+        syncing = false
       }
     }
     const t = setInterval(tick, 2500)
+    // Browsers throttle timers in the background. Refresh as soon as the
+    // person returns, so a family payment is never waiting for a delayed poll.
+    const resume = () => {
+      if (document.visibilityState === 'visible') void tick()
+    }
+    window.addEventListener('focus', resume)
+    document.addEventListener('visibilitychange', resume)
     return () => {
       alive = false
       clearInterval(t)
+      window.removeEventListener('focus', resume)
+      document.removeEventListener('visibilitychange', resume)
     }
   }, [id, user?.id])
 
@@ -1040,6 +1054,12 @@ function HousePage() {
               <>
                 {snap.bills.map((b) => {
                   const paid = snap.pays.some((p) => p.bill_id === b.id && p.cycle === snap.cycle && p.user_id === user?.id)
+                  const paidMemberIds = new Set(
+                    snap.pays
+                      .filter((p) => p.bill_id === b.id && p.cycle === snap.cycle)
+                      .map((p) => p.user_id),
+                  )
+                  const paidMembers = snap.members.filter((m) => paidMemberIds.has(m.user_id))
                   const due = billDueLabel(b.day_of_month)
                   const share = snap.shares?.[b.id]?.[myUserId] ?? 0
                   const payerMember = snap.members.find((m) => m.user_id === b.payer_id)
@@ -1080,7 +1100,11 @@ function HousePage() {
                             <div className="mt-1 flex items-center gap-2 text-[12px] text-muted dark:text-[#9eaab3] flex-wrap">
                               {paid ? (
                                 <span className="font-medium text-sage dark:text-[#79d1a8]">
-                                  Оплачен в этом месяце
+                                  Вы отметили оплату
+                                </span>
+                              ) : paidMembers.length > 0 ? (
+                                <span className="font-medium text-sage dark:text-[#79d1a8]">
+                                  Оплатил(а): {paidMembers.map((m) => m.name).join(', ')}
                                 </span>
                               ) : (
                                 <span
@@ -1125,10 +1149,12 @@ function HousePage() {
                                 'rounded-[7px] px-2 py-1 text-[11px] font-medium leading-none transition-colors',
                                 isM
                                   ? 'bg-sage/15 text-sage dark:bg-sage/20 dark:text-[#79d1a8] font-semibold'
-                                  : 'bg-cream text-muted dark:bg-[#202930] dark:text-[#a5afb7]',
+                                  : paidMemberIds.has(m.user_id)
+                                    ? 'bg-sage/15 text-sage dark:bg-sage/20 dark:text-[#79d1a8]'
+                                    : 'bg-cream text-muted dark:bg-[#202930] dark:text-[#a5afb7]',
                               )}
                             >
-                              {m.name}: {moneyShort(mShare)}
+                              {m.name}: {moneyShort(mShare)}{paidMemberIds.has(m.user_id) ? ' ✓' : ''}
                             </span>
                           )
                         })}

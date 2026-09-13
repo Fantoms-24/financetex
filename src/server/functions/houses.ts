@@ -385,6 +385,23 @@ async function snapshot(houseId: string) {
   }
 }
 
+/**
+ * A live screen must compare every field that can be changed by another
+ * member.  Totals and the most recent timestamp are not enough: for example,
+ * a zero-share member marking a bill paid does not change the total at all.
+ */
+function snapshotVersion(snap: Awaited<ReturnType<typeof snapshot>>): string {
+  return JSON.stringify({
+    house: snap.house,
+    members: snap.members.map((m) => [m.user_id, m.name, m.salary]),
+    bills: snap.bills.map((b) => [b.id, b.title, b.amount, b.day_of_month, b.split, b.payer_id, b.created_at]),
+    wishes: snap.wishes.map((w) => [w.id, w.collected, w.bought_at, w.created_at]),
+    receipts: snap.receipts.map((r) => [r.id, r.user_id, r.store, r.total, r.category, r.purchased_at, r.created_at]),
+    messages: snap.messages.map((m) => [m.id, m.user_id, m.text, m.created_at]),
+    pays: snap.pays.map((p) => [p.bill_id, p.cycle, p.user_id, p.paid_at]),
+  })
+}
+
 export const getHouse = createServerFn({ method: 'GET' })
   .validator((d: { houseId: string }) => ({ houseId: String(d.houseId) }))
   .handler(async ({ data }) =>
@@ -392,7 +409,7 @@ export const getHouse = createServerFn({ method: 'GET' })
       if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
       const snap = await snapshot(data.houseId)
       if (!snap.house) return { error: 'Касса не найдена' } as const
-      return { ...snap, you: user.id, serverTime: new Date().toISOString() }
+      return { ...snap, version: snapshotVersion(snap), you: user.id, serverTime: new Date().toISOString() }
     }),
   )
 
@@ -407,26 +424,7 @@ export const liveHouse = createServerFn({ method: 'POST' })
       const snap = await snapshot(data.houseId)
       if (!snap.house) return { error: 'Касса не найдена' } as const
 
-      const lastMsg = snap.messages.length ? snap.messages[snap.messages.length - 1].created_at : ''
-      const lastWish = snap.wishes.length ? snap.wishes[0].created_at : ''
-      const lastPay = snap.pays.length
-        ? snap.pays.reduce((a, b) => (a.paid_at > b.paid_at ? a : b)).paid_at
-        : ''
-      const lastReceipt = snap.receipts.length ? snap.receipts[0].created_at : ''
-      const version = [
-        snap.members.length,
-        snap.bills.length,
-        snap.wishes.length,
-        snap.receipts.length,
-        snap.messages.length,
-        snap.analytics.totalSpent,
-        lastMsg,
-        lastWish,
-        lastPay,
-        lastReceipt,
-      ].join('|')
-
-      return { ...snap, version, you: user.id, serverTime: new Date().toISOString() }
+      return { ...snap, version: snapshotVersion(snap), you: user.id, serverTime: new Date().toISOString() }
     }),
   )
 
@@ -830,35 +828,52 @@ export const payHouseBill = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) =>
     guarded(async (user) => {
-      if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
-      const ownedBill = await q1<any>('SELECT id FROM house_bills WHERE id=$1 AND house_id=$2',[data.billId,data.houseId])
-      if(!ownedBill)throw new Error('Счёт не найден в этом бюджете')
-      const cycle = monthKey()
-      if (data.paid) {
-        await q(
-          `INSERT INTO house_bill_pays (bill_id, cycle, user_id) VALUES ($1, $2, $3)
-           ON CONFLICT (bill_id, cycle, user_id) DO NOTHING`,
-          [data.billId, cycle, user.id],
+      const result = await transaction(async () => {
+        if (!(await isMember(data.houseId, user.id))) return { error: 'Вы не в этой кассе' } as const
+        const bill = await q1<{ title: string; amount: number }>(
+          'SELECT title, amount FROM house_bills WHERE id=$1 AND house_id=$2 FOR UPDATE',
+          [data.billId, data.houseId],
         )
-      } else {
-        await q(`DELETE FROM house_bill_pays WHERE bill_id = $1 AND cycle = $2 AND user_id = $3`, [
-          data.billId,
-          cycle,
-          user.id,
-        ])
-      }
-      if (data.paid) {
-        const bill = await q1<{ title: string; amount: number }>(`SELECT title, amount FROM house_bills WHERE id = $1`, [data.billId])
-        const house = await q1<{ name: string }>(`SELECT name FROM houses WHERE id = $1`, [data.houseId])
+        if (!bill) throw new Error('Счёт не найден в этом бюджете')
+        const cycle = monthKey()
+        let changed = false
+        let paidAt = ''
+        if (data.paid) {
+          const inserted = await q1<{ paid_at: string }>(
+            `INSERT INTO house_bill_pays (bill_id, cycle, user_id) VALUES ($1, $2, $3)
+             ON CONFLICT (bill_id, cycle, user_id) DO NOTHING
+             RETURNING paid_at`,
+            [data.billId, cycle, user.id],
+          )
+          changed = Boolean(inserted)
+          paidAt = inserted?.paid_at ? new Date(inserted.paid_at).toISOString() : ''
+        } else {
+          const removed = await q1(
+            `DELETE FROM house_bill_pays WHERE bill_id = $1 AND cycle = $2 AND user_id = $3 RETURNING bill_id`,
+            [data.billId, cycle, user.id],
+          )
+          changed = Boolean(removed)
+        }
+        const house = await q1<{ name: string }>('SELECT name FROM houses WHERE id = $1', [data.houseId])
+        return { ok: true as const, cycle, changed, paidAt, bill, houseName: house?.name || 'Касса' }
+      })
+      if ('error' in result) return result
+
+      // Delivery is best-effort and must never turn a committed payment into a
+      // failed action in the UI. The next live sync remains the source of truth.
+      if (data.paid && result.changed) {
         const uName = user.displayName || user.name || 'Участник'
-        const amtStr = bill?.amount ? ` (${Number(bill.amount).toLocaleString('ru-RU')} ₽)` : ''
-        await notifyHouseExcept(data.houseId, user.id, {
-          title: house?.name || 'Касса',
-          body: `${uName} оплатил: ${bill?.title || 'платёж'}${amtStr}`,
-          data: { url: `/groups/${data.houseId}`, type: 'house-pay' },
-        })
+        const amtStr = result.bill.amount ? ` (${Number(result.bill.amount).toLocaleString('ru-RU')} ₽)` : ''
+        void notifyHouseExcept(data.houseId, user.id, {
+          title: result.houseName,
+          body: `${uName} оплатил: ${result.bill.title}${amtStr}`,
+          data: {
+            url: `/groups/${data.houseId}`, type: 'house-pay',
+            eventId: `house-pay:${data.billId}:${result.cycle}:${user.id}:${result.paidAt}`,
+          },
+        }).catch((error) => console.error('[house-pay] notification failed:', error))
       }
-      return { ok: true as const, cycle }
+      return { ok: true as const, cycle: result.cycle }
     }),
   )
 

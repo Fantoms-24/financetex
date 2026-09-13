@@ -195,6 +195,16 @@ try{
   assert.equal(snap.analytics.totalSpent,500)
   assert.equal(ok(await house.listHouses()).houses.find(h=>h.id==='h1').total_spent,500)
  })
+ await test('family live version changes for a payment even when its share is zero',async()=>{
+  await db.q("INSERT INTO house_bills(id,house_id,title,amount,split,payer_id) VALUES ('hb-zero','h1','Owner only',900,'payer','u1')")
+  actor={...actor,id:'u2'}
+  const before=ok(await house.liveHouse({data:{houseId:'h1'}}))
+  ok(await house.payHouseBill({data:{houseId:'h1',billId:'hb-zero',paid:true}}))
+  const after=ok(await house.liveHouse({data:{houseId:'h1'}}))
+  assert.notEqual(after.version,before.version)
+  assert.equal(after.analytics.totalSpent,before.analytics.totalSpent)
+  actor={...actor,id:'u1'}
+ })
  await test('family goal retries count one deposit',async()=>{
   await db.q("INSERT INTO house_wishes(id,house_id,title,amount,by_user) VALUES ('wish','h1','Trip',1000,'u1')")
   const data={houseId:'h1',wishId:'wish',amount:100,requestId:'house-dep-1'}
