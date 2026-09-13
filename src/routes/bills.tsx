@@ -9,7 +9,6 @@ import {
   BellOff,
   Check,
   CheckCircle2,
-  CreditCard,
   Home,
   Plus,
   Smartphone,
@@ -27,6 +26,7 @@ import { billDueLabel, money, plural } from '~/lib/format'
 import { updateBill, addBill, deleteBill, listBills, setBillPaid, toggleBillNotify } from '~/server/functions/bills'
 import { showInAppNotification } from '~/components/NotificationBanner'
 import { cn, haptic } from '~/lib/utils'
+import { motion, useReducedMotion } from 'motion/react'
 
 export const Route = createFileRoute('/bills')({
   component: Bills,
@@ -52,6 +52,7 @@ const TEMPLATES = [
 
 function Bills() {
   const { user, boot, refresh } = useApp()
+  const reduceMotion = useReducedMotion()
   const [bills, setBills] = React.useState<Array<BillRow>>((boot?.bills as any) ?? [])
   const [openSheet, setOpenSheet] = React.useState(false)
   const [title, setTitle] = React.useState('')
@@ -206,7 +207,7 @@ function Bills() {
               </div>
 
               <div className="plan-summary__progress" aria-label={`Оплачено ${paidPercent}%`}>
-                <span style={{ width: `${paidPercent}%` }} />
+                <motion.span initial={reduceMotion ? false : { width: 0 }} animate={{ width: `${paidPercent}%` }} transition={{ type: 'spring', stiffness: 100, damping: 22 }} />
               </div>
 
               <p className="plan-summary__next">
@@ -233,9 +234,7 @@ function Bills() {
 
             {bills.length === 0 ? (
               <div className="plan-empty">
-                <div className="empty-state-mark empty-state-mark--plan" aria-hidden="true">
-                  <CreditCard size={28} />
-                </div>
+                <img className="plan-empty-art" src="/assets/visual-kit-v1/empty-calendar.webp" alt="" aria-hidden="true" loading="lazy" />
                 <div>
                   <p className="plan-empty__title">Добавьте первый платёж</p>
                   <p className="plan-empty__copy">Аренда, интернет, ЖКХ или подписка — Листок напомнит вовремя.</p>

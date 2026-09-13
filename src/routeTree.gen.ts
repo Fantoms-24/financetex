@@ -23,6 +23,7 @@ import { Route as ApiTelegramRouteImport } from './routes/api.telegram'
 import { Route as GroupsIdRouteImport } from './routes/groups.$id'
 import { Route as SplitCodeRouteImport } from './routes/split.$code'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiPushEveningRouteImport } from './routes/api.push.evening'
 import { Route as ApiPushTickRouteImport } from './routes/api.push.tick'
 
 const IndexRoute = IndexRouteImport.update({
@@ -95,6 +96,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPushEveningRoute = ApiPushEveningRouteImport.update({
+  id: '/api/push/evening',
+  path: '/api/push/evening',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPushTickRoute = ApiPushTickRouteImport.update({
   id: '/api/push/tick',
   path: '/api/push/tick',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/groups/$id': typeof GroupsIdRoute
   '/split/$code': typeof SplitCodeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/push/evening': typeof ApiPushEveningRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
 export interface FileRoutesByTo {
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/groups/$id': typeof GroupsIdRoute
   '/split/$code': typeof SplitCodeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/push/evening': typeof ApiPushEveningRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
 export interface FileRoutesById {
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/groups/$id': typeof GroupsIdRoute
   '/split/$code': typeof SplitCodeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/push/evening': typeof ApiPushEveningRoute
   '/api/push/tick': typeof ApiPushTickRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/groups/$id'
     | '/split/$code'
     | '/api/auth/$'
+    | '/api/push/evening'
     | '/api/push/tick'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/groups/$id'
     | '/split/$code'
     | '/api/auth/$'
+    | '/api/push/evening'
     | '/api/push/tick'
   id:
     | '__root__'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/groups/$id'
     | '/split/$code'
     | '/api/auth/$'
+    | '/api/push/evening'
     | '/api/push/tick'
   fileRoutesById: FileRoutesById
 }
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   ApiTelegramRoute: typeof ApiTelegramRoute
   SplitCodeRoute: typeof SplitCodeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiPushEveningRoute: typeof ApiPushEveningRoute
   ApiPushTickRoute: typeof ApiPushTickRoute
 }
 
@@ -324,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/push/evening': {
+      id: '/api/push/evening'
+      path: '/api/push/evening'
+      fullPath: '/api/push/evening'
+      preLoaderRoute: typeof ApiPushEveningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/push/tick': {
       id: '/api/push/tick'
       path: '/api/push/tick'
@@ -359,6 +379,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTelegramRoute: ApiTelegramRoute,
   SplitCodeRoute: SplitCodeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiPushEveningRoute: ApiPushEveningRoute,
   ApiPushTickRoute: ApiPushTickRoute,
 }
 export const routeTree = rootRouteImport

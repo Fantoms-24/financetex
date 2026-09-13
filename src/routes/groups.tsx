@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
-import { ArrowRight, ChevronRight, Hash, KeyRound, Plus, ReceiptText, Sprout, Users, UsersRound } from 'lucide-react'
-import { motion } from 'motion/react'
+import { ArrowRight, ChevronRight, Hash, KeyRound, Plus, ReceiptText, Users } from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
 import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -10,6 +10,7 @@ import { money, plural } from '~/lib/format'
 import { createHouse, joinHouse, listHouses } from '~/server/functions/houses'
 import { cn, haptic } from '~/lib/utils'
 import { showInAppNotification } from '~/components/NotificationBanner'
+import { Rostok } from '~/components/Rostok'
 
 export const Route = createFileRoute('/groups')({ component: Groups })
 
@@ -36,6 +37,7 @@ function houseCover(name: string) {
 
 function Groups() {
   const { user, boot, refresh } = useApp()
+  const reduceMotion = useReducedMotion()
   const [houses, setHouses] = React.useState<Array<HouseRow>>((boot.houses as Array<HouseRow>) || [])
   const [mode, setMode] = React.useState<'none' | 'actions' | 'create' | 'join'>('none')
   const [name, setName] = React.useState('Семья')
@@ -86,7 +88,7 @@ function Groups() {
     {error && <p role="alert" className="together-error">{error}</p>}
 
     {houses.length === 0 ? <section className="together-empty">
-      <div className="together-empty-mark" aria-hidden="true"><UsersRound size={49} strokeWidth={1.55}/><span><Sprout size={18} strokeWidth={2}/></span></div>
+      <Rostok className="together-empty-mascot" />
       <h2>Деньги, о которых легко договориться</h2>
       <p>Соберите домашние расходы, поездку или общий проект в одном спокойном пространстве.</p>
       <button className="primary-action" onClick={() => setMode('create')}><Plus size={18}/>Создать пространство</button>
@@ -103,7 +105,7 @@ function Groups() {
             <img className="together-card-cover" src={houseCover(house.name)} alt="" aria-hidden="true" />
             <div className="together-card-top"><div className="together-avatar"><Users size={21}/></div><div><h3>{house.name}</h3><p>{house.members} {plural(house.members,'участник','участника','участников')}</p></div><ChevronRight size={20}/></div>
             <div className="together-amount"><span>{budget > 0 ? 'Осталось на месяц' : 'Потрачено за месяц'}</span><strong>{money(budget > 0 ? Math.max(0,left) : spent)}</strong></div>
-            {budget > 0 ? <><div className="together-progress"><span style={{width:`${percent}%`}}/></div><div className="together-progress-labels"><span>Потрачено {money(spent)}</span><span>из {money(budget)}</span></div></> : <p className="together-no-limit">Лимит можно установить внутри пространства</p>}
+            {budget > 0 ? <><div className="together-progress"><motion.span initial={reduceMotion ? false : { width: 0 }} animate={{width:`${percent}%`}} transition={{type:'spring',stiffness:100,damping:22,delay:index*.04}}/></div><div className="together-progress-labels"><span>Потрачено {money(spent)}</span><span>из {money(budget)}</span></div></> : <p className="together-no-limit">Лимит можно установить внутри пространства</p>}
             <div className="together-status"><span><ReceiptText size={15}/>{house.receipts_count || 0} {plural(house.receipts_count || 0,'чек','чека','чеков')}</span><span>{house.bills_count ? `${house.bills_count} ${plural(house.bills_count,'счёт','счёта','счетов')}` : 'Нет ближайших счетов'}</span></div>
           </Link>
         </motion.article>

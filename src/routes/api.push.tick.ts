@@ -1,33 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { runTick } from '~/server/tick'
+import { cronAuthorized, cronJson } from '~/server/cron-auth'
 
 /**
- * Крон-тик напоминаний: Vercel Cron дёргает GET раз в сутки (0 5 * * *).
- * Если задан CRON_SECRET, требуем совпадения — иначе пускаем без ключа,
- * чтобы тик не сломался молча на проде.
+ * Крон-тик напоминаний: Vercel Cron дёргает GET в 09:00 по Москве (06:00 UTC).
+ * На проде CRON_SECRET обязателен; Vercel сам присылает его в Authorization.
  */
-function authorized(request: Request): boolean {
-  const secret = (process.env.CRON_SECRET || '').trim()
-  if (!secret) return true
-  const auth = request.headers.get('authorization') || ''
-  if (auth === `Bearer ${secret}`) return true
-  return request.headers.get('x-vercel-cron') === '1'
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  })
-}
-
 async function tick(request: Request): Promise<Response> {
-  if (!authorized(request)) return json({ ok: false, error: 'нет доступа' }, 401)
+  if (!cronAuthorized(request)) return cronJson({ ok: false, error: 'нет доступа' }, 401)
   try {
     const res = await runTick()
-    return json({ ok: true, ...res })
+    return cronJson({ ok: res.failed === 0, ...res }, res.failed === 0 ? 200 : 503)
   } catch (e: unknown) {
-    return json({ ok: false, error: (e as Error)?.message || 'сбой тика' }, 500)
+    return cronJson({ ok: false, error: (e as Error)?.message || 'сбой тика' }, 500)
   }
 }
 

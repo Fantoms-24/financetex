@@ -41,12 +41,14 @@ async function test(name,fn){await fn();passed++;console.log('PASS '+name)}
 function ok(r){if(r?.error||r?.ok===false)throw new Error(r.error||'Expected success');return r}
 const db=load('src/server/db/index.ts')
 const finance=load('src/lib/finance.ts')
+const notificationPlan=load('src/lib/notification-plan.ts')
 const receipt=load('src/server/functions/receipts.ts')
 const bill=load('src/server/functions/bills.ts')
 const goal=load('src/server/functions/goals.ts')
 const house=load('src/server/functions/houses.ts')
 const split=load('src/server/functions/split.ts')
 const telegram=load('src/server/functions/telegram.ts')
+const pushCore=load('src/server/push.ts')
 try{
  await db.getDB()
  for(const id of ['u1','u2']){
@@ -61,6 +63,58 @@ try{
   assert.equal(r.daysLeft,20);assert.equal(r.daily,2190);assert.equal(r.reserved,1200)
   assert.equal(finance.dueDay(31,new Date(2026,1,1)),28)
   assert.equal(finance.dueDay(31,new Date(2028,1,1)),29)
+ })
+ await test('Android reminder plan handles month ends, payments and a rolling year',()=>{
+  const now=new Date(2028,0,15,12,0,0)
+  const plan=notificationPlan.buildBillReminderPlan([
+   {id:'paid-now',title:'Квартира',amount:1000,day_of_month:31,notify:true,paid_cycle:'2028-01'},
+   {id:'paused',title:'Пауза',amount:500,day_of_month:20,notify:true,paused:true},
+   {id:'off',title:'Без пуша',amount:500,day_of_month:20,notify:false},
+  ],now)
+  assert.equal(plan.length,11)
+  assert.equal(plan[0].at.getFullYear(),2028)
+  assert.equal(plan[0].at.getMonth(),1)
+  assert.equal(plan[0].at.getDate(),28)
+  assert.equal(plan[0].at.getHours(),9)
+  assert.match(plan[0].title,/Квартира/)
+  assert.equal(plan.at(-1).at.getFullYear(),2028)
+  assert.equal(plan.at(-1).at.getMonth(),11)
+ })
+ await test('Android reminders group one morning and keep stable IDs',()=>{
+  const bills=[
+   {id:'a',title:'Связь',amount:400,day_of_month:10,notify:true},
+   {id:'b',title:'Интернет',amount:600,day_of_month:10,notify:true},
+  ]
+  const now=new Date(2026,8,1,12,0,0)
+  const first=notificationPlan.buildBillReminderPlan(bills,now)
+  const second=notificationPlan.buildBillReminderPlan(bills,now)
+  assert.equal(first.length,12)
+  assert.equal(first[0].title,'Платежи: 2')
+  assert.match(first[0].body,/1\s000\s₽/)
+  assert.equal(first[0].id,second[0].id)
+  assert.equal(new Set(first.map(item=>item.id)).size,first.length)
+ })
+ await test('Web Push accepts known services and rejects arbitrary HTTPS targets',()=>{
+  const keys={p256dh:'A'.repeat(65),auth:'B'.repeat(16)}
+  assert.equal(pushCore.validPushSubscription({endpoint:'https://fcm.googleapis.com/fcm/send/example',...keys}),true)
+  assert.equal(pushCore.validPushSubscription({endpoint:'https://web.push.apple.com/example',...keys}),true)
+  assert.equal(pushCore.validPushSubscription({endpoint:'https://127.0.0.1/internal',...keys}),false)
+  assert.equal(pushCore.validPushSubscription({endpoint:'https://example.com/collect',...keys}),false)
+  assert.equal(pushCore.validPushSubscription({endpoint:'https://fcm.googleapis.com/x',p256dh:'short',auth:'short'}),false)
+ })
+ await test('notification delivery claim can retry a timeout but not an accepted event',async()=>{
+  await db.q(`INSERT INTO push_subs(id,user_id,endpoint,p256dh,auth) VALUES ('claim-sub','u1','https://fcm.googleapis.com/fcm/send/claim',$1,$2)`,['A'.repeat(65),'B'.repeat(16)])
+  const claim=()=>db.q1(`INSERT INTO push_deliveries(event_key,subscription_id,claimed_until)
+    VALUES ('event-1','claim-sub',now()+interval '2 minutes')
+    ON CONFLICT(event_key,subscription_id) DO UPDATE SET claimed_until=EXCLUDED.claimed_until
+    WHERE push_deliveries.delivered_at IS NULL AND push_deliveries.claimed_until<=now()
+    RETURNING event_key`)
+  assert.ok(await claim())
+  assert.equal(await claim(),null)
+  await db.q(`UPDATE push_deliveries SET claimed_until=now()-interval '1 second' WHERE event_key='event-1'`)
+  assert.ok(await claim())
+  await db.q(`UPDATE push_deliveries SET delivered_at=now() WHERE event_key='event-1'`)
+  assert.equal(await claim(),null)
  })
  await test('transaction rolls back a partial mutation',async()=>{
   await assert.rejects(()=>db.transaction(async()=>{await db.q("INSERT INTO receipts(id,user_id,total) VALUES ('rollback','u1',1)");throw new Error('abort')}))
@@ -93,8 +147,13 @@ try{
   const r=ok(await bill.addBill({data:{title:'Internet',amount:1200,day_of_month:31}}));bid=r.bills[0].id
   ok(await bill.setBillPaid({data:{billId:bid,paid:true}}));ok(await bill.setBillPaid({data:{billId:bid,paid:true}}))
   assert.equal(Number((await db.q1("SELECT count(*) n FROM receipts WHERE source_key LIKE 'bill:%' AND deleted_at IS NULL")).n),1)
-  ok(await bill.setBillPaid({data:{billId:bid,paid:false}}));assert.equal(Number((await db.q1("SELECT count(*) n FROM receipts WHERE source_key LIKE 'bill:%' AND deleted_at IS NULL")).n),0)
+ ok(await bill.setBillPaid({data:{billId:bid,paid:false}}));assert.equal(Number((await db.q1("SELECT count(*) n FROM receipts WHERE source_key LIKE 'bill:%' AND deleted_at IS NULL")).n),0)
+  await db.q("UPDATE recurring_bills SET last_alert_key='2026-09:1' WHERE id=$1",[bid])
   ok(await bill.updateBill({data:{id:bid,title:'Internet',amount:1300,day_of_month:5,paused:true}}));assert.equal(ok(await bill.listBills()).bills[0].paused,true)
+  assert.equal((await db.q1('SELECT last_alert_key FROM recurring_bills WHERE id=$1',[bid])).last_alert_key,null)
+  await db.q("UPDATE recurring_bills SET last_alert_key='2026-09:1' WHERE id=$1",[bid])
+  ok(await bill.toggleBillNotify({data:{billId:bid,notify:true}}))
+  assert.equal((await db.q1('SELECT last_alert_key FROM recurring_bills WHERE id=$1',[bid])).last_alert_key,null)
  })
  await test('linking an existing purchase avoids double counting and undo preserves it',async()=>{
   ok(await bill.updateBill({data:{id:bid,title:'Internet',amount:1300,day_of_month:5,paused:false}}))

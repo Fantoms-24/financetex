@@ -101,6 +101,7 @@ export default defineConfig(({ command, mode }) => {
                 externals: {
                   external: ['pg'],
                 },
+                plugins: [path.resolve('src/server/scheduler-plugin.ts')],
                 // SW лежит в корне static, но область действия / разрешаем явно
                 routeRules: {
                   '/sw.js': {

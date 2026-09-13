@@ -92,7 +92,10 @@ export const toggleBillNotify = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) => guarded(async (user) => {
     await q(
-      `UPDATE recurring_bills SET notify = $1 WHERE id = $2 AND user_id = $3`,
+      `UPDATE recurring_bills
+          SET notify = $1,
+              last_alert_key = CASE WHEN $1 THEN NULL ELSE last_alert_key END
+        WHERE id = $2 AND user_id = $3`,
       [data.notify, data.billId, user.id]
     )
     return { bills: await listFor(user.id) }
@@ -115,7 +118,7 @@ export const updateBill = createServerFn({ method: 'POST' })
     if (!data.title.trim() || !Number.isFinite(data.amount) || data.amount < 1 || data.amount > 100000000 || !Number.isInteger(data.day_of_month) || data.day_of_month < 1 || data.day_of_month > 31) throw new Error('Проверьте название, сумму и день платежа')
     const paid=await q1<any>('SELECT b.amount FROM recurring_bills b JOIN bill_pays p ON p.bill_id=b.id AND p.user_id=b.user_id AND p.cycle=$3 WHERE b.id=$1 AND b.user_id=$2',[data.id,user.id,monthKey()])
     if(paid&&Number(paid.amount)!==Math.round(data.amount))throw new Error('Сначала отмените отметку оплаты, затем измените сумму и отметьте оплату заново.')
-    await q('UPDATE recurring_bills SET title = $1, amount = $2, day_of_month = $3, paused = $4 WHERE id = $5 AND user_id = $6',
+    await q('UPDATE recurring_bills SET title = $1, amount = $2, day_of_month = $3, paused = $4, last_alert_key = NULL WHERE id = $5 AND user_id = $6',
       [data.title.trim(), Math.round(data.amount), data.day_of_month, Boolean(data.paused), data.id, user.id])
     return { bills: await listFor(user.id) }
   }))

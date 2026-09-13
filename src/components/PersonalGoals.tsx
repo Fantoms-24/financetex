@@ -227,7 +227,7 @@ export function PersonalGoals({ goals, onRefresh, dailyLeft = 0 }: PersonalGoals
 
       {goals.length === 0 ? (
         <div className="plan-goals-empty">
-          <span className="empty-state-mark" aria-hidden="true"><Target size={28} /></span>
+          <img className="plan-goal-empty-art" src="/assets/visual-kit-v1/goal-dream.webp" alt="" aria-hidden="true" loading="lazy" />
           <p className="plan-empty__title">
             Начните копить на мечту
           </p>

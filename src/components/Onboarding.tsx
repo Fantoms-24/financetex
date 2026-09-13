@@ -8,6 +8,7 @@ import { CATEGORIES, moneyShort } from '~/lib/format'
 import { cn } from '~/lib/utils'
 import { addReceipt } from '~/server/functions/receipts'
 import { completeOnboarding, saveSettings } from '~/server/functions/settings'
+import { Rostok } from './Rostok'
 
 type Step = 0 | 1 | 2
 
@@ -177,7 +178,7 @@ export function Onboarding({ open, onCompleted }: { open: boolean; onCompleted: 
 
 function Intro({ name }: { name: string }) {
   return <div>
-    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-sage/10 text-sage"><Wallet size={28} strokeWidth={1.8} /></div>
+    <Rostok className="onboarding-rostok" priority />
     <p className="mt-5 text-[13px] font-medium text-sage">Добро пожаловать, {name}</p>
     <h1 id="onboarding-title" className="t-display mt-1 text-[29px] font-semibold leading-[1.05] tracking-tight text-ink">Настроим месяц<br />в вашем ритме</h1>
     <p className="mt-3 max-w-[340px] text-[15px] leading-relaxed text-muted">Три простых шага помогут сразу увидеть деньги понятнее. Ничего обязательного — всё можно изменить позже.</p>

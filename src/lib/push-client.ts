@@ -6,6 +6,16 @@ import {
   requestNativeNotificationPermission,
 } from '~/lib/native'
 
+const PUSH_PREFERENCE = 'listok-web-push'
+let enabling: Promise<PushResult> | null = null
+
+function timeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Сервис уведомлений не ответил. Повторите при устойчивой сети.')), ms)
+    promise.then(resolve, reject).finally(() => clearTimeout(timer))
+  })
+}
+
 export function isStandalone(): boolean {
   if (typeof window === 'undefined') return false
   const nav = window.navigator as any
@@ -31,20 +41,20 @@ export function pushSupported(): boolean {
 export function pushState(): { permission: NotificationPermission; granted: boolean } {
   if (isNativeApp()) {
     const granted = nativeNotificationWasGranted()
-    if (granted) return { permission: 'granted', granted: true }
+    return { permission: granted ? 'granted' : 'default', granted }
   }
   if (!pushSupported()) return { permission: 'default', granted: false }
   const permission = typeof Notification !== 'undefined' ? Notification.permission : 'default'
-  return { permission, granted: permission === 'granted' }
+  return { permission, granted: permission === 'granted' && localStorage.getItem(PUSH_PREFERENCE) === 'enabled' }
 }
 
 export async function registerSW(): Promise<ServiceWorkerRegistration | null> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null
+  if (isNativeApp() || typeof window === 'undefined' || !('serviceWorker' in navigator)) return null
   try {
-    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    const reg = await timeout(navigator.serviceWorker.register('/sw.js', { scope: '/' }))
     // Немедленно запрашиваем обновление sw.js, чтобы применились свежие фиксы
-    await reg.update().catch(() => {})
-    await navigator.serviceWorker.ready
+    void reg.update().catch(() => {})
+    await timeout(navigator.serviceWorker.ready)
     return reg
   } catch {
     return null
@@ -67,12 +77,23 @@ export interface PushResult {
 }
 
 /** Запрашивает разрешение, подписывает и сохраняет подписку на сервере. */
-export async function enablePush(): Promise<PushResult> {
+export function enablePush(): Promise<PushResult> {
+  if (!enabling) enabling = enablePushOnce().finally(() => { enabling = null })
+  return enabling
+}
+
+export async function restorePush(): Promise<void> {
+  if (isNativeApp() || !pushSupported() || localStorage.getItem(PUSH_PREFERENCE) === 'disabled') return
+  if (Notification.permission === 'granted') await enablePush()
+}
+
+async function enablePushOnce(): Promise<PushResult> {
   if (!pushSupported()) return { ok: false, error: 'Браузер не умеет пуши' }
 
-  let nativeGranted = false
   if (isNativeApp()) {
-    nativeGranted = await requestNativeNotificationPermission()
+    const granted = await requestNativeNotificationPermission()
+    if (granted) await removeLegacyWebSubscription()
+    return { ok: granted, error: granted ? undefined : 'Android не разрешил уведомления или не удалось сохранить расписание.' }
   }
 
   if (isIos() && !isStandalone()) {
@@ -87,21 +108,18 @@ export async function enablePush(): Promise<PushResult> {
       } catch {
         /* ignore */
       }
-      if (permission !== 'granted' && !nativeGranted) {
+      if (permission !== 'granted') {
         return { ok: false, error: 'Разрешение не дано' }
       }
     }
 
-    const reg = (await registerSW()) || (await navigator.serviceWorker.ready)
+    const reg = await registerSW()
     if (!reg) {
-      if (nativeGranted) return { ok: true }
       return { ok: false, error: 'Не удалось включить фон' }
     }
-    await reg.update().catch(() => {})
 
-    const { publicKey } = await vapidPublic()
+    const { publicKey } = await timeout(vapidPublic())
     if (!publicKey) {
-      if (nativeGranted) return { ok: true }
       return { ok: false, error: 'Ключ пушей не настроен' }
     }
 
@@ -117,17 +135,17 @@ export async function enablePush(): Promise<PushResult> {
 
       const json = sub.toJSON()
       const keys = (json as any)?.keys || {}
-      const res = await pushSubscribe({
+      const res = await timeout(pushSubscribe({
         data: { endpoint: json.endpoint!, p256dh: keys.p256dh || '', auth: keys.auth || '' },
-      })
+      }))
 
-      if ((res as any)?.error && !nativeGranted) return { ok: false, error: (res as any).error }
+      if ((res as any)?.error) return { ok: false, error: (res as any).error }
+      localStorage.setItem(PUSH_PREFERENCE, 'enabled')
       return { ok: true, endpoint: json.endpoint ?? undefined }
     }
 
-    return { ok: nativeGranted }
+    return { ok: false, error: 'Браузер не поддерживает доставку уведомлений' }
   } catch (e: any) {
-    if (nativeGranted) return { ok: true }
     return { ok: false, error: e?.message || 'Не получилось включить пуши' }
   }
 }
@@ -147,25 +165,48 @@ function matchesKey(sub: PushSubscription, publicKey: string): boolean {
 }
 
 export async function disablePush(): Promise<void> {
+  if (enabling) await enabling.catch(() => {})
   if (isNativeApp()) {
-    await disableNativeNotifications()
+    let localError: unknown
+    try { await disableNativeNotifications() } catch (error) { localError = error }
+    await removeLegacyWebSubscription()
+    if (localError) throw localError
+    return
   }
-  try {
-    const reg = (await navigator.serviceWorker.getRegistration('/')) || (await navigator.serviceWorker.ready)
+  localStorage.setItem(PUSH_PREFERENCE, 'disabled')
+  if ('serviceWorker' in navigator) {
+    const reg = await navigator.serviceWorker.getRegistration('/')
     const sub = await reg?.pushManager.getSubscription()
     if (sub) {
-      await pushUnsubscribe({ data: { endpoint: sub.endpoint } })
+      let removalError: Error | null = null
+      try {
+        const result = await timeout(pushUnsubscribe({ data: { endpoint: sub.endpoint } }))
+        if ('error' in result) removalError = new Error(String(result.error))
+      } catch (error) {
+        removalError = error instanceof Error ? error : new Error('Сервер не ответил')
+      }
       await sub.unsubscribe().catch(() => {})
+      if (removalError) throw removalError
     }
-  } catch {
-    /* */
   }
+}
+
+/** APK releases before local reminders could leave a Web Push subscription behind. */
+async function removeLegacyWebSubscription(): Promise<void> {
+  localStorage.setItem(PUSH_PREFERENCE, 'disabled')
+  if (!('serviceWorker' in navigator)) return
+  let registration: ServiceWorkerRegistration | undefined
+  try { registration = await navigator.serviceWorker.getRegistration('/') } catch { return }
+  const subscription = await registration?.pushManager?.getSubscription().catch(() => null)
+  if (!subscription) return
+  await timeout(pushUnsubscribe({ data: { endpoint: subscription.endpoint } }), 3000).catch(() => null)
+  await subscription.unsubscribe().catch(() => false)
 }
 
 export async function currentEndpoint(): Promise<string | null> {
   try {
-    if (!pushSupported()) return null
-    const reg = (await navigator.serviceWorker.getRegistration('/')) || (await navigator.serviceWorker.ready)
+    if (isNativeApp() || !pushSupported()) return null
+    const reg = await navigator.serviceWorker.getRegistration('/')
     const sub = await reg?.pushManager.getSubscription()
     return sub?.endpoint ?? null
   } catch {

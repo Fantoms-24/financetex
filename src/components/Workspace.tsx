@@ -6,7 +6,7 @@ import { useApp } from '~/lib/app-state'
 import { ExpenseEditor } from './ExpenseEditor'
 import { addReceipt } from '~/server/functions/receipts'
 import { CATEGORIES } from '~/lib/format'
-import { applyNativeTheme, nativeNotificationWasGranted, syncNativeBillReminders } from '~/lib/native'
+import { applyNativeTheme, nativeNotificationStatus, syncNativeBillReminders } from '~/lib/native'
 
 export const sections = [
   { to: '/', label: 'Обзор', icon: LayoutDashboard },
@@ -22,6 +22,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
   const [adding, setAdding] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState('')
+  const [reminderError, setReminderError] = React.useState('')
   React.useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
     document.documentElement.classList.toggle('dark', dark)
@@ -30,12 +31,29 @@ export function Workspace({ children }: { children: React.ReactNode }) {
   }, [dark])
   React.useEffect(() => {
     const sync = () => {
-      if (nativeNotificationWasGranted()) void syncNativeBillReminders(boot.bills)
+      if (!user || boot.user?.id !== user.id) return
+      void syncNativeBillReminders(boot.bills)
+        .then(async () => {
+          const status = await nativeNotificationStatus()
+          if (status.channelBlocked) setReminderError('Android блокирует канал уведомлений. Откройте настройки.')
+          else if (status.granted && !status.exact) setReminderError(status.exactSettingAvailable
+            ? 'Android может задерживать напоминания. Разрешите точное время в настройках.'
+            : 'Обновите Android-приложение для точных напоминаний.')
+          else setReminderError('')
+        })
+        .catch(() => setReminderError('Не удалось обновить напоминания. Откройте настройки уведомлений.'))
     }
+    const resume = () => { if (document.visibilityState === 'visible') void refresh() }
     sync()
     window.addEventListener('listok:native-notifications-enabled', sync)
-    return () => window.removeEventListener('listok:native-notifications-enabled', sync)
-  }, [boot.bills])
+    document.addEventListener('visibilitychange', resume)
+    window.addEventListener('online', refresh)
+    return () => {
+      window.removeEventListener('listok:native-notifications-enabled', sync)
+      document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('online', refresh)
+    }
+  }, [boot.bills, boot.user?.id, user?.id, refresh])
   React.useEffect(() => {
     const open = () => setAdding(true)
     const key = (e: KeyboardEvent) => {
@@ -55,7 +73,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
       <button className="primary-action sidebar-add" onClick={() => setAdding(true)}><Plus size={19}/>Добавить расход<kbd>N</kbd></button>
       <div className="sidebar-bottom"><Link to="/agent" className="assistant-teaser"><Sparkles size={20}/><strong>Помощник</strong><ArrowUpRight size={17}/><span>Разберёмся в деньгах вместе</span></Link><Link to="/settings" className="sidebar-link"><Settings size={19}/>Настройки</Link><div className="sidebar-profile"><span className="avatar">{(user?.displayName || user?.name || 'Л').slice(0,1)}</span><div><strong>{user?.displayName || user?.name}</strong><small>Моё пространство</small></div></div></div>
     </aside>
-    <div className="workspace-body"><header className="workspace-topbar"><span className="topbar-location">Моё пространство <span>/</span> {contextLabel}</span><Link to="/" className="mobile-brand"><img src="/logo.png" alt="" width="23" height="23"/>Листок.</Link><div className="topbar-actions"><button className="icon-action" aria-label={dark ? 'Светлая тема' : 'Тёмная тема'} onClick={() => { localStorage.setItem('listok-theme', dark ? 'light' : 'dark'); setDark(!dark) }}>{dark ? <Sun size={19}/> : <Moon size={19}/>}</button><Link to="/agent" className="icon-action" aria-label="Помощник"><Sparkles size={19}/></Link><Link to="/settings" className="avatar" aria-label="Профиль">{(user?.displayName || user?.name || 'Л').slice(0,1)}</Link></div></header><main className={`workspace-content route-${path.split('/')[1] || 'overview'}`}>{syncError && <div className="sync-banner" role="status"><span>{syncError}</span><button onClick={() => void refresh()}>Повторить</button></div>}{children}</main></div>
+    <div className="workspace-body"><header className="workspace-topbar"><span className="topbar-location">Моё пространство <span>/</span> {contextLabel}</span><Link to="/" className="mobile-brand"><img src="/logo.png" alt="" width="23" height="23"/>Листок.</Link><div className="topbar-actions"><button className="icon-action" aria-label={dark ? 'Светлая тема' : 'Тёмная тема'} onClick={() => { localStorage.setItem('listok-theme', dark ? 'light' : 'dark'); setDark(!dark) }}>{dark ? <Sun size={19}/> : <Moon size={19}/>}</button><Link to="/agent" className="icon-action" aria-label="Помощник"><Sparkles size={19}/></Link><Link to="/settings" className="avatar" aria-label="Профиль">{(user?.displayName || user?.name || 'Л').slice(0,1)}</Link></div></header><main className={`workspace-content route-${path.split('/')[1] || 'overview'}`}>{syncError && <div className="sync-banner" role="status"><span>{syncError}</span><button onClick={() => void refresh()}>Повторить</button></div>}{reminderError && <div role="alert" className="sync-banner"><Link to="/settings">{reminderError}</Link></div>}{children}</main></div>
     <nav className="mobile-navigation" aria-label="Основная навигация">{sections.slice(0,2).map(({to,label,icon:Icon}) => <Link key={to} to={to} aria-current={active(to) ? 'page' : undefined}><span className="mobile-nav-icon"><Icon size={24} strokeWidth={active(to) ? 2.25 : 1.9}/></span><span>{label}</span></Link>)}<button aria-label="Добавить расход" onClick={() => setAdding(true)} className="mobile-add"><Plus size={28} strokeWidth={2.4}/></button>{sections.slice(2).map(({to,label,icon:Icon}) => <Link key={to} to={to} aria-current={active(to) ? 'page' : undefined}><span className="mobile-nav-icon"><Icon size={24} strokeWidth={active(to) ? 2.25 : 1.9}/></span><span>{label}</span></Link>)}</nav>
     <ExpenseEditor open={adding} onClose={() => setAdding(false)} initialHouseId={path.startsWith('/groups/') ? path.split('/')[2] : null}/>
   </div>

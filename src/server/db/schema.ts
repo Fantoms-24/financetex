@@ -193,6 +193,14 @@ export const APP_TABLES = [
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE INDEX IF NOT EXISTS push_subs_user_idx ON push_subs (user_id)`,
+  `CREATE TABLE IF NOT EXISTS push_deliveries (
+     event_key text NOT NULL,
+     subscription_id text NOT NULL REFERENCES push_subs(id) ON DELETE CASCADE,
+     claimed_until timestamptz NOT NULL,
+     delivered_at timestamptz,
+     created_at timestamptz NOT NULL DEFAULT now(),
+     PRIMARY KEY (event_key, subscription_id)
+   )`,
   `CREATE TABLE IF NOT EXISTS push_vapid (
      id smallint PRIMARY KEY DEFAULT 1,
      public text,

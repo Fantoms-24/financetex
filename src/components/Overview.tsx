@@ -3,9 +3,12 @@ import { Link } from '@tanstack/react-router'
 import { ArrowDownLeft, ArrowUpRight, CalendarDays, ChevronRight, Plus, Receipt, Wallet } from 'lucide-react'
 import { useApp } from '~/lib/app-state'
 import { billDueLabel, dateRu, greeting, money } from '~/lib/format'
+import { motion, useReducedMotion } from 'motion/react'
+import { Rostok } from './Rostok'
 
 export function Overview() {
   const { user, boot } = useApp()
+  const reduceMotion = useReducedMotion()
   const budget = boot.settings.monthly_budget
   const spent = boot.month.spent
   const { left, reserved, available, daily } = budgetNumbers(budget, spent, boot.bills)
@@ -29,9 +32,10 @@ export function Overview() {
   return <div className="overview-page">
     <div className="page-heading"><div><p className="eyebrow">{greeting()}, {(user?.displayName || user?.name || 'друг').split(' ')[0]}</p><h1>Деньги под контролем<span>.</span></h1></div><span className="date-chip"><CalendarDays size={16}/>{month}</span></div>
     <div className="overview-grid overview-grid--focused">
-      <section className="balance-panel"><div className="panel-kicker"><span><Wallet size={17}/>Ваш бюджет</span><span>Этот месяц</span></div><p className="balance-label">{left < 0 ? 'Сверх бюджета' : 'Осталось на месяц'}</p><div className="balance-number">{money(Math.abs(left))}</div><div className="balance-track" role="progressbar" aria-label="Бюджет израсходован" aria-valuenow={Math.round(used)} aria-valuemin={0} aria-valuemax={100}><span style={{width:`${used}%`}}/></div><div className="budget-pair"><div><span>Потрачено</span><strong>{money(spent)}</strong></div><div><span>Бюджет</span><strong>{money(budget)}</strong></div></div><div className="balance-reserve"><span>На неоплаченные счета <strong>{money(reserved)}</strong></span><span>Свободно после счетов <strong>{money(available)}</strong></span></div><div className="balance-bottom"><span>Доступно на день <strong>{money(daily)}</strong></span><Link to="/settings" aria-label="Настроить бюджет"><ArrowUpRight size={21}/></Link></div></section>
+      <section className="balance-panel"><div className="panel-kicker"><span><Wallet size={17}/>Ваш бюджет</span><span>Этот месяц</span></div><p className="balance-label">{left < 0 ? 'Сверх бюджета' : 'Осталось на месяц'}</p><div className="balance-number">{money(Math.abs(left))}</div><div className="balance-track" role="progressbar" aria-label="Бюджет израсходован" aria-valuenow={Math.round(used)} aria-valuemin={0} aria-valuemax={100}><motion.span initial={reduceMotion ? false : { width: 0 }} animate={{width:`${used}%`}} transition={{type:'spring',stiffness:90,damping:20}}/></div><div className="budget-pair"><div><span>Потрачено</span><strong>{money(spent)}</strong></div><div><span>Бюджет</span><strong>{money(budget)}</strong></div></div><div className="balance-reserve"><span>На неоплаченные счета <strong>{money(reserved)}</strong></span><span>Свободно после счетов <strong>{money(available)}</strong></span></div><div className="balance-bottom"><span>Доступно на день <strong>{money(daily)}</strong></span><Link to="/settings" aria-label="Настроить бюджет"><ArrowUpRight size={21}/></Link></div></section>
 
       <section className="surface today-panel">
+        <Rostok className="today-panel-mascot" priority />
         <div className="today-panel-icon" aria-hidden="true">{nextBill && budget > 0 && left >= 0 ? <CalendarDays size={22}/> : <Wallet size={22}/>}</div>
         <p className="eyebrow">СЕГОДНЯ</p>
         <h2>{focus.title}</h2>

@@ -1,4 +1,4 @@
-/* Листок · service worker v1.0.4
+/* Листок · service worker v1.0.5
    Пуш показываем сразу из SW — баннер дойдёт и с выключенным экраном iPhone/Android. */
 
 self.addEventListener('install', () => {
@@ -21,7 +21,7 @@ function normalize(payload) {
   const url = rawData.url || n.click_action || (p.data && p.data.url) || '/'
   const type = rawData.type || 'default'
 
-  return { title: String(title), body: String(body), url: String(url), type: String(type) }
+  return { title: String(title), body: String(body), url: String(url), type: String(type), eventId: rawData.eventId }
 }
 
 self.addEventListener('push', (event) => {
@@ -40,15 +40,8 @@ self.addEventListener('push', (event) => {
         }
       }
 
-      const { title, body, url, type } = normalize(payload)
-
-      const collapsing =
-        type === 'default' ||
-        type === 'bill-reminder' ||
-        type === 'house-bill-reminder' ||
-        type === 'test'
-
-      const tag = collapsing ? `listok-${type}` : undefined
+      const { title, body, url, type, eventId } = normalize(payload)
+      const tag = eventId ? `listok-${eventId}` : undefined
 
       // Минимальный набор опций, 100% совместимый со всеми браузерами (iOS Safari PWA, macOS, Android Chrome, Windows)
       const options = {
@@ -92,6 +85,7 @@ self.addEventListener('notificationclick', (event) => {
     (async () => {
       const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       const url = new URL(target, self.location.origin)
+      if (url.origin !== self.location.origin) return
 
       for (const client of all) {
         if (new URL(client.url).origin === self.location.origin && 'focus' in client) {

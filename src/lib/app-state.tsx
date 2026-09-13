@@ -3,6 +3,7 @@ import { getMe, signOut } from '~/server/functions/auth'
 import { bootstrapApp, type Bootstrap } from '~/server/functions/bootstrap'
 import type { SessionUser } from '~/server/session'
 import { useLocal } from './store'
+import { disablePush } from './push-client'
 
 const EMPTY_BOOT: Bootstrap = {
   user: null,
@@ -122,6 +123,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   )
 
   const logout = React.useCallback(async () => {
+    await disablePush().catch(() => {})
     loadSeq.current++
     try {
       await signOut()

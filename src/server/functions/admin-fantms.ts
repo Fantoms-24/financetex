@@ -228,7 +228,7 @@ export const triggerTickAction = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await assertAdminToken(data.token)
     const res = await runTick()
-    return { ok: true, ...res }
+    return { ok: res.failed === 0, ...res }
   })
 
 /**
@@ -241,5 +241,5 @@ export const triggerEveningAction = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await assertAdminToken(data.token)
     const res = await runEveningCheckin()
-    return { ok: true, ...res }
+    return { ok: res.failed === 0, ...res }
   })

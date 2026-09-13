@@ -15,8 +15,9 @@ import { SplashScreen } from '~/components/SplashScreen'
 import { NotificationBanner } from '~/components/NotificationBanner'
 import { Onboarding } from '~/components/Onboarding'
 import { PushNudge } from '~/components/PushNudge'
-import { enablePush, pushState, registerSW } from '~/lib/push-client'
-import { prepareNativeShell } from '~/lib/native'
+import { restorePush, registerSW } from '~/lib/push-client'
+import { LocalNotifications } from '@capacitor/local-notifications'
+import { isNativeApp, prepareNativeShell } from '~/lib/native'
 import '~/styles/app.css'
 import '~/styles/workspace.css'
 import '~/styles/everyday.css'
@@ -150,11 +151,22 @@ function Shell() {
 
   React.useEffect(() => {
     if (!user) return
-    const state = pushState()
-    if (state.granted) {
-      void enablePush().catch(() => {})
-    }
+    const restore = () => { void restorePush().catch(() => {}) }
+    const resume = () => { if (document.visibilityState === 'visible') restore() }
+    restore()
+    window.addEventListener('online', restore)
+    document.addEventListener('visibilitychange', resume)
+    return () => { window.removeEventListener('online', restore); document.removeEventListener('visibilitychange', resume) }
   }, [user?.id])
+
+  React.useEffect(() => {
+    if (!isNativeApp()) return
+    const listener = LocalNotifications.addListener('localNotificationActionPerformed', action => {
+      const target = new URL(action.notification.extra?.url || '/', window.location.origin)
+      if (target.origin === window.location.origin) void navigate({ to: target.pathname + target.search })
+    })
+    return () => { void listener.then(handle => handle.remove()) }
+  }, [navigate])
 
   const bare = pathname === '/login' || pathname.startsWith('/split/') || pathname.startsWith('/fantms')
   const isChat = pathname === '/agent' || pathname.startsWith('/agent/')

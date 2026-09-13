@@ -8,6 +8,7 @@ import { rmSync } from 'node:fs'
 const dir = '.pglite-ticktest'
 rmSync(dir, { recursive: true, force: true })
 process.env.PGLITE_DIR = dir
+process.env.DISABLE_NOTIFICATION_SCHEDULER = '1'
 // VAPID НЕ трогаем: .env в process.env подкладывает vite.config через loadEnv.
 // Раньше здесь стояло `|| ''` — пустая строка перебивала .env, и тик уходил
 // по пути «ключей нет» (генерировал и складывал их в БД), то есть проверял
@@ -91,8 +92,7 @@ try {
   check('день вне окна 2/1/0 — молчим', r4.sent === 0, JSON.stringify(r4))
 
   // 5. Порядок слотов: 2 дня → 1 день → сегодня, каждый по одному разу.
-  const bills = await vite.ssrLoadModule('/src/server/functions/bills.ts')
-  const { slotRank, parseAlertKey } = bills
+  const { slotRank, parseAlertKey } = tick
   const cyc = monthKey(today)
   check('slotRank монотонен 2д<1д<0д', slotRank(2) < slotRank(1) && slotRank(1) < slotRank(0))
   check(

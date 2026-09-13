@@ -1,16 +1,17 @@
 import { dueDay } from '~/lib/finance'
 import { monthKey } from '~/lib/format'
+import { createHash } from 'node:crypto'
 import { q, q1 } from './db'
-import { sendToUser, notifyHouseExcept } from './push'
+import { sendToUser } from './push'
 
-function slotRank(offset: number): number {
+export function slotRank(offset: number): number {
   if (offset === 2) return 0
   if (offset === 1) return 1
   if (offset === 0) return 2
   return 3
 }
 
-function parseAlertKey(key: string | null, cycle: string): number | null {
+export function parseAlertKey(key: string | null, cycle: string): number | null {
   if (!key) return null
   const [c, o] = String(key).split(':')
   if (c !== cycle) return null
@@ -34,10 +35,14 @@ function dueOffset(dayOfMonth: number, today: number): number | null {
   return null
 }
 
-export async function runTick(now: Date = new Date()): Promise<{ checked: number; sent: number; failed: number; error?: string }> {
+function reminderRevision(...parts: Array<string | number>): string {
+  return createHash('sha256').update(parts.join('\u0000')).digest('base64url').slice(0, 10)
+}
+
+export async function runTick(now: Date = new Date()): Promise<{ checked: number; eligible: number; sent: number; failed: number; error?: string }> {
   const cycle = monthKey(now)
   const today = now.getDate()
-  const result: { checked: number; sent: number; failed: number; error?: string } = { checked: 0, sent: 0, failed: 0 }
+  const result: { checked: number; eligible: number; sent: number; failed: number; error?: string } = { checked: 0, eligible: 0, sent: 0, failed: 0 }
 
   const personal = await q<{
     id: string
@@ -63,6 +68,7 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     if (b.paid) continue
     const already = parseAlertKey(b.last_alert_key, cycle)
     if (already !== null && already >= slotRank(offset)) continue
+    result.eligible++
 
     const isTomorrow = offset === 1
     const pushTitle = isTomorrow ? `🔔 Завтра платёж: ${b.title}` : b.title
@@ -73,12 +79,16 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     const res = await sendToUser(b.user_id, {
       title: pushTitle,
       body: pushBody,
-      data: { url: '/bills', type: 'bill-reminder' },
+      data: {
+        url: '/bills',
+        type: 'bill-reminder',
+        eventId: `bill:${b.id}:${cycle}:${offset}:${reminderRevision(b.title, b.amount, b.day_of_month)}`,
+      },
     })
     result.sent += res.sent
     result.failed += res.failed
     if (res.error) result.error = res.error
-    if (res.sent > 0) {
+    if (res.sent > 0 && res.failed === 0) {
       await q(`UPDATE recurring_bills SET last_alert_key = $1 WHERE id = $2`, [`${cycle}:${offset}`, b.id])
     }
   }
@@ -105,6 +115,7 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     if (offset === null) continue
     const already = parseAlertKey(b.last_alert_key, cycle)
     if (already !== null && already >= slotRank(offset)) continue
+    result.eligible++
 
     const isTomorrow = offset === 1
     const pushTitle = isTomorrow ? `🔔 ${b.house_name} · Завтра платёж` : b.house_name
@@ -116,21 +127,19 @@ export async function runTick(now: Date = new Date()): Promise<{ checked: number
     const delivery=await Promise.all(recipients.map(m=>sendToUser(m.user_id, {
       title: pushTitle,
       body: pushBody,
-      data: { url: `/groups/${b.house_id}`, type: 'house-bill-reminder' },
+      data: {
+        url: `/groups/${b.house_id}`,
+        type: 'house-bill-reminder',
+        eventId: `house-bill:${b.id}:${cycle}:${offset}:${reminderRevision(b.title, b.amount, b.day_of_month)}`,
+      },
     })))
     const res=delivery.reduce((sum,r)=>({sent:sum.sent+r.sent,failed:sum.failed+r.failed,error:r.error||sum.error}),{sent:0,failed:0,error:undefined as string|undefined})
     result.sent += res.sent
     result.failed += res.failed
     if (res.error) result.error = res.error
-    if (res.sent > 0) {
+    if (res.sent > 0 && res.failed === 0) {
       await q(`UPDATE house_bills SET last_alert_key = $1 WHERE id = $2`, [`${cycle}:${offset}`, b.id])
     }
-  }
-
-  // Вечерний чекин итогов дня (если запуск происходит с 20:30 до 22:30)
-  const hour = now.getHours()
-  if (hour >= 20 && hour <= 22) {
-    await runEveningCheckin(now).catch(() => {})
   }
 
   return result
@@ -140,7 +149,7 @@ export async function runEveningCheckin(
   now: Date = new Date(),
   forceUserId?: string,
 ): Promise<{ sent: number; failed: number }> {
-  const todayKey = now.toISOString().slice(0, 10)
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const result = { sent: 0, failed: 0 }
 
   const users = forceUserId
@@ -179,11 +188,11 @@ export async function runEveningCheckin(
     const res = await sendToUser(u.user_id, {
       title: pushTitle,
       body: pushBody,
-      data: { url: '/', type: 'evening-checkin' },
+      data: { url: '/', type: 'evening-checkin', ...(!forceUserId && { eventId: `evening:${u.user_id}:${todayKey}` }) },
     })
     result.sent += res.sent
     result.failed += res.failed
-    if (res.sent > 0 && !forceUserId) {
+    if (res.sent > 0 && res.failed === 0 && !forceUserId) {
       await q(
         `UPDATE user_settings SET last_checkin_date = $1 WHERE user_id = $2`,
         [todayKey, u.user_id],
@@ -196,36 +205,54 @@ export async function runEveningCheckin(
 
 // Автономный фоновый планировщик для RelaxDev (Node.js сервер)
 let schedulerStarted = false
+let schedulerRun: Promise<void> | null = null
+let lastBillsDay = ''
+let lastEveningDay = ''
+
+function moscowTime(now: Date): Date {
+  return new Date(now.getTime() + (3 * 60 + now.getTimezoneOffset()) * 60 * 1000)
+}
+
+async function schedulerPulse(now = new Date()): Promise<void> {
+  const mskTime = moscowTime(now)
+  const day = `${mskTime.getFullYear()}-${String(mskTime.getMonth() + 1).padStart(2, '0')}-${String(mskTime.getDate()).padStart(2, '0')}`
+  const hour = mskTime.getHours()
+
+  // A restart after the target time catches up the same day. Event-level delivery
+  // records prevent a retry or a second server instance from producing duplicates.
+  if (hour >= 9 && hour < 12 && lastBillsDay !== day) {
+    await q(`DELETE FROM push_deliveries WHERE created_at < now() - interval '90 days'`).catch(() => {})
+    const result = await runTick(mskTime)
+    if (result.eligible === 0 && result.failed === 0) lastBillsDay = day
+  }
+  if (hour >= 21 && hour < 23 && lastEveningDay !== day) {
+    const result = await runEveningCheckin(mskTime)
+    if (result.sent > 0 && result.failed === 0) lastEveningDay = day
+  }
+}
+
+function queueSchedulerPulse(): void {
+  if (schedulerRun) return
+  schedulerRun = schedulerPulse()
+    .catch((error) => console.error('[scheduler] notification check failed:', error))
+    .finally(() => { schedulerRun = null })
+}
 
 export function startBackgroundScheduler(): void {
-  if (schedulerStarted || typeof window !== 'undefined') return
+  if (schedulerStarted || typeof window !== 'undefined' || process.env.DISABLE_NOTIFICATION_SCHEDULER === '1') return
   schedulerStarted = true
 
-  // Проверка каждые 15 минут
-  const intervalMs = 15 * 60 * 1000
-  setInterval(async () => {
-    try {
-      const now = new Date()
-      // Московское время (UTC+3)
-      const mskTime = new Date(now.getTime() + (3 * 60 + now.getTimezoneOffset()) * 60 * 1000)
-      const hour = mskTime.getHours()
-      const minute = mskTime.getMinutes()
+  // Vercel uses the two authenticated jobs in vercel.json. Starting another
+  // pulse inside the same serverless invocation would race the requested job.
+  if (process.env.VERCEL) return
 
-      // 1. Утренние напоминания о счетах: 09:00 - 09:20 MSK
-      if (hour === 9 && minute < 20) {
-        console.log('[scheduler] Running morning bills tick (09:00 MSK)...')
-        await runTick(mskTime)
-      }
+  queueSchedulerPulse()
+  // Node servers keep this timer. Serverless instances still perform the
+  // immediate catch-up pulse on each cold start.
+  if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const timer = setInterval(queueSchedulerPulse, 60 * 1000)
+    timer.unref?.()
+  }
 
-      // 2. Вечерний чекин в 21:00: 21:00 - 21:20 MSK
-      if (hour === 21 && minute < 20) {
-        console.log('[scheduler] Running evening checkin (21:00 MSK)...')
-        await runEveningCheckin(mskTime)
-      }
-    } catch (err) {
-      console.error('[scheduler] Background push error:', err)
-    }
-  }, intervalMs)
-
-  console.log('[scheduler] Background push scheduler active (09:00 bills, 21:00 checkin MSK)')
+  console.log('[scheduler] notification scheduler active (09:00 bills, 21:00 check-in MSK)')
 }

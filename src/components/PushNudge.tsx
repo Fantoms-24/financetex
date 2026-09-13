@@ -1,9 +1,10 @@
 import * as React from 'react'
-import { Bell, Share, Sparkles, X } from 'lucide-react'
+import { Bell, Share, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Button } from './ui/button'
 import { enablePush, isIos, isStandalone, pushState, pushSupported } from '~/lib/push-client'
 import { showInAppNotification } from './NotificationBanner'
+import { Rostok } from './Rostok'
 
 const PROMPT_KEY = 'listok-notification-prompt-v1'
 
@@ -63,7 +64,7 @@ export function PushNudge() {
     {open ? <motion.div className="notification-permission" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="notification-permission-title">
       <motion.section className="notification-permission__card" initial={{ opacity: 0, y: 22, scale: .985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 22, scale: .985 }} transition={{ type: 'spring', stiffness: 360, damping: 30 }}>
         <button className="notification-permission__close" aria-label="Не сейчас" onClick={() => close()}><X size={18} /></button>
-        <div className="notification-permission__mark"><Bell size={25} /><span><Sparkles size={12} /></span></div>
+        <Rostok className="notification-permission__rostok" priority />
         {needHome ? <>
           <p className="eyebrow">НАПОМИНАНИЯ</p>
           <h2 id="notification-permission-title">Сначала добавьте<br />Листок на Домой</h2>

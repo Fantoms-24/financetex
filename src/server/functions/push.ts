@@ -6,6 +6,7 @@ import {
   countSubscriptions,
   removeSubscription,
   sendToUser,
+  validPushSubscription,
 } from '../push'
 import { runTick, runEveningCheckin } from '../tick'
 
@@ -26,7 +27,7 @@ export const pushSubscribe = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) =>
     guarded(async (user) => {
-      if (!data.endpoint || !data.p256dh) {
+      if (!validPushSubscription(data)) {
         return { error: 'Нет подписки' }
       }
       await saveSubscription(user.id, {
@@ -46,7 +47,7 @@ export const pushUnsubscribe = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) =>
     guarded(async (user) => {
-      if (data.endpoint) await removeSubscription(data.endpoint)
+      if (data.endpoint) await removeSubscription(user.id, data.endpoint)
       return {
         ok: true,
         devices: await countSubscriptions(user.id),
@@ -67,7 +68,7 @@ export const pushTest = createServerFn({ method: 'POST' })
       }
       const res = await sendToUser(user.id, {
         title: '🌿 Листок · На связи',
-        body: 'Уведомления включены! Напоминания о чеках и счетах будут приходить вовремя.',
+        body: 'Тест доставки: если вы видите это уведомление, канал работает.',
         data: { url: '/settings', type: 'test' },
       })
       return {
@@ -86,8 +87,9 @@ export const tickBills = createServerFn({ method: 'POST' })
       if(user.role!=='admin')throw new Error('Это действие доступно администратору')
       const res = await runTick()
       return {
-        ok: true,
         ...res,
+        ok: res.sent > 0 && res.failed === 0,
+        error: res.failed > 0 ? res.error || 'Часть уведомлений не принята службой доставки' : res.sent === 0 ? 'На сегодня нет новых напоминаний для отправки' : undefined,
       }
     })
   )

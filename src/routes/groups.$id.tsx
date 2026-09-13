@@ -45,7 +45,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { BottomSheet } from '~/components/BottomSheet'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -150,6 +150,7 @@ function HousePage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
   const { user } = useApp()
+  const reduceMotion = useReducedMotion()
 
   const [snap, setSnap] = React.useState<Snap | null>(() => houseSnapCache.get(id) || null)
   const [error, setError] = React.useState<string | null>(null)
@@ -602,7 +603,7 @@ function HousePage() {
 
       {/* 2. Финтех-сводка: Главная Hero-карточка баланса (без антипаттерна «коробка в коробке») */}
       <section className="house-overview-block house-balance-block mb-3 px-4">
-        <div className="relative overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
+        <div className="house-balance-card relative overflow-hidden rounded-[22px] border border-rule/80 bg-paper p-4 sm:p-5 shadow-paper">
           {/* Верхняя строка: Месяц и статус счетов */}
           <div className="flex items-center justify-between text-[12px]">
             <span className="font-semibold uppercase tracking-wider text-muted">
@@ -663,9 +664,11 @@ function HousePage() {
                 <span className="font-semibold text-ink">{percentPaid}%</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-rule/50">
-                <div
-                  className="h-full rounded-full bg-sage transition-all duration-500"
-                  style={{ width: `${percentPaid}%` }}
+                <motion.div
+                  className="h-full rounded-full bg-sage"
+                  initial={reduceMotion ? false : { width: 0 }}
+                  animate={{ width: `${percentPaid}%` }}
+                  transition={{ type: 'spring', stiffness: 95, damping: 21 }}
                 />
               </div>
             </div>

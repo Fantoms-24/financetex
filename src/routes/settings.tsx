@@ -29,12 +29,14 @@ import {
   isStandalone,
   pushState,
   pushSupported,
+  restorePush,
 } from '~/lib/push-client'
-import { isNativeApp, sendNativeTestNotification, syncNativeBillReminders } from '~/lib/native'
+import { enableExactNativeReminders, isNativeApp, nativeNotificationStatus, openNativeNotificationSettings, sendNativeTestNotification, syncNativeBillReminders } from '~/lib/native'
 import { getAdminState } from '~/server/functions/admin'
 import { pushSubscribe, pushTest, triggerEveningCheckin, tickBills, vapidPublic } from '~/server/functions/push'
 import { saveProfile, saveSettings } from '~/server/functions/settings'
 import { getTelegramStatus, saveBotSettings, unlinkTelegram, type TelegramState } from '~/server/functions/telegram'
+import { Rostok } from '~/components/Rostok'
 
 export const Route = createFileRoute('/settings')({
   component: Settings,
@@ -52,6 +54,7 @@ function Settings() {
   const [testResult, setTestResult] = React.useState<string | null>(null)
   const [testError, setTestError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const [nativeStatus, setNativeStatus] = React.useState<Awaited<ReturnType<typeof nativeNotificationStatus>> | null>(null)
   const [isAdmin, setIsAdmin] = React.useState(false)
   const [tgState, setTgState] = React.useState<TelegramState | null>(null)
   const [copiedTgCode, setCopiedTgCode] = React.useState(false)
@@ -137,17 +140,27 @@ function Settings() {
     setStandalone(isStandalone())
     setPerm(pushState())
 
-    // Если разрешение уже есть, фоново обновляем подписку и регистрируем в базе
-    if (pushSupported() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      enablePush()
-        .then(() => setPerm(pushState()))
-        .catch(() => {})
-    }
+    void restorePush().then(() => setPerm(pushState())).catch(() => {})
 
     getAdminState()
       .then((r: any) => setIsAdmin(!!r?.isAdmin))
       .catch(() => {})
   }, [user, boot.settings.monthly_budget])
+
+  React.useEffect(() => {
+    const check = async () => {
+      if (isNativeApp()) {
+        const state = await nativeNotificationStatus()
+        setNativeStatus(state)
+        if (state.error) setTestError(state.error)
+      }
+      setPerm(pushState())
+    }
+    const resume = () => { if (document.visibilityState === 'visible') void check() }
+    void check()
+    document.addEventListener('visibilitychange', resume)
+    return () => document.removeEventListener('visibilitychange', resume)
+  }, [])
 
   async function save(e: React.FormEvent) {
     e.preventDefault();if(busy)return
@@ -165,11 +178,15 @@ function Settings() {
   async function onEnablePush() {
     setBusy(true)
     setTestError(null)
-    const res = await enablePush()
-    if (res.ok && isNativeApp()) await syncNativeBillReminders(boot.bills)
-    setPerm(pushState())
-    setBusy(false)
-    if (!res.ok) setTestError(res.error || 'Не получилось')
+    try {
+      const res = await enablePush()
+      if (!res.ok) throw new Error(res.error || 'Не получилось')
+      if (isNativeApp()) {
+        await syncNativeBillReminders(boot.bills)
+        setNativeStatus(await nativeNotificationStatus())
+      }
+    } catch (e: any) { setTestError(e.message || 'Не удалось обновить расписание') }
+    finally { setPerm(pushState()); setBusy(false) }
   }
 
   async function onTest() {
@@ -180,7 +197,7 @@ function Settings() {
     if (isNativeApp()) {
       const shown = await sendNativeTestNotification()
       setBusy(false)
-      if (shown) setTestResult('✓ Тестовое системное уведомление придёт через пару секунд — оно работает даже при свёрнутом Листке.')
+      if (shown) setTestResult('Тест передан Android для показа. Его наличие можно проверить в шторке уведомлений; этот тест не проверяет будущие напоминания.')
       else setTestError('Android не смог запланировать уведомление. Проверьте разрешение в настройках приложения.')
       return
     }
@@ -206,13 +223,7 @@ function Settings() {
     if (!r) {
       setTestError('Не получилось отправить системный пуш')
     } else if (r.ok || (r.sent && r.sent > 0)) {
-      setTestResult(`✓ Баннер отправлен на устройство (${r.devices ?? 1})! Сверните приложение, чтобы увидеть системное уведомление.`)
-      showInAppNotification({
-        title: '🌿 Листок · На связи',
-        body: 'Системное уведомление отправлено! На экране блокировки появится баннер.',
-        icon: 'card',
-        url: '/settings',
-      })
+      setTestResult(`Служба доставки приняла уведомление для ${r.sent} устройств. Показ на телефоне пока не подтверждён.`)
     } else {
       setTestResult(`устройств в канале: ${r.devices ?? 0}, ушло: ${r.sent ?? 0}`)
       if (r.error) setTestError(String(r.error))
@@ -421,19 +432,19 @@ function Settings() {
           </span>
         </div>
 
-        <p className="text-[12.5px] leading-relaxed text-muted">
+        <div className="settings-notification-intro"><Rostok className="settings-notification-mascot"/><p className="text-[12.5px] leading-relaxed text-muted">
           {!pushSupported()
             ? 'Ваш браузер не поддерживает Push-уведомления.'
             : perm.granted
             ? isNativeApp()
-              ? 'На Android включены системные напоминания о счетах и вечерней проверке расходов.'
+              ? 'На Android включены местные напоминания о счетах и расходах. Сообщения о действиях других участников при закрытом приложении пока не поддерживаются.'
               : standalone
-              ? 'Уведомления активны и приходят даже с заблокированным экраном.'
+              ? 'Подписка сохранена. Показ уведомлений зависит от сети и настроек устройства.'
               : isIos()
               ? 'Разрешение выдано. Для работы при закрытом окне добавьте Листок на экран «Домой».'
-              : 'Уведомления активны. Напоминания о чеках и счетах придут вовремя.'
+              : 'Подписка сохранена. Проверить доставку можно тестовым уведомлением.'
             : 'Включите напоминания, чтобы не пропустить срок оплаты счетов и вечерний чекин.'}
-        </p>
+        </p></div>
 
         {perm.granted && (
           <div className="rounded-[18px] border border-rule/70 bg-cream/40 p-3.5 space-y-3">
@@ -443,7 +454,7 @@ function Settings() {
                 <span className="text-[13px] font-semibold text-ink">Вечерний чекин и счета</span>
               </div>
               <span className="rounded-full bg-sage/12 px-2 py-0.2 text-[10.5px] font-semibold text-sage">
-                21:00 MSK
+                {isNativeApp() ? '21:00 на телефоне' : '21:00 МСК'}
               </span>
             </div>
             <p className="text-[12px] text-muted leading-relaxed">
@@ -451,6 +462,26 @@ function Settings() {
             </p>
           </div>
         )}
+
+        {isNativeApp() && nativeStatus?.channelBlocked && <div className="rounded-xl border border-stamp/30 bg-stamp/5 p-3 space-y-2">
+          <p className="text-[12px] text-muted">Системный канал «Напоминания Листка» выключен, поэтому Android скрывает все уведомления.</p>
+          {nativeStatus.settingsAvailable
+            ? <Button variant="paper" size="md" disabled={busy} onClick={async () => {
+                try { await openNativeNotificationSettings() }
+                catch (e: any) { setTestError(e.message || 'Не удалось открыть настройки Android.') }
+              }}>Открыть настройки Android</Button>
+            : <p className="text-[12px] font-medium text-stamp">Обновите установленное приложение, затем откройте этот раздел снова.</p>}
+        </div>}
+
+        {isNativeApp() && perm.granted && nativeStatus?.exact === false && <div className="rounded-xl border border-rule p-3 space-y-2">
+          <p className="text-[12px] text-muted">Android не разрешил точное время: напоминания могут запаздывать.</p>
+          {nativeStatus.exactSettingAvailable ? <Button variant="paper" size="md" disabled={busy} onClick={async () => {
+            setBusy(true)
+            try { await enableExactNativeReminders(); setNativeStatus(await nativeNotificationStatus()); await syncNativeBillReminders(boot.bills) }
+            catch { setTestError('Не удалось открыть настройку точного времени Android.') }
+            finally { setBusy(false) }
+          }}>Настроить точное время</Button> : <p className="text-[12px] font-medium text-stamp">Для точного времени нужна свежая версия Android-приложения.</p>}
+        </div>}
 
         <div className="grid grid-cols-2 gap-2.5">
           {perm.granted ? (
@@ -472,10 +503,14 @@ function Settings() {
               disabled={busy}
               onClick={() => {
                 haptic(8)
-                onEnablePush()
+                if (isNativeApp() && nativeStatus?.settingsAvailable && (nativeStatus.channelBlocked || nativeStatus.displayPermission === 'denied')) {
+                  void openNativeNotificationSettings().catch((e: any) => setTestError(e.message || 'Не удалось открыть настройки Android.'))
+                } else {
+                  onEnablePush()
+                }
               }}
             >
-              Включить пуши
+              {isNativeApp() && nativeStatus?.settingsAvailable && (nativeStatus.channelBlocked || nativeStatus.displayPermission === 'denied') ? 'Настройки Android' : 'Включить пуши'}
             </Button>
           )}
 
@@ -486,8 +521,10 @@ function Settings() {
               disabled={busy}
               onClick={async () => {
                 haptic(8)
-                await disablePush()
-                setPerm(pushState())
+                setBusy(true)
+                try { await disablePush() }
+                catch { setTestError('Не удалось полностью отключить уведомления. Повторите при доступной сети.') }
+                finally { setPerm(pushState()); setBusy(false) }
               }}
             >
               Отключить
