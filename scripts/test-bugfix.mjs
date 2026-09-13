@@ -49,6 +49,7 @@ const house=load('src/server/functions/houses.ts')
 const split=load('src/server/functions/split.ts')
 const telegram=load('src/server/functions/telegram.ts')
 const pushCore=load('src/server/push.ts')
+const fantms=load('src/server/fantms.ts')
 try{
  await db.getDB()
  for(const id of ['u1','u2']){
@@ -101,6 +102,16 @@ try{
   assert.equal(pushCore.validPushSubscription({endpoint:'https://127.0.0.1/internal',...keys}),false)
   assert.equal(pushCore.validPushSubscription({endpoint:'https://example.com/collect',...keys}),false)
   assert.equal(pushCore.validPushSubscription({endpoint:'https://fcm.googleapis.com/x',p256dh:'short',auth:'short'}),false)
+ })
+ await test('admin user directory keeps totals correct with houses and several devices',async()=>{
+  await db.q("INSERT INTO receipts(id,user_id,total) VALUES ('admin-directory-receipt','u1',321)")
+  await db.q("INSERT INTO push_subs(id,user_id,endpoint,p256dh,auth) VALUES ('admin-sub-1','u1','https://fcm.googleapis.com/fcm/send/admin-one',$1,$2),('admin-sub-2','u1','https://fcm.googleapis.com/fcm/send/admin-two',$1,$2)",['A'.repeat(65),'B'.repeat(16)])
+  const rows=await fantms.getFantmsUsersData('u1')
+  const u=rows.find(x=>x.id==='u1')
+  assert.equal(u.devicesCount,2)
+  assert.equal(u.spentTotal,321)
+  assert.equal(u.housesCount,1)
+  await db.q("DELETE FROM receipts WHERE id='admin-directory-receipt'")
  })
  await test('notification delivery claim can retry a timeout but not an accepted event',async()=>{
   await db.q(`INSERT INTO push_subs(id,user_id,endpoint,p256dh,auth) VALUES ('claim-sub','u1','https://fcm.googleapis.com/fcm/send/claim',$1,$2)`,['A'.repeat(65),'B'.repeat(16)])

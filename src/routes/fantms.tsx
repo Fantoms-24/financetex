@@ -19,6 +19,7 @@ import {
   Moon,
   PieChart,
   RefreshCw,
+  Search,
   Send,
   Server,
   Settings,
@@ -27,6 +28,7 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  UserRoundCheck,
   Utensils,
   Wallet,
   Zap,
@@ -48,6 +50,7 @@ import {
   healDatabaseAction,
   triggerTickAction,
   triggerEveningAction,
+  getFantmsUsers,
 } from '~/server/functions/admin-fantms'
 
 export const Route = createFileRoute('/fantms')({
@@ -70,11 +73,14 @@ function FantmsAdminScreen() {
   const [authBusy, setAuthBusy] = React.useState(false)
 
   // Активная вкладка админки
-  const [tab, setTab] = React.useState<'overview' | 'llm' | 'telegram' | 'push' | 'security'>('overview')
+  const [tab, setTab] = React.useState<'overview' | 'users' | 'llm' | 'telegram' | 'push' | 'security'>('overview')
 
   // Данные обзора
   const [overview, setOverview] = React.useState<any>(null)
   const [overviewBusy, setOverviewBusy] = React.useState(false)
+  const [users, setUsers] = React.useState<any[]>([])
+  const [usersSearch, setUsersSearch] = React.useState('')
+  const [usersBusy, setUsersBusy] = React.useState(false)
 
   // Настройки LLM
   const [llmBaseUrl, setLlmBaseUrl] = React.useState('')
@@ -166,6 +172,21 @@ function FantmsAdminScreen() {
       loadOverviewData()
     }
   }, [isAuthenticated, token, loadOverviewData])
+
+  const loadUsers = React.useCallback(async (search = usersSearch) => {
+    if (!token) return
+    setUsersBusy(true)
+    try {
+      const result: any = await getFantmsUsers({ data: { token, search, limit: 50 } })
+      if (result?.ok) setUsers(result.users || [])
+    } finally {
+      setUsersBusy(false)
+    }
+  }, [token, usersSearch])
+
+  React.useEffect(() => {
+    if (tab === 'users' && token && users.length === 0) void loadUsers('')
+  }, [tab, token, users.length, loadUsers])
 
   // 1. Первоначальная установка пароля
   const handleSetupPassword = async (e: React.FormEvent) => {
@@ -409,7 +430,7 @@ function FantmsAdminScreen() {
     if (!token) return
     haptic(6)
     const res: any = await triggerTickAction({ data: { token } })
-    setActionNotice(`Проверка счетов выполнена: отправлено ${res.alertsSent || 0} уведомлений.`)
+    setActionNotice(`Проверка счетов выполнена: отправлено ${res.sent || 0} уведомлений.`)
     setTimeout(() => setActionNotice(null), 4000)
   }
 
@@ -418,7 +439,7 @@ function FantmsAdminScreen() {
     if (!token) return
     haptic(6)
     const res: any = await triggerEveningAction({ data: { token } })
-    setActionNotice(`Вечерний чекин выполнен: обработано ${res.processed || 0} пользователей.`)
+    setActionNotice(`Вечерний чекин выполнен: отправлено ${res.sent || 0} уведомлений.`)
     setTimeout(() => setActionNotice(null), 4000)
   }
 
@@ -564,20 +585,20 @@ function FantmsAdminScreen() {
   const metrics = overview?.metrics || {}
 
   return (
-    <div className="min-h-screen bg-[#0c0e0c] pb-[max(env(safe-area-inset-bottom),32px)] text-zinc-200">
+    <div className="min-h-screen bg-[#090d12] bg-[radial-gradient(ellipse_at_top,_rgba(16,185,129,0.13),transparent_42%),radial-gradient(ellipse_at_90%_20%,_rgba(59,130,246,0.10),transparent_28%)] pb-[max(env(safe-area-inset-bottom),32px)] text-zinc-200">
       {/* 1. Верхний бар панели (с учётом iOS Safe Area и Dynamic Island) */}
-      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-[#111311]/95 backdrop-blur-xl px-3 sm:px-6 pt-[max(env(safe-area-inset-top),10px)] pb-2.5 sm:pb-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
+      <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#0b1118]/85 backdrop-blur-2xl px-3 sm:px-6 pt-[max(env(safe-area-inset-top),10px)] pb-2.5 sm:pb-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <div className="flex h-8 w-8 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-xl sm:rounded-lg bg-emerald-500/15 text-emerald-400 font-bold text-[14px] sm:text-[13px]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-300 to-emerald-600 text-[#082519] font-bold text-[15px] shadow-[0_8px_28px_rgba(16,185,129,0.3)]">
               🌿
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-[13.5px] sm:text-[14px] font-semibold text-white leading-none truncate">
-                  Листок Control
+                  Листок · Control
                 </span>
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   Online
                 </span>
@@ -643,14 +664,22 @@ function FantmsAdminScreen() {
       )}
 
       {/* 2. Контейнер панели */}
-      <main className="mx-auto max-w-5xl p-3 sm:p-6 space-y-3.5 sm:space-y-5">
+      <main className="mx-auto max-w-6xl p-3 sm:p-6 space-y-3.5 sm:space-y-5">
+        <section className="overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#15221f]/90 via-[#101922]/90 to-[#111827]/90 px-4 py-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:px-6 sm:py-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300/80">Рабочее место администратора</p>
+          <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+            <div><h2 className="text-[22px] font-semibold tracking-tight text-white sm:text-[26px]">Состояние продукта — в одном месте</h2><p className="mt-1 text-[12px] text-zinc-400">Пользователи, интеграции, уведомления и обслуживание данных.</p></div>
+            <div className="rounded-2xl border border-white/[0.08] bg-black/20 px-3 py-2 text-right"><div className="text-[10px] uppercase tracking-wider text-zinc-500">Активны за 7 дней</div><div className="mt-0.5 font-mono text-lg font-semibold text-emerald-300">{metrics.activeUsers7d || 0}</div></div>
+          </div>
+        </section>
         {/* Переключатель вкладок (эластичный Apple-свайп бар) */}
         <nav
-          className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth rounded-2xl border border-zinc-800/80 bg-[#141614] p-1.5 shadow-xs touch-pan-x"
+          className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth rounded-2xl border border-white/[0.08] bg-[#101820]/85 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.18)] touch-pan-x"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {[
             { id: 'overview', label: 'Обзор и БД', icon: PieChart },
+            { id: 'users', label: 'Пользователи', icon: UserRoundCheck },
             { id: 'llm', label: 'ИИ / Сканы', icon: BrainCircuit },
             { id: 'telegram', label: 'Telegram-бот', icon: Bot },
             { id: 'push', label: 'Push и Тики', icon: Zap },
@@ -668,11 +697,11 @@ function FantmsAdminScreen() {
                 className={cn(
                   'flex items-center gap-1.5 rounded-xl px-3 sm:px-3.5 py-2 text-[12px] sm:text-[12.5px] font-medium transition whitespace-nowrap shrink-0 touch-manipulation active:scale-95',
                   active
-                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs font-semibold'
+                    ? 'bg-emerald-400 text-[#082019] border border-emerald-300 shadow-[0_6px_18px_rgba(52,211,153,0.18)] font-semibold'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border border-transparent',
                 )}
               >
-                <item.icon size={13} className={cn(active ? 'text-emerald-400' : 'text-zinc-400')} />
+                <item.icon size={13} className={cn(active ? 'text-[#082019]' : 'text-zinc-400')} />
                 <span>{item.label}</span>
               </button>
             )
@@ -914,6 +943,31 @@ function FantmsAdminScreen() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {tab === 'users' && (
+          <div className="space-y-4">
+            <section className="rounded-2xl border border-white/[0.08] bg-[#101820]/90 p-4 shadow-[0_16px_48px_rgba(0,0,0,0.18)] sm:p-5">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80">Поддержка</p><h3 className="mt-1 text-[18px] font-semibold text-white">Пользователи</h3><p className="mt-1 text-[12px] text-zinc-400">Поиск аккаунта и его финансовой активности. Данные доступны только для просмотра.</p></div>
+                <form onSubmit={(event) => { event.preventDefault(); void loadUsers(usersSearch) }} className="flex w-full max-w-md gap-2">
+                  <label className="relative min-w-0 flex-1"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" /><input value={usersSearch} onChange={(event) => setUsersSearch(event.target.value)} placeholder="Имя или email" className="h-10 w-full rounded-xl border border-white/[0.09] bg-black/25 pl-9 pr-3 text-[13px] text-white outline-none placeholder:text-zinc-600 focus:border-emerald-400/60" /></label>
+                  <button type="submit" disabled={usersBusy} className="h-10 rounded-xl bg-emerald-400 px-4 text-[12px] font-semibold text-[#082019] transition hover:bg-emerald-300 disabled:opacity-50">{usersBusy ? 'Поиск…' : 'Найти'}</button>
+                </form>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/[0.06] bg-black/15 p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Всего</p><p className="mt-1 font-mono text-xl font-semibold text-white">{metrics.users || 0}</p></div>
+                <div className="rounded-xl border border-white/[0.06] bg-black/15 p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">За 7 дней</p><p className="mt-1 font-mono text-xl font-semibold text-emerald-300">{metrics.activeUsers7d || 0}</p></div>
+                <div className="rounded-xl border border-white/[0.06] bg-black/15 p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Чеков сегодня</p><p className="mt-1 font-mono text-xl font-semibold text-white">{metrics.receiptsToday || 0}</p></div>
+                <div className="rounded-xl border border-white/[0.06] bg-black/15 p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-500">Расходы сегодня</p><p className="mt-1 truncate font-mono text-xl font-semibold text-white">{money(metrics.spentToday || 0)}</p></div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101820]/90 shadow-[0_16px_48px_rgba(0,0,0,0.18)]">
+              <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3.5 sm:px-5"><div><h3 className="text-[14px] font-semibold text-white">Найденные аккаунты</h3><p className="mt-0.5 text-[11px] text-zinc-500">Показано до 50 последних совпадений</p></div><button onClick={() => void loadUsers(usersSearch)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 text-[11px] text-zinc-300 hover:bg-white/[0.06]"><RefreshCw size={12} className={cn(usersBusy && 'animate-spin')} />Обновить</button></div>
+              {usersBusy && users.length === 0 ? <div className="p-10 text-center text-sm text-zinc-500">Загружаем пользователей…</div> : users.length === 0 ? <div className="p-10 text-center text-sm text-zinc-500">Совпадений не найдено</div> : <div className="divide-y divide-white/[0.06]">{users.map((u) => <article key={u.id} className="grid gap-3 px-4 py-3.5 transition hover:bg-white/[0.025] sm:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(80px,0.7fr))] sm:items-center sm:px-5"><div className="min-w-0"><div className="flex items-center gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-xs font-bold text-emerald-300">{(u.name || u.email || '?').slice(0, 1).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-[13px] font-medium text-white">{u.name}</p><p className="truncate text-[11px] text-zinc-500">{u.email || 'email не указан'}</p></div></div></div><div><p className="text-[10px] uppercase tracking-wider text-zinc-600">Чеки</p><p className="mt-0.5 font-mono text-[12px] text-zinc-200">{u.receiptsCount}</p></div><div><p className="text-[10px] uppercase tracking-wider text-zinc-600">Расходы</p><p className="mt-0.5 font-mono text-[12px] text-emerald-300">{money(u.spentTotal)}</p></div><div><p className="text-[10px] uppercase tracking-wider text-zinc-600">Устройства</p><p className="mt-0.5 font-mono text-[12px] text-zinc-200">{u.devicesCount}</p></div><div><p className="text-[10px] uppercase tracking-wider text-zinc-600">Регистрация</p><p className="mt-0.5 font-mono text-[11px] text-zinc-400">{u.createdAt ? String(u.createdAt).slice(0, 10) : '—'}</p></div></article>)}</div>}
+            </section>
           </div>
         )}
 
@@ -1483,4 +1537,3 @@ function FantmsAdminScreen() {
     </div>
   )
 }
-

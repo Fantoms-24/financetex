@@ -7,6 +7,7 @@ import {
   validateFantmsSession,
   revokeFantmsSession,
   getFantmsOverviewData,
+  getFantmsUsersData,
   pingLlmService,
   checkTelegramDeepStatus,
   setTelegramWebhookAuto,
@@ -103,6 +104,18 @@ export const getFantmsOverview = createServerFn({ method: 'GET' })
     await assertAdminToken(data.token)
     const overview = await getFantmsOverviewData()
     return { ok: true, ...overview }
+  })
+
+/** Searchable, read-only account directory for support work. */
+export const getFantmsUsers = createServerFn({ method: 'GET' })
+  .validator((d: { token: string; search?: string; limit?: number }) => ({
+    token: String(d.token || '').trim(),
+    search: String(d.search || ''),
+    limit: Number(d.limit || 50),
+  }))
+  .handler(async ({ data }) => {
+    await assertAdminToken(data.token)
+    return { ok: true, users: await getFantmsUsersData(data.search, data.limit) }
   })
 
 /**

@@ -153,7 +153,7 @@ export async function revokeFantmsSession(token: string): Promise<void> {
  * Системная сводка и ключевые метрики приложения
  */
 export async function getFantmsOverviewData() {
-  const [usersCount, receiptsStats, housesCount, splitsCount, pushSubsCount, recentUsers] =
+  const [usersCount, receiptsStats, housesCount, splitsCount, pushSubsCount, recentUsers, activeUsers, receiptsToday] =
     await Promise.all([
       q1<{ c: number }>(`SELECT count(*)::int AS c FROM "user"`),
       q1<{ c: number; total: string | number }>(
@@ -170,7 +170,15 @@ export async function getFantmsOverviewData() {
            LEFT JOIN receipts r ON r.user_id = u.id
           GROUP BY u.id, u.name, u.email, u."createdAt"
           ORDER BY u."createdAt" DESC
-          LIMIT 15`,
+        LIMIT 15`,
+      ),
+      q1<{ c: number }>(
+        `SELECT count(DISTINCT user_id)::int AS c FROM receipts
+          WHERE deleted_at IS NULL AND created_at >= now() - interval '7 days'`,
+      ),
+      q1<{ c: number; total: string | number }>(
+        `SELECT count(*)::int AS c, coalesce(sum(total), 0)::bigint AS total FROM receipts
+          WHERE deleted_at IS NULL AND created_at >= date_trunc('day', now())`,
       ),
     ])
 
@@ -186,6 +194,9 @@ export async function getFantmsOverviewData() {
       houses: housesCount?.c || 0,
       splits: splitsCount?.c || 0,
       pushSubscribers: pushSubsCount?.c || 0,
+      activeUsers7d: activeUsers?.c || 0,
+      receiptsToday: receiptsToday?.c || 0,
+      spentToday: Number(receiptsToday?.total || 0),
     },
     recentUsers: (recentUsers ?? []).map((u: any) => ({
       id: u.id,
@@ -209,6 +220,40 @@ export async function getFantmsOverviewData() {
       vapidPublicKey: vapid,
     },
   }
+}
+
+/** Directory for support: read-only, paginated enough for an admin to find an account safely. */
+export async function getFantmsUsersData(search = '', limit = 50) {
+  const query = search.trim().slice(0, 100)
+  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)))
+  const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`
+  const users = await q<any>(
+    `SELECT u.id, u.name, u.email, u."createdAt"::text AS created_at,
+            coalesce(p.display_name, '') AS display_name, coalesce(p.role, 'user') AS role,
+            (SELECT count(*)::int FROM receipts r WHERE r.user_id = u.id AND r.deleted_at IS NULL) AS receipts_count,
+            (SELECT coalesce(sum(r.total), 0)::bigint FROM receipts r WHERE r.user_id = u.id AND r.deleted_at IS NULL) AS spent_total,
+            (SELECT count(*)::int FROM house_members hm WHERE hm.user_id = u.id) AS houses_count,
+            (SELECT count(*)::int FROM push_subs ps WHERE ps.user_id = u.id) AS devices_count,
+            (SELECT max(r.created_at)::text FROM receipts r WHERE r.user_id = u.id AND r.deleted_at IS NULL) AS last_receipt_at
+       FROM "user" u
+       LEFT JOIN profiles p ON p.user_id = u.id
+      WHERE ($1 = '' OR coalesce(u.name, '') ILIKE $2 ESCAPE '\\' OR coalesce(u.email, '') ILIKE $2 ESCAPE '\\' OR coalesce(p.display_name, '') ILIKE $2 ESCAPE '\\')
+      ORDER BY u."createdAt" DESC
+      LIMIT $3`,
+    [query, pattern, safeLimit],
+  )
+  return users.map((user) => ({
+    id: user.id,
+    name: user.display_name || user.name || 'Без имени',
+    email: user.email || '',
+    role: user.role || 'user',
+    createdAt: user.created_at,
+    receiptsCount: Number(user.receipts_count || 0),
+    spentTotal: Number(user.spent_total || 0),
+    housesCount: Number(user.houses_count || 0),
+    devicesCount: Number(user.devices_count || 0),
+    lastReceiptAt: user.last_receipt_at,
+  }))
 }
 
 /**
