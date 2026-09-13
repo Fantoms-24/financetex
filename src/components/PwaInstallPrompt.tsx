@@ -3,6 +3,7 @@ import { Download, PlusSquare, Share, Smartphone, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '~/components/ui/button'
 import { isIos, isStandalone } from '~/lib/push-client'
+import { isNativeApp } from '~/lib/native'
 import { cn, haptic } from '~/lib/utils'
 
 export function PwaInstallPrompt() {
@@ -11,8 +12,8 @@ export function PwaInstallPrompt() {
   const ios = React.useMemo(() => isIos(), [])
 
   React.useEffect(() => {
-    // Если уже в режиме PWA (standalone) — не показываем
-    if (isStandalone()) return
+    // Уже установленное PWA и нативная сборка не нуждаются в инструкции.
+    if (isStandalone() || isNativeApp()) return
 
     // Проверяем, не скрывал ли пользователь баннер недавно
     const dismissedUntil = localStorage.getItem('listok_pwa_dismissed')
@@ -28,11 +29,15 @@ export function PwaInstallPrompt() {
     }
     window.addEventListener('beforeinstallprompt', handler)
 
-    // Для iOS показываем деликатный баннер через небольшую задержку
+    // iOS не выдаёт beforeinstallprompt. Показываем инструкцию лишь один раз
+    // на первом визите, чтобы не превращать её в повторяющееся напоминание.
     if (ios) {
+      const seen = localStorage.getItem('listok_ios_home_prompt_seen')
+      if (seen) return () => window.removeEventListener('beforeinstallprompt', handler)
       const timer = setTimeout(() => {
         setVisible(true)
-      }, 1800)
+        localStorage.setItem('listok_ios_home_prompt_seen', String(Date.now()))
+      }, 700)
       return () => {
         clearTimeout(timer)
         window.removeEventListener('beforeinstallprompt', handler)
@@ -71,7 +76,7 @@ export function PwaInstallPrompt() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
-        className="relative overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-paper"
+        className="relative overflow-hidden rounded-[20px] border border-rule/80 bg-paper p-4 shadow-[0_16px_42px_rgba(44,38,28,0.2)]"
       >
         <button
           type="button"
@@ -94,7 +99,7 @@ export function PwaInstallPrompt() {
             <p className="mt-1 text-[12px] leading-relaxed text-muted">
               {ios ? (
                 <>
-                  Нажмите <span className="inline-flex items-center font-medium text-ink">Поделиться <Share size={12} className="mx-0.5" /></span> внизу Safari, затем <span className="inline-flex items-center font-medium text-ink">«На экран „Домой“» <PlusSquare size={12} className="mx-0.5" /></span> для быстрого запуска без браузерной строки.
+                  Нажмите <span className="inline-flex items-center font-medium text-ink">Поделиться <Share size={12} className="mx-0.5" /></span>, затем <span className="inline-flex items-center font-medium text-ink">«На экран „Домой“» <PlusSquare size={12} className="mx-0.5" /></span>. Листок будет открываться как обычное приложение.
                 </>
               ) : (
                 'Установите приложение для мгновенного входа и работы без адресной строки браузера.'

@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
+import { promisify } from 'node:util'
 import { q, q1 } from './db'
 import { HEAL_STATEMENTS } from './db/schema'
 import { getAllConfig, setConfig, getLlmConfig, getFullLlmConfig, saveLlmConfig } from './config'
@@ -10,9 +11,24 @@ import { countSubscriptions, getVapidPublic } from './push'
 const FANTMS_PASS_KEY = 'fantms_admin_password_hash'
 const FANTMS_SALT_KEY = 'fantms_admin_password_salt'
 const FANTMS_SESSIONS_KEY = 'fantms_admin_sessions'
+const scrypt = promisify(scryptCallback)
 
-function hashPassword(password: string, salt: string): string {
-  return createHash('sha256').update(`${salt}:${password}`).digest('hex')
+async function hashPassword(password: string, salt: string): Promise<string> {
+  const digest = await scrypt(password, salt, 64) as Buffer
+  return `scrypt:${digest.toString('hex')}`
+}
+
+async function verifyPassword(password: string, salt: string, stored: string): Promise<{ valid: boolean; legacy: boolean }> {
+  if (stored.startsWith('scrypt:')) {
+    const expected = Buffer.from(stored.slice('scrypt:'.length), 'hex')
+    const actual = await scrypt(password, salt, 64) as Buffer
+    return { valid: expected.length === actual.length && timingSafeEqual(expected, actual), legacy: false }
+  }
+  // Existing installations used SHA-256. Upgrade the hash after their next
+  // successful sign-in instead of locking the administrator out on release.
+  const expected = Buffer.from(stored, 'utf8')
+  const actual = Buffer.from(createHash('sha256').update(`${salt}:${password}`).digest('hex'), 'utf8')
+  return { valid: expected.length === actual.length && timingSafeEqual(expected, actual), legacy: true }
 }
 
 /**
@@ -33,12 +49,12 @@ export async function initFantmsMasterPassword(password: string): Promise<{ ok: 
   }
 
   const clean = password.trim()
-  if (clean.length < 4) {
-    return { ok: false, error: 'Пароль должен содержать минимум 4 символа.' }
+  if (clean.length < 12) {
+    return { ok: false, error: 'Пароль должен содержать минимум 12 символов.' }
   }
 
   const salt = randomBytes(16).toString('hex')
-  const hash = hashPassword(clean, salt)
+  const hash = await hashPassword(clean, salt)
 
   await setConfig(FANTMS_SALT_KEY, salt)
   await setConfig(FANTMS_PASS_KEY, hash)
@@ -60,11 +76,11 @@ export async function verifyFantmsLogin(password: string): Promise<{ ok: boolean
 
   const expectedHash = passRow.value.trim()
   const salt = saltRow.value.trim()
-  const inputHash = hashPassword(password.trim(), salt)
-
-  if (inputHash !== expectedHash) {
+  const verification = await verifyPassword(password.trim(), salt, expectedHash)
+  if (!verification.valid) {
     return { ok: false, error: 'Неверный мастер-пароль администратора.' }
   }
+  if (verification.legacy) await setConfig(FANTMS_PASS_KEY, await hashPassword(password.trim(), salt))
 
   const token = await createFantmsSession()
   return { ok: true, token }
@@ -83,12 +99,12 @@ export async function changeFantmsMasterPassword(
   }
 
   const cleanNew = newPass.trim()
-  if (cleanNew.length < 4) {
-    return { ok: false, error: 'Новый пароль должен содержать от 4 символов.' }
+  if (cleanNew.length < 12) {
+    return { ok: false, error: 'Новый пароль должен содержать минимум 12 символов.' }
   }
 
   const newSalt = randomBytes(16).toString('hex')
-  const newHash = hashPassword(cleanNew, newSalt)
+  const newHash = await hashPassword(cleanNew, newSalt)
 
   await setConfig(FANTMS_SALT_KEY, newSalt)
   await setConfig(FANTMS_PASS_KEY, newHash)

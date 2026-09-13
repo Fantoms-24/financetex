@@ -15,6 +15,7 @@ import { SplashScreen } from '~/components/SplashScreen'
 import { NotificationBanner } from '~/components/NotificationBanner'
 import { Onboarding } from '~/components/Onboarding'
 import { PushNudge } from '~/components/PushNudge'
+import { PwaInstallPrompt } from '~/components/PwaInstallPrompt'
 import { restorePush, registerSW } from '~/lib/push-client'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { isNativeApp, prepareNativeShell } from '~/lib/native'
@@ -197,7 +198,7 @@ function Shell() {
     )
   }
 
-  if (!bare) return <div className="app-screen-enter"><Workspace><NotificationBanner /><Outlet /><Onboarding open={boot.settings.onboarding_completed === false} onCompleted={refresh} />{boot.settings.onboarding_completed !== false ? <PushNudge /> : null}</Workspace></div>
+  if (!bare) return <div className="app-screen-enter"><Workspace><NotificationBanner /><Outlet /><Onboarding open={boot.settings.onboarding_completed === false} onCompleted={refresh} />{boot.settings.onboarding_completed !== false ? <PushNudge /> : null}</Workspace><InstallPromptOverlay /></div>
 
   return (
     <div className={`sheet safe-top public-shell public-screen-enter ${pathname === '/login' ? 'login-shell' : ''}`}>
@@ -208,6 +209,14 @@ function Shell() {
         </div>
       </main>
       {!hideNav && user ? <Nav /> : null}
+      <InstallPromptOverlay />
     </div>
   )
+}
+
+/** Fixed placement keeps the first-run iOS instruction above the tab bar and Home indicator. */
+function InstallPromptOverlay() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  if (pathname.startsWith('/fantms') || pathname.startsWith('/split/')) return null
+  return <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+14px)] z-[70] mx-auto max-w-md pointer-events-none"><div className="pointer-events-auto"><PwaInstallPrompt /></div></div>
 }

@@ -16,8 +16,26 @@ import {
 import { getLlmConfig, getFullLlmConfig, saveLlmConfig } from '../config'
 import { saveTelegramConfig } from '../telegram'
 import { runTick, runEveningCheckin } from '../tick'
+import { getSessionUser } from '../session'
+import { q } from '../db'
+
+async function assertPlatformAdmin(): Promise<void> {
+  const user = await getSessionUser()
+  if (!user) throw new Error('FORBIDDEN_FANTMS_ADMIN')
+  if (user.role === 'admin') return
+  // Bootstrap is explicit and server-owned: only an email allowlist configured
+  // by the operator may receive the role. There is no "first visitor" path.
+  const allowlist = (process.env.ADMIN_EMAILS || '')
+    .split(',').map((email) => email.trim().toLowerCase()).filter(Boolean)
+  if (allowlist.includes(user.email.trim().toLowerCase())) {
+    await q(`UPDATE profiles SET role = 'admin' WHERE user_id = $1`, [user.id])
+    return
+  }
+  throw new Error('FORBIDDEN_FANTMS_ADMIN')
+}
 
 async function assertAdminToken(token?: string | null): Promise<void> {
+  await assertPlatformAdmin()
   const valid = await validateFantmsSession(token)
   if (!valid) {
     throw new Error('UNAUTHORIZED_FANTMS_ADMIN')
@@ -32,11 +50,13 @@ export const getFantmsStatus = createServerFn({ method: 'GET' })
     token: d?.token ? String(d.token).trim() : null,
   }))
   .handler(async ({ data }) => {
+    try { await assertPlatformAdmin() } catch { return { isInitialized: true, isAuthenticated: false, isAuthorized: false } }
     const isInitialized = await isFantmsPasswordInitialized()
     const isAuthenticated = await validateFantmsSession(data?.token)
     return {
       isInitialized,
       isAuthenticated,
+      isAuthorized: true,
     }
   })
 
@@ -48,6 +68,7 @@ export const initFantmsPassword = createServerFn({ method: 'POST' })
     password: String(d.password || ''),
   }))
   .handler(async ({ data }) => {
+    await assertPlatformAdmin()
     const res = await initFantmsMasterPassword(data.password)
     return res
   })
@@ -60,6 +81,7 @@ export const loginFantms = createServerFn({ method: 'POST' })
     password: String(d.password || ''),
   }))
   .handler(async ({ data }) => {
+    await assertPlatformAdmin()
     const res = await verifyFantmsLogin(data.password)
     return res
   })
@@ -72,6 +94,7 @@ export const logoutFantms = createServerFn({ method: 'POST' })
     token: String(d.token || '').trim(),
   }))
   .handler(async ({ data }) => {
+    await assertPlatformAdmin()
     if (data.token) {
       await revokeFantmsSession(data.token)
     }

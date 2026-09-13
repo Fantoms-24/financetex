@@ -64,6 +64,7 @@ function FantmsAdminScreen() {
   const [loading, setLoading] = React.useState(true)
   const [isInitialized, setIsInitialized] = React.useState(true)
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
+  const [isAuthorized, setIsAuthorized] = React.useState(false)
 
   // Поля авторизации и первой настройки
   const [setupPass, setSetupPass] = React.useState('')
@@ -117,12 +118,16 @@ function FantmsAdminScreen() {
   const checkStatus = React.useCallback(async () => {
     let savedToken: string | null = null
     try {
-      savedToken = localStorage.getItem(TOKEN_STORAGE_KEY)
+      savedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+      // Old releases persisted the master-access token across browser restarts.
+      // Clear it once; administrators now authenticate again in each browser session.
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
     } catch {}
 
     setToken(savedToken)
     try {
       const res = await getFantmsStatus({ data: { token: savedToken } })
+      setIsAuthorized(Boolean(res.isAuthorized))
       setIsInitialized(Boolean(res.isInitialized))
       setIsAuthenticated(Boolean(res.isAuthenticated))
     } catch (err) {
@@ -159,7 +164,7 @@ function FantmsAdminScreen() {
       if (e?.message?.includes('UNAUTHORIZED')) {
         setIsAuthenticated(false)
         try {
-          localStorage.removeItem(TOKEN_STORAGE_KEY)
+          sessionStorage.removeItem(TOKEN_STORAGE_KEY)
         } catch {}
       }
     } finally {
@@ -196,8 +201,8 @@ function FantmsAdminScreen() {
       setAuthError('Пароли не совпадают')
       return
     }
-    if (setupPass.length < 4) {
-      setAuthError('Пароль должен содержать от 4 символов')
+    if (setupPass.length < 12) {
+      setAuthError('Пароль должен быть не короче 12 символов')
       return
     }
     setAuthBusy(true)
@@ -206,7 +211,7 @@ function FantmsAdminScreen() {
       const res: any = await initFantmsPassword({ data: { password: setupPass } })
       if (res && res.ok && res.token) {
         try {
-          localStorage.setItem(TOKEN_STORAGE_KEY, res.token)
+          sessionStorage.setItem(TOKEN_STORAGE_KEY, res.token)
         } catch {}
         setToken(res.token)
         setIsInitialized(true)
@@ -231,7 +236,7 @@ function FantmsAdminScreen() {
       const res: any = await loginFantms({ data: { password: loginPass } })
       if (res && res.ok && res.token) {
         try {
-          localStorage.setItem(TOKEN_STORAGE_KEY, res.token)
+          sessionStorage.setItem(TOKEN_STORAGE_KEY, res.token)
         } catch {}
         setToken(res.token)
         setIsAuthenticated(true)
@@ -251,7 +256,7 @@ function FantmsAdminScreen() {
       await logoutFantms({ data: { token } }).catch(() => {})
     }
     try {
-      localStorage.removeItem(TOKEN_STORAGE_KEY)
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     } catch {}
     setToken(null)
     setIsAuthenticated(false)
@@ -391,8 +396,8 @@ function FantmsAdminScreen() {
       setPassChangeMsg('Новые пароли не совпадают')
       return
     }
-    if (newPass.length < 4) {
-      setPassChangeMsg('Пароль должен быть от 4 символов')
+    if (newPass.length < 12) {
+      setPassChangeMsg('Пароль должен быть не короче 12 символов')
       return
     }
     setPassChangeBusy(true)
@@ -454,6 +459,19 @@ function FantmsAdminScreen() {
     )
   }
 
+  if (!isAuthorized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0c0e0c] px-4 py-8 text-zinc-200">
+        <div className="w-full max-w-[390px] rounded-2xl border border-red-500/20 bg-[#141614] p-6 text-center shadow-2xl">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-red-500/10 text-red-400"><ShieldAlert size={21} /></div>
+          <h1 className="mt-4 text-[18px] font-semibold text-white">Доступ закрыт</h1>
+          <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">Панель доступна только вошедшему аккаунту с ролью администратора. Сам адрес страницы не даёт доступ к данным или действиям.</p>
+          <Link to="/login" className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-[13px] font-medium text-white hover:bg-emerald-500">Войти в аккаунт</Link>
+        </div>
+      </div>
+    )
+  }
+
   // ==========================================
   // СЦЕНАРИЙ А: ПЕРВОНАЧАЛЬНАЯ НАСТРОЙКА ПАРОЛЯ
   // ==========================================
@@ -484,7 +502,7 @@ function FantmsAdminScreen() {
                 type="password"
                 value={setupPass}
                 onChange={(e) => setSetupPass(e.target.value)}
-                placeholder="Минимум 4 символа"
+                placeholder="Минимум 12 символов"
                 className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none"
               />
             </div>
@@ -1492,7 +1510,7 @@ function FantmsAdminScreen() {
                   type="password"
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="Минимум 4 символа"
+                placeholder="Минимум 12 символов"
                   className="h-10 sm:h-9 w-full rounded-xl bg-black/40 border border-zinc-800 text-white font-mono text-[16px] sm:text-[13px] px-3.5 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:outline-none transition"
                 />
               </div>

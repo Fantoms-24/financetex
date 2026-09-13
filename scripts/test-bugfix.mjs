@@ -50,6 +50,7 @@ const split=load('src/server/functions/split.ts')
 const telegram=load('src/server/functions/telegram.ts')
 const pushCore=load('src/server/push.ts')
 const fantms=load('src/server/fantms.ts')
+const adminFantms=load('src/server/functions/admin-fantms.ts')
 try{
  await db.getDB()
  for(const id of ['u1','u2']){
@@ -112,6 +113,12 @@ try{
   assert.equal(u.spentTotal,321)
   assert.equal(u.housesCount,1)
   await db.q("DELETE FROM receipts WHERE id='admin-directory-receipt'")
+ })
+ await test('ordinary account cannot initialize or see the control panel',async()=>{
+  const status=await adminFantms.getFantmsStatus({data:{token:null}})
+  assert.equal(status.isAuthorized,false)
+  await assert.rejects(()=>adminFantms.initFantmsPassword({data:{password:'a secure long password'}}))
+  assert.equal((await db.q1("SELECT role FROM profiles WHERE user_id='u1'")).role,'user')
  })
  await test('notification delivery claim can retry a timeout but not an accepted event',async()=>{
   await db.q(`INSERT INTO push_subs(id,user_id,endpoint,p256dh,auth) VALUES ('claim-sub','u1','https://fcm.googleapis.com/fcm/send/claim',$1,$2)`,['A'.repeat(65),'B'.repeat(16)])
