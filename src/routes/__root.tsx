@@ -55,7 +55,7 @@ export const Route = createRootRoute({
     styles: [
       {
         children:
-          '*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;overflow-x:hidden;width:100%;max-width:100%}html{background:#f4f6f8}',
+          '*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;width:100%;max-width:100%}html{overflow:auto;background:#f4f6f8}body{overflow:visible}',
       },
     ],
   }),

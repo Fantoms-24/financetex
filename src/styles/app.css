@@ -39,7 +39,9 @@ html {
   background: #f4f6f8;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  /* Root remains the single vertical scroller on mobile browsers. */
+  overflow-x: visible;
+  overflow-y: auto;
   width: 100%;
   max-width: 100%;
 }
@@ -73,11 +75,12 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   background-color: var(--color-cream);
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: auto;
   background-image: none;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
+  overflow-x: visible;
+  overflow-y: visible;
   width: 100%;
   max-width: 100%;
   -webkit-touch-callout: none;
